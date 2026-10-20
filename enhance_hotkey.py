@@ -12,6 +12,7 @@
 import argparse
 import ctypes
 import ctypes.wintypes as w
+import hashlib
 import json
 import os
 import queue
@@ -389,6 +390,12 @@ def remove_pid():
                 os.remove(PID_PATH)
     except OSError:
         pass
+
+
+def instance_mutex_name():
+    """由安装目录生成稳定锁名；不能使用 hash()，Python 每次启动都会随机化。"""
+    digest = hashlib.sha256(os.path.abspath(BASE).encode("utf-8")).hexdigest()
+    return "PromptEnhancerInstance_" + digest[:16]
 
 
 # ---------- 剪贴板 ----------
@@ -2132,7 +2139,7 @@ def main():
             print(events.get())
         return 0
     # 同一安装目录只允许一个常驻实例，避免重复热键钩子造成并发增强。
-    instance_mutex = kernel32.CreateMutexW(None, False, "PromptEnhancerInstance_" + str(abs(hash(BASE))))
+    instance_mutex = kernel32.CreateMutexW(None, False, instance_mutex_name())
     if not instance_mutex or ctypes.get_last_error() == 183:
         log("已有增强实例运行，当前进程退出")
         if instance_mutex:

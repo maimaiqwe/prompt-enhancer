@@ -58,6 +58,11 @@ def assert_content(path, required):
                 raise AssertionError("%s contains forbidden %s" % (path, name))
 
 
+def read_text(path, entry):
+    with zipfile.ZipFile(path) as archive:
+        return archive.read(entry).decode("utf-8")
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         build(tmp)
@@ -90,6 +95,15 @@ def main():
                 "core/set_default.py",
             ],
         )
+        hotkey_script = read_text(hotkey, "enhance_hotkey.py")
+        watchdog_source = read_text(hotkey, "watchdog.cs")
+        for marker in ("instance_mutex_name", "hashlib.sha256", "direct_urlopen"):
+            if marker not in hotkey_script:
+                raise AssertionError("release script missing %s" % marker)
+        if "hash(BASE)" in hotkey_script:
+            raise AssertionError("release script still uses unstable hash(BASE)")
+        if "FindEnhancerPids" not in watchdog_source:
+            raise AssertionError("watchdog missing FindEnhancerPids")
         assert_content(
             bundle,
             [

@@ -355,6 +355,7 @@ python test_release.py
 - 开机：只启动 `watchdog.exe`，约 20~25 MB；不启动 Python 增强服务。
 - 打开 ChatGPT/Codex/OpenCode/WorkBuddy/ZCode/Trae/IDEA：看门狗启动 `enhance_hotkey.py`。修改 `allowed_processes` 后，看门狗会在配置变更后重新读取。
 - 关闭全部 agent：等待 8 秒后按 `enhancer.pid` 停止增强服务，并删除 PID 文件。
+- 同一安装目录只允许一个增强服务；看门狗会清理同目录重复实例。不同安装目录互不互斥，也不应共用同一个热键。
 
 ## 手动启停
 

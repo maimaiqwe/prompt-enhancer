@@ -659,6 +659,21 @@ class ApiResponseTests(unittest.TestCase):
         self.assertIsInstance(captured[0][0], EH.urllib.request.ProxyHandler)
         self.assertEqual(captured[1], ("https://api.example.test/v1", 9))
 
+    def test_instance_mutex_name_is_stable_and_path_specific(self):
+        old_base = EH.BASE
+        try:
+            EH.BASE = r"C:\Test\PromptEnhancer"
+            first = EH.instance_mutex_name()
+            second = EH.instance_mutex_name()
+            EH.BASE = r"C:\Test\PromptEnhancer2"
+            other = EH.instance_mutex_name()
+        finally:
+            EH.BASE = old_base
+        self.assertEqual(first, second)
+        self.assertNotEqual(first, other)
+        self.assertTrue(first.startswith("PromptEnhancerInstance_"))
+        self.assertEqual(len(first), 16 + len("PromptEnhancerInstance_"))
+
     def test_provider_defaults_and_validation(self):
         old_config = EH.CONFIG_PATH
         with tempfile.TemporaryDirectory() as tmp:
