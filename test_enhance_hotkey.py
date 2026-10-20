@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Prompt Enhancer 无网络回归测试。"""
 import importlib.util
+import contextlib
+import io
 import json
 import os
 import queue
@@ -747,6 +749,24 @@ class DefaultWriterTests(unittest.TestCase):
                 self.assertEqual(len(os.listdir(backup_dir)), 1)
             finally:
                 module.CONFIG_PATH, module.BACKUP_DIR = old_config, old_backup
+
+    def test_cli_survives_non_utf8_console(self):
+        old = (EH.set_default_tier, EH.prepare_draft, EH.parse_cli_args)
+        try:
+            EH.set_default_tier = lambda tier: {"label": "标准", "tier": tier}
+            EH.prepare_draft = lambda draft: (_ for _ in ()).throw(
+                AssertionError("default command must not invoke prepare_draft")
+            )
+            EH.parse_cli_args = lambda: type(
+                "Args",
+                (),
+                {"test": "$p 默认 标准", "tier": "auto", "mode": "auto", "clip": False},
+            )()
+            output = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(EH.main(), 0)
+        finally:
+            EH.set_default_tier, EH.prepare_draft, EH.parse_cli_args = old
 
 
 if __name__ == "__main__":

@@ -84,6 +84,15 @@ def write_config(cfg):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not reconfigure:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser()
     parser.add_argument("tier", nargs="?")
     parser.add_argument("--json", action="store_true")

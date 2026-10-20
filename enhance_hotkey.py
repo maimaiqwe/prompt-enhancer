@@ -1624,12 +1624,18 @@ def set_default_tier(tier):
         raise ValueError("默认档只能是基础、标准或专业")
     import subprocess
 
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
     result = subprocess.run(
         [sys.executable, SET_DEFAULT_PATH, tier, "--json"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=10,
         creationflags=0x08000000,
+        env=env,
     )
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "设置失败").strip()
@@ -1827,7 +1833,20 @@ def parse_cli_args(argv=None):
     return ap.parse_args(argv)
 
 
+def configure_console():
+    """兼容非 UTF-8 控制台，避免中文输出导致 CLI 直接失败。"""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not reconfigure:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
 def main():
+    configure_console()
     args = parse_cli_args()
     cfg = load_config()
     if args.test:
