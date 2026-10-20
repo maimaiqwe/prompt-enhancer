@@ -9,8 +9,10 @@ internal static class PromptEnhancerWatchdog
 {
     private static readonly string[] DefaultAgents =
     {
-        "ChatGPT.exe", "codex.exe", "OpenCode.exe", "WorkBuddy.exe",
-        "ZCode.exe", "Trae CN.exe", "idea64.exe"
+        "ChatGPT.exe", "codex.exe", "claude.exe", "Cursor.exe",
+        "gemini.exe", "OpenCode.exe", "Windsurf.exe", "QoderCN.exe",
+        "CodeBuddy.exe", "WorkBuddy.exe", "WorkBuddyAI.exe",
+        "ZCode.exe", "Trae CN.exe", "codex-app-manager.exe", "idea64.exe"
     };
 
     private static readonly object LogLock = new object();
