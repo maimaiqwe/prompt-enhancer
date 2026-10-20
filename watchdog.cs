@@ -138,29 +138,67 @@ internal static class PromptEnhancerWatchdog
         return found;
     }
 
-    private static int ReadPid()
+    private sealed class PidState
+    {
+        public int Pid;
+        public string StartedAt = "";
+        public string ScriptPath = "";
+    }
+
+    private static PidState ReadPidState()
     {
         try
         {
-            if (!File.Exists(PidPath)) return 0;
-            int pid;
-            return int.TryParse(File.ReadAllText(PidPath).Trim(), out pid) ? pid : 0;
+            if (!File.Exists(PidPath)) return null;
+            string raw = File.ReadAllText(PidPath).Trim();
+            if (raw.StartsWith("{"))
+            {
+                var state = new PidState();
+                Match pidMatch = Regex.Match(raw, "\"pid\"\\s*:\\s*(\\d+)");
+                Match startedMatch = Regex.Match(
+                    raw, "\"started_at\"\\s*:\\s*\"([^\"]*)\"");
+                Match scriptMatch = Regex.Match(
+                    raw,
+                    "\"script_path\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+                if (!pidMatch.Success || !int.TryParse(pidMatch.Groups[1].Value, out state.Pid))
+                    return null;
+                if (startedMatch.Success) state.StartedAt = startedMatch.Groups[1].Value;
+                if (scriptMatch.Success)
+                    state.ScriptPath = Regex.Unescape(scriptMatch.Groups[1].Value);
+                return state;
+            }
+            int legacyPid;
+            if (int.TryParse(raw, out legacyPid))
+                return new PidState { Pid = legacyPid };
+            return null;
         }
         catch
         {
-            return 0;
+            return null;
         }
     }
 
-    private static bool IsEnhancerPid(int pid)
+    private static bool IsEnhancerPid(PidState state)
     {
-        if (pid <= 0) return false;
+        if (state == null || state.Pid <= 0) return false;
         try
         {
-            using (Process p = Process.GetProcessById(pid))
+            using (Process p = Process.GetProcessById(state.Pid))
             {
-                return !p.HasExited &&
-                    String.Equals(p.ProcessName, "pythonw", StringComparison.OrdinalIgnoreCase);
+                if (p.HasExited ||
+                    !String.Equals(p.ProcessName, "pythonw", StringComparison.OrdinalIgnoreCase))
+                    return false;
+                if (!String.IsNullOrWhiteSpace(state.ScriptPath))
+                {
+                    string expected = Path.GetFullPath(
+                        Path.Combine(BaseDir, "enhance_hotkey.py"));
+                    if (!String.Equals(
+                        Path.GetFullPath(state.ScriptPath),
+                        expected,
+                        StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
+                return true;
             }
         }
         catch
@@ -171,7 +209,7 @@ internal static class PromptEnhancerWatchdog
 
     private static bool EnhancerRunning()
     {
-        return IsEnhancerPid(ReadPid());
+        return IsEnhancerPid(ReadPidState());
     }
 
     private static string FindPythonw()
@@ -260,13 +298,13 @@ internal static class PromptEnhancerWatchdog
 
     private static void StopEnhancer()
     {
-        int pid = ReadPid();
-        if (IsEnhancerPid(pid))
+        PidState state = ReadPidState();
+        if (IsEnhancerPid(state))
         {
             try
             {
-                using (Process p = Process.GetProcessById(pid)) p.Kill();
-                Log("no agents; enhancer stopped pid=" + pid);
+                using (Process p = Process.GetProcessById(state.Pid)) p.Kill();
+                Log("no agents; enhancer stopped pid=" + state.Pid);
             }
             catch (Exception ex)
             {

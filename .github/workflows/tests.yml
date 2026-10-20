@@ -31,3 +31,8 @@ jobs:
       - name: Run regression tests
         shell: pwsh
         run: python test_enhance_hotkey.py
+
+      - name: Validate release packages
+        if: matrix.python-version == '3.12'
+        shell: pwsh
+        run: python test_release.py

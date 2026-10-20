@@ -92,6 +92,7 @@ DEFAULTS = {
 PROVIDERS = {
     "deepseek": {
         "gateway": "https://api.deepseek.com/chat/completions",
+        "model": "deepseek-flash",
         "api_key_env": "DEEPSEEK_API_KEY",
         "auth": "bearer",
         "response_format": "openai",
@@ -99,6 +100,7 @@ PROVIDERS = {
     },
     "openai-compatible": {
         "gateway": "",
+        "model": "",
         "api_key_env": "OPENAI_API_KEY",
         "auth": "bearer",
         "response_format": "openai",
@@ -265,6 +267,8 @@ def load_config():
     cfg = dict(DEFAULTS)
     cfg["allowed_processes"] = list(DEFAULTS["allowed_processes"])
     explicit_key_env = False
+    explicit_gateway = False
+    explicit_model = False
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, encoding="utf-8") as f:
@@ -272,19 +276,34 @@ def load_config():
             if not isinstance(loaded, dict):
                 raise ValueError("config.json 顶层必须是对象")
             explicit_key_env = bool(str(loaded.get("api_key_env") or "").strip())
+            explicit_gateway = bool(str(loaded.get("gateway") or "").strip())
+            explicit_model = bool(str(loaded.get("model") or "").strip())
             cfg.update(loaded)
         except Exception as e:
-            # 运行时用默认值保证工具仍可启动，但 doctor 必须明确暴露问题。
+            # 保留解析错误供 doctor 和热键流程 fail-closed。
             _LAST_CONFIG_ERROR = str(e)
-            log("config.json 解析失败，使用默认配置: %s" % e)
+            log("config.json 解析失败: %s" % e)
     provider = str(cfg.get("provider") or "deepseek").strip().lower()
     cfg["provider"] = provider
     provider_cfg = PROVIDERS.get(provider, PROVIDERS["deepseek"])
-    if not cfg.get("gateway"):
+    cfg["_explicit_gateway"] = explicit_gateway
+    cfg["_explicit_model"] = explicit_model
+    if not explicit_gateway:
         cfg["gateway"] = provider_cfg["gateway"]
     if not explicit_key_env:
         cfg["api_key_env"] = provider_cfg["api_key_env"]
+    if not explicit_model:
+        cfg["model"] = provider_cfg["model"]
     return cfg
+
+
+def config_problems(cfg):
+    """返回包含解析状态在内的配置问题，供热键与 doctor 共用。"""
+    problems = []
+    if _LAST_CONFIG_ERROR:
+        problems.append("config.json 解析失败: %s" % _LAST_CONFIG_ERROR)
+    problems.extend(validate_config(cfg))
+    return problems
 
 
 def validate_config(cfg):
@@ -293,11 +312,26 @@ def validate_config(cfg):
     provider = str(cfg.get("provider") or "").strip().lower()
     if provider not in PROVIDERS:
         problems.append("provider 只能是 deepseek 或 openai-compatible")
+    elif provider == "openai-compatible":
+        if not cfg.get("_explicit_gateway"):
+            problems.append("openai-compatible 必须显式配置 gateway")
+        if not cfg.get("_explicit_model"):
+            problems.append("openai-compatible 必须显式配置 model")
+        gateway_host = urllib.parse.urlparse(
+            str(cfg.get("gateway") or "").strip()
+        ).hostname or ""
+        if gateway_host == "deepseek.com" or gateway_host.endswith(".deepseek.com"):
+            problems.append("openai-compatible 不能使用 DeepSeek 网关")
     gateway = str(cfg.get("gateway") or "").strip()
     if not gateway:
         problems.append("gateway 不能为空")
-    elif not gateway.lower().startswith("https://"):
-        problems.append("gateway 必须是 HTTPS 地址")
+    else:
+        try:
+            parsed = urllib.parse.urlparse(gateway)
+            if parsed.scheme != "https" or not parsed.netloc:
+                problems.append("gateway 必须是非空 HTTPS 地址")
+        except Exception:
+            problems.append("gateway 不是有效 URL")
     if not str(cfg.get("model") or "").strip():
         problems.append("model 不能为空")
     if not str(cfg.get("api_key_env") or "").strip():
@@ -327,9 +361,15 @@ def log(msg):
 
 
 def write_pid():
+    payload = {
+        "pid": os.getpid(),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "script_path": os.path.abspath(__file__),
+    }
     try:
-        with open(PID_PATH, "w", encoding="ascii") as f:
-            f.write(str(os.getpid()))
+        with open(PID_PATH, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(payload, f, ensure_ascii=False)
+            f.write("\n")
     except OSError:
         pass
 
@@ -337,8 +377,13 @@ def write_pid():
 def remove_pid():
     try:
         if os.path.exists(PID_PATH):
-            with open(PID_PATH, encoding="ascii") as f:
-                pid = f.read().strip()
+            with open(PID_PATH, encoding="utf-8") as f:
+                raw = f.read().strip()
+            try:
+                payload = json.loads(raw)
+                pid = str(payload.get("pid") or "")
+            except (ValueError, TypeError):
+                pid = raw
             if pid == str(os.getpid()):
                 os.remove(PID_PATH)
     except OSError:
@@ -1615,6 +1660,12 @@ def run_pipeline(cfg, events, use_keys=True, _locked=False):
     log("触发: 前台=%s hwnd=%s" % (exe or "?", hwnd0))
     # RegisterHotKey 是主通道，白名单也必须在每次触发时读取最新配置。
     hotkey_cfg = load_config()
+    problems = config_problems(hotkey_cfg)
+    if problems:
+        message = "配置无效，未读取或发送草稿：" + "；".join(problems)
+        log(message)
+        events.put(("failure", message))
+        return
     owner, _, _, allowed = is_allowed_window(hotkey_cfg)
     if use_keys and not allowed:
         log("跳过：前台窗口是 %s（不在白名单）" % (owner or exe or "?"))
@@ -1925,11 +1976,15 @@ def parse_cli_args(argv=None):
 
 def run_doctor(cfg):
     """输出可操作的环境检查结果；不打印 API Key。"""
-    problems = validate_config(cfg)
-    if _LAST_CONFIG_ERROR:
-        problems.insert(0, "config.json 解析失败: %s" % _LAST_CONFIG_ERROR)
+    problems = config_problems(cfg)
     key_env = str(cfg.get("api_key_env") or "")
     key_set = bool(os.environ.get(key_env, "").strip())
+    gateway = str(cfg.get("gateway") or "")
+    try:
+        parsed = urllib.parse.urlparse(gateway)
+        gateway_ok = parsed.scheme == "https" and bool(parsed.netloc)
+    except Exception:
+        gateway_ok = False
     checks = [
         ("python", True, "%d.%d" % sys.version_info[:2]),
         ("config", not problems, "OK" if not problems else "；".join(problems)),
@@ -1944,20 +1999,11 @@ def run_doctor(cfg):
             and bool(cfg["allowed_processes"]),
             ", ".join(str(item) for item in cfg.get("allowed_processes", [])),
         ),
+        ("gateway", gateway_ok, gateway or "(empty)"),
     ]
     for name, ok, detail in checks:
         print("[%s] %s: %s" % ("OK" if ok else "FAIL", name, detail))
-    gateway = str(cfg.get("gateway") or "")
-    try:
-        parsed = urllib.parse.urlparse(gateway)
-        reachable = parsed.scheme == "https" and bool(parsed.netloc)
-        print(
-            "[%s] gateway: %s"
-            % ("OK" if reachable else "FAIL", gateway or "(empty)")
-        )
-    except Exception as e:
-        print("[FAIL] gateway: %s (%s)" % (gateway, e))
-    return 0 if not problems and key_set else 1
+    return 0 if all(ok for _, ok, _ in checks) else 1
 
 
 def configure_console():
@@ -1994,6 +2040,10 @@ def main():
             except Exception as e:
                 print("设置默认档失败：%s" % e, file=sys.stderr)
                 return 1
+        problems = config_problems(cfg)
+        if problems:
+            print("配置无效：%s" % "；".join(problems), file=sys.stderr)
+            return 1
         prepared = prepare_draft(args.test)
         if prepared.get("conflict"):
             print("类型/档位冲突：%s" % prepared["conflict"], file=sys.stderr)

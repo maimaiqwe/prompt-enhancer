@@ -1,8 +1,10 @@
 __pycache__/
 core/__pycache__/
+skills/**/__pycache__/
 *.py[cod]
 .venv/
 *.tmp
+dist/
 Thumbs.db
 .DS_Store
 log.txt

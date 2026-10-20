@@ -5,13 +5,13 @@ description: 提示词增强快捷别名，等价于 $prompt-enhancer。用户�
 
 # $p = 提示词增强
 
-`$p` 是 `prompt-enhancer` 的快捷别名。立即读取 `../prompt-enhancer/SKILL.md`，严格按其规则执行：
+`$p` 是 `prompt-enhancer` 的快捷别名。立即读取同级 `prompt-enhancer` Skill 根目录下的 `SKILL.md`，严格按其规则执行：
 
 - 输出纪律：只输出提示词本体。
-- 唯一规则真源：`../prompt-enhancer/references/rules.md`。
+- 唯一规则真源：同级 `prompt-enhancer` Skill 根目录下的 `references/rules.md`。
 - 类型：`user:` / `sys:` 与 `user` / `system` / `用户` / `系统` 前缀统一生效；`系统`是独立类型，不能与档位叠加。
 - 档位：基础只理顺文字；标准是默认中间档；专业输出五段结构化提示词；系统输出八段系统提示词框架。
-- 默认档切换：`$p 默认 标准` / `$p default standard`；只允许基础、标准、专业，执行 `python ../prompt-enhancer/scripts/set_default.py <档位> --json` 后立即生效。
+- 默认档切换：`$p 默认 标准` / `$p default standard`；只允许基础、标准、专业。先进入同级 `prompt-enhancer` Skill 根目录，再执行 `python scripts/set_default.py <档位> --json`，成功后立即生效。
 - 只收到 `$p 切换默认`（无档位）时，询问用户选基础、标准或专业；弹选择框只属于本地热键。
 - 上下文：仅 `$p` 对话入口适用；基础只用草稿，标准参考最近 2 轮对话，专业按需读取相关项目和会话资料。本地热键只读当前输入框。
 - 调用解析，含歧义处理：`$p` 后若是给我的操作指令，先确认是草稿还是任务。

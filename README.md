@@ -4,7 +4,19 @@
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#快速开始)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#快速开始)
 
-一个面向 Windows 的全局热键提示词增强器：不经过对话，直接把当前输入框里的草稿替换为更清晰、更完整、更可执行的提示词。
+一个面向 Windows 的全局热键提示词增强器，同时提供可供 Codex 使用的提示词增强 Skill。两者可以一起安装，也可以按需单独安装。
+
+## 下载哪个包
+
+从 [Releases](https://github.com/qwe3120695033/prompt-enhancer/releases) 下载，不需要先下载源码：
+
+| 需求 | 下载 | 包含 |
+| --- | --- | --- |
+| 只在 Codex 对话中用 `$p` / `$prompt-enhancer` | `prompt-enhancer-skill-vX.Y.Z.zip` | 两个 Skill、规则副本、默认档脚本 |
+| 只想在输入框按热键 | `prompt-enhancer-hotkey-windows-vX.Y.Z.zip` | 热键程序、共享规则、安装器 |
+| 两个都要（推荐） | `prompt-enhancer-bundle-vX.Y.Z.zip` | Skill + 热键 + 安装器 |
+
+下载后核对同一 Release 中的 `SHA256SUMS.txt`。三种包使用同一版本号和同一份 `core/rules.md`。
 
 ## 项目范围
 
@@ -19,11 +31,87 @@
 
 热键程序和 Skill 共用 `core/rules.md`。输入框中的 `$p 切换默认` 是热键程序支持的本地命令；对话中的 `$p` 则来自 `skills/p`，两者不要混用。
 
-## 快速开始
+## 安装 Skill-only
 
-**前置条件**：Windows 10/11、Python 3.10+（含 `pythonw.exe`）、DeepSeek 官方 API Key。
+**前置条件**：Codex，以及 Python 3.10+（用于切换默认档）。
 
-1. 获取源码：在 GitHub 页面选择 **Code -> Download ZIP**，或执行：
+1. 解压 Skill 包。
+2. 运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Skill
+```
+
+默认安装到 `$CODEX_HOME\skills`；未设置 `CODEX_HOME` 时使用 `~\.codex\skills`。也可以显式指定：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
+  -Mode Skill `
+  -SkillsDir "C:\Users\<you>\.codex\skills"
+```
+
+安装器会同时放置 `prompt-enhancer` 和 `p`，两者必须保持同级。不会复制热键程序、创建启动项或占用快捷键。
+
+卸载：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Skill -Uninstall
+```
+
+## 安装 Hotkey-only
+
+**前置条件**：Windows 10/11、Python 3.10+（含 `pythonw.exe`）、一个兼容 OpenAI Chat Completions 的 API Key。
+
+1. 解压热键包。
+2. 设置 API Key（DeepSeek 示例）：
+
+```powershell
+[Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', '<your-key>', 'User')
+```
+
+3. 安装并启动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Hotkey
+```
+
+默认安装到当前解压目录；也可以显式指定 `-InstallDir`。
+
+不会向 Codex 的 skills 目录写入任何文件。自定义安装目录或 Python 路径：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
+  -Mode Hotkey `
+  -InstallDir "$env:LOCALAPPDATA\PromptEnhancer" `
+  -PythonPath "$env:LOCALAPPDATA\Programs\Python\Python312\pythonw.exe"
+```
+
+安装后自检：
+
+```powershell
+python .\enhance_hotkey.py --doctor
+```
+
+## 安装 Bundle
+
+**前置条件**：Windows 10/11、Python 3.10+、API Key、Codex。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Bundle
+```
+
+默认行为：热键安装到当前解压目录，两个 Skill 安装到 `$CODEX_HOME\skills`（未设置时 `~\.codex\skills`），创建登录启动项并启动看门狗。可显式指定目录：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
+  -Mode Bundle `
+  -InstallDir "$env:LOCALAPPDATA\PromptEnhancer" `
+  -SkillsDir "$env:USERPROFILE\.codex\skills"
+```
+
+## 快速开始（从源码）
+
+1. 获取源码：执行：
 
 ```powershell
 git clone https://github.com/qwe3120695033/prompt-enhancer.git
@@ -36,21 +124,13 @@ cd prompt-enhancer
 [Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', '<your-key>', 'User')
 ```
 
-3. 安装并启动。右键 `install.ps1`，选择“使用 PowerShell 运行”；或执行：
+3. 安装并启动完整 Bundle（安装器同时写入 Codex Skill 目录）：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Bundle
 ```
 
 项目只使用 Python 标准库，不需要 `pip install`。安装器会编译轻量看门狗、创建登录启动项，并只在检测到白名单 agent 时启动增强服务。
-
-自定义安装目录或 Python 路径：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
-  -InstallDir "$env:LOCALAPPDATA\PromptEnhancer" `
-  -PythonPath "$env:LOCALAPPDATA\Programs\Python\Python312\pythonw.exe"
-```
 
 安装后先做环境自检：
 
@@ -58,12 +138,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 python .\enhance_hotkey.py --doctor
 ```
 
-`--doctor` 会检查 Python、配置、Key 是否存在、白名单和网关格式；它不会打印 Key，也不会调用模型。
+`--doctor` 会检查 Python、配置、Key 是否存在、白名单和网关格式；任一检查失败都会返回非零退出码。它不会打印 Key，也不会调用模型。
 
 卸载运行中的服务和启动项（保留配置、日志与 Key）：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -Uninstall
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Mode Bundle -Uninstall
 ```
 
 ## 用法
@@ -139,9 +219,9 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 
 ### 安装对话 Skill
 
-把 `skills/prompt-enhancer` 和 `skills/p` 两个目录复制到宿主的 skills 目录，保持同级关系。两个目录已经自带规则副本与默认档写入脚本，不依赖仓库其余文件；仓库内修改 `core/rules.md` 后应同步到 `skills/prompt-enhancer/references/rules.md`。
+优先使用 `install.ps1 -Mode Skill` 安装。手动安装时，把 `skills/prompt-enhancer` 和 `skills/p` 两个目录复制到宿主的 skills 目录，保持同级关系。两个目录已经自带规则副本与默认档写入脚本，不依赖仓库其余文件；仓库内修改 `core/rules.md` 后应同步到 `skills/prompt-enhancer/references/rules.md`。
 
-如果宿主只支持单目录安装，请把 `skills/prompt-enhancer` 作为主 Skill；`skills/p` 是可选快捷别名。
+如果宿主只支持单目录安装，请把 `skills/prompt-enhancer` 作为主 Skill；`skills/p` 是可选快捷别名。Skill-only 安装下，默认档保存在 `%APPDATA%\prompt-enhancer\default-tier.txt`；Bundle 安装下，热键与 Skill 共用热键目录的 `config.json`。
 
 ### 撤销与历史
 
@@ -175,7 +255,7 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 `config.json` 支持 `provider` 字段：
 
 - `deepseek`：默认，使用 `DEEPSEEK_API_KEY` 与 DeepSeek 网关。
-- `openai-compatible`：使用 `OPENAI_API_KEY`，并必须自行填写兼容 OpenAI Chat Completions 的 `gateway` 与 `model`。
+- `openai-compatible`：使用 `OPENAI_API_KEY`，并必须自行填写兼容 OpenAI Chat Completions 的 `gateway` 与 `model`。两者缺失、使用 DeepSeek 网关或配置损坏时，程序会 fail-closed：不读取输入框、不发送草稿。
 
 示例：
 
@@ -206,7 +286,7 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 | `reasoning_effort` | `none` | 设为 `high` 等会重新开启思考，显著增加费用 |
 | `hotkey` | `ctrl+shift+alt+a` | 支持 `ctrl/alt/shift/win` + 字母或 `f1`~`f24` |
 | `allowed_processes` | 见配置 | 只在这些窗口生效，防误替换 |
-| `max_tokens` | 700 | 基础档输出上限，不是实际计费量 |
+| `max_tokens` | 700 | 调用模型时的通用输出上限，不是实际计费量；基础档不使用该值 |
 | `max_tokens_standard` | 900 | 标准档输出上限 |
 | `max_tokens_professional` | 1200 | 专业档输出上限，避免结构化提示词被截断 |
 | `max_tokens_system` | 1200 | 系统档输出上限，八段框架通常需要更多余量 |
@@ -230,6 +310,25 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 高峰为工作日 9:00-12:00、14:00-18:00（不含法定节假日）。
 以上为本机历史实测数据，采集于 2026-10-20；实际价格、缓存命中率和用量会随模型与官方计费规则变化，请以调用时的官方账单为准。
 
+## 构建三种安装包
+
+维护者在本地生成 Release 资产：
+
+```powershell
+.\build-release.ps1 -Version 1.0.1
+```
+
+输出目录为 `dist`，包含：
+
+- `prompt-enhancer-skill-v1.0.1.zip`
+- `prompt-enhancer-hotkey-windows-v1.0.1.zip`
+- `prompt-enhancer-bundle-v1.0.1.zip`
+- `SHA256SUMS.txt`
+
+构建脚本使用白名单复制，不会把 `__pycache__`、日志、历史、PID、`watchdog.exe`、本机路径或密钥文件打进包。
+
+生成的是可直接上传的 Release 资产，不要提交 `dist/` 目录；它已加入 `.gitignore`。
+
 ## 测试
 
 ```powershell
@@ -242,13 +341,14 @@ python enhance_hotkey.py --mode iterate --test @'
 python enhance_hotkey.py --clip
 python enhance_hotkey.py --doctor
 python test_enhance_hotkey.py
+python test_release.py
 ```
 
-测试套件不访问真实 API，也不需要 `DEEPSEEK_API_KEY`。GitHub Actions 会在 Windows 上运行同一组回归测试。
+测试套件不访问真实 API，也不需要 `DEEPSEEK_API_KEY`。GitHub Actions 会在 Windows 上运行同一组回归测试，并构建、解压和校验三种安装包。
 
 ## 换机器 / 其他 agent
 
-把整个目录复制到新机器，设置 `DEEPSEEK_API_KEY` 后直接双击 `run.cmd`；需要登录自启时运行 `install.ps1`。
+把整个目录复制到新机器，设置 `DEEPSEEK_API_KEY` 后直接双击 `run.cmd`；需要登录自启时运行 `install.ps1 -Mode Hotkey`。Bundle 用户可运行 `install.ps1 -Mode Bundle` 一并安装 Skill。
 
 ## 生命周期
 

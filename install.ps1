@@ -1,6 +1,9 @@
 param(
     [string]$InstallDir,
     [string]$PythonPath,
+    [ValidateSet("Skill", "Hotkey", "Bundle")]
+    [string]$Mode = "Bundle",
+    [string]$SkillsDir,
     [switch]$NoStartup,
     [switch]$NoStart,
     [switch]$Uninstall
@@ -42,6 +45,7 @@ function Resolve-Pythonw {
 
 function Sync-InstallDir {
     if ($InstallDir -eq $here) { return }
+    if ($Mode -eq "Skill") { return }
     if (-not (Test-Path -LiteralPath $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
@@ -55,7 +59,8 @@ function Sync-InstallDir {
             Copy-Item -LiteralPath $source -Destination $InstallDir -Force
         }
     }
-    foreach ($directoryName in @("core", "skills")) {
+    $directories = if ($Mode -eq "Bundle") { @("core", "skills") } else { @("core") }
+    foreach ($directoryName in $directories) {
         $source = Join-Path $here $directoryName
         if (-not (Test-Path -LiteralPath $source)) { continue }
         $target = Join-Path $InstallDir $directoryName
@@ -84,13 +89,84 @@ function StopOwnedWatchdog {
 function StopOwnedEnhancer {
     if (-not (Test-Path -LiteralPath $pidPath)) { return }
     try {
-        $id = [int](Get-Content -LiteralPath $pidPath -Raw).Trim()
+        $raw = (Get-Content -LiteralPath $pidPath -Raw).Trim()
+        $id = 0
+        $scriptPath = ""
+        if ($raw.StartsWith("{")) {
+            $state = $raw | ConvertFrom-Json
+            $id = [int]$state.pid
+            $scriptPath = [string]$state.script_path
+        } else {
+            $id = [int]$raw
+        }
         $proc = Get-Process -Id $id -ErrorAction SilentlyContinue
-        if ($proc -and $proc.ProcessName -eq "pythonw") {
+        $owned = $proc -and $proc.ProcessName -eq "pythonw"
+        if ($owned -and $scriptPath) {
+            $expected = [IO.Path]::GetFullPath((Join-Path $InstallDir "enhance_hotkey.py"))
+            $owned = [string]::Equals(
+                [IO.Path]::GetFullPath($scriptPath),
+                $expected,
+                [StringComparison]::OrdinalIgnoreCase
+            )
+        }
+        if ($owned) {
             Stop-Process -Id $id -Force
         }
     } catch {}
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
+}
+
+function Resolve-SkillsDir {
+    param([string]$Requested)
+    if ($Requested) { return [IO.Path]::GetFullPath($Requested) }
+    $codexHome = if ($env:CODEX_HOME) {
+        [IO.Path]::GetFullPath($env:CODEX_HOME)
+    } else {
+        Join-Path $HOME ".codex"
+    }
+    return (Join-Path $codexHome "skills")
+}
+
+function Install-Skills {
+    $targetRoot = Resolve-SkillsDir -Requested $SkillsDir
+    New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+    foreach ($name in @("prompt-enhancer", "p")) {
+        $source = Join-Path $here (Join-Path "skills" $name)
+        if (-not (Test-Path -LiteralPath $source)) {
+            throw "Skill source not found: $source"
+        }
+        $target = Join-Path $targetRoot $name
+        if (Test-Path -LiteralPath $target) {
+            $item = Get-Item -LiteralPath $target -Force
+            $marker = Join-Path $target ".prompt-enhancer-installed"
+            $managed = $item.LinkType -eq "Junction" -or (Test-Path -LiteralPath $marker)
+            if (-not $managed) {
+                throw "Refusing to replace non-junction Skill: $target"
+            }
+            Remove-Item -LiteralPath $target -Recurse -Force
+        }
+        Copy-Item -LiteralPath $source -Destination $target -Recurse -Force
+        [IO.File]::WriteAllText(
+            (Join-Path $target ".prompt-enhancer-installed"),
+            "managed by prompt-enhancer install.ps1`n",
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+    }
+    Write-Host "SKILLS $targetRoot"
+}
+
+function Remove-Skills {
+    $targetRoot = Resolve-SkillsDir -Requested $SkillsDir
+    foreach ($name in @("prompt-enhancer", "p")) {
+        $target = Join-Path $targetRoot $name
+        if (-not (Test-Path -LiteralPath $target)) { continue }
+        $marker = Join-Path $target ".prompt-enhancer-installed"
+        $item = Get-Item -LiteralPath $target -Force
+        if ($item.LinkType -eq "Junction" -or (Test-Path -LiteralPath $marker)) {
+            Remove-Item -LiteralPath $target -Recurse -Force
+        }
+    }
+    Write-Host "SKILLS_REMOVED $targetRoot"
 }
 
 if ($Uninstall) {
@@ -107,7 +183,16 @@ if ($Uninstall) {
             Remove-Item -LiteralPath $shortcutPath -Force
         }
     }
+    if ($Mode -in @("Skill", "Bundle")) {
+        Remove-Skills
+    }
     Write-Host "UNINSTALLED startup and running processes; config/log/api key kept"
+    exit 0
+}
+
+if ($Mode -eq "Skill") {
+    Install-Skills
+    Write-Host "MODE Skill"
     exit 0
 }
 
@@ -169,6 +254,10 @@ if (-not $NoStart) {
     $env:PROMPT_ENHANCER_PYTHONW = $pythonw
     Start-Process -FilePath $watchdogExe -WorkingDirectory $InstallDir -WindowStyle Hidden
     Write-Host "WATCHDOG_STARTED"
+}
+
+if ($Mode -eq "Bundle") {
+    Install-Skills
 }
 
 Write-Host "PYTHONW $pythonw"

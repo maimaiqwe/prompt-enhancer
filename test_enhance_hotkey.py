@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODULE_PATH = os.path.join(HERE, "enhance_hotkey.py")
@@ -609,7 +610,49 @@ class ApiResponseTests(unittest.TestCase):
                 cfg = EH.load_config()
                 self.assertEqual(cfg["provider"], "openai-compatible")
                 self.assertEqual(cfg["api_key_env"], "OPENAI_API_KEY")
-                self.assertEqual(EH.validate_config(cfg), ["gateway 不能为空"])
+                self.assertIn("gateway 不能为空", EH.validate_config(cfg))
+                self.assertIn(
+                    "openai-compatible 必须显式配置 model",
+                    EH.validate_config(cfg),
+                )
+            finally:
+                EH.CONFIG_PATH = old_config
+
+    def test_openai_provider_never_inherits_deepseek_defaults(self):
+        old_config = EH.CONFIG_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+            try:
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"provider": "openai-compatible"}, f)
+                cfg = EH.load_config()
+                self.assertEqual(cfg["gateway"], "")
+                self.assertEqual(cfg["model"], "")
+                self.assertIn(
+                    "openai-compatible 必须显式配置 gateway",
+                    EH.validate_config(cfg),
+                )
+            finally:
+                EH.CONFIG_PATH = old_config
+
+    def test_openai_provider_rejects_deepseek_gateway(self):
+        old_config = EH.CONFIG_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+            try:
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "provider": "openai-compatible",
+                            "gateway": "https://api.deepseek.com/chat/completions",
+                            "model": "custom-model",
+                        },
+                        f,
+                    )
+                self.assertIn(
+                    "openai-compatible 不能使用 DeepSeek 网关",
+                    EH.validate_config(EH.load_config()),
+                )
             finally:
                 EH.CONFIG_PATH = old_config
 
@@ -675,6 +718,47 @@ class ApiResponseTests(unittest.TestCase):
                 os.environ.pop(cfg["api_key_env"], None)
             else:
                 os.environ[cfg["api_key_env"]] = old_env
+
+    def test_doctor_rejects_invalid_gateway_with_key_set(self):
+        old_config = EH.CONFIG_PATH
+        key_name = EH.DEFAULTS["api_key_env"]
+        old_key = os.environ.get(key_name)
+        try:
+            os.environ[key_name] = "test-key"
+            with tempfile.TemporaryDirectory() as tmp:
+                EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"gateway": "https://"}, f)
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(EH.run_doctor(EH.load_config()), 1)
+                self.assertIn("[FAIL] gateway", output.getvalue())
+        finally:
+            EH.CONFIG_PATH = old_config
+            if old_key is None:
+                os.environ.pop(key_name, None)
+            else:
+                os.environ[key_name] = old_key
+
+    def test_hotkey_fails_closed_before_capture_on_broken_config(self):
+        old_config = EH.CONFIG_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+            with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                f.write("{broken")
+            events = queue.Queue()
+            try:
+                with mock.patch.object(EH, "is_allowed_window") as allowed, \
+                        mock.patch.object(EH, "snapshot_selection") as capture:
+                    EH.run_pipeline(dict(EH.DEFAULTS), events)
+                allowed.assert_not_called()
+                capture.assert_not_called()
+                kind, message = events.get_nowait()
+                self.assertEqual(kind, "failure")
+                self.assertIn("配置无效", message)
+                self.assertIn("解析失败", message)
+            finally:
+                EH.CONFIG_PATH = old_config
 
     def test_extracts_content(self):
         payload = {
@@ -885,6 +969,16 @@ class SkillBundleTests(unittest.TestCase):
                     text = f.read()
                 self.assertNotIn("MEMORY\\", text, path)
                 self.assertNotRegex(text, r"[A-Za-z]:\\", path)
+
+    def test_skill_docs_do_not_use_parent_relative_paths(self):
+        root = os.path.join(HERE, "skills")
+        for name in ("prompt-enhancer", "p"):
+            path = os.path.join(root, name, "SKILL.md")
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            self.assertNotIn("../prompt-enhancer", text, path)
+            if "python scripts/" in text:
+                self.assertIn("Skill 根目录", text, path)
 
 
 if __name__ == "__main__":
