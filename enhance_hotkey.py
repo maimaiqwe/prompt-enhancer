@@ -20,6 +20,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime
 
@@ -62,6 +63,7 @@ STATE_PATH = os.path.join(BASE, "last-state.json")
 
 DEFAULTS = {
     "gateway": "https://api.deepseek.com/chat/completions",
+    "provider": "deepseek",
     "model": "deepseek-flash",
     "reasoning_effort": "none",
     "api_key_env": "DEEPSEEK_API_KEY",
@@ -85,6 +87,23 @@ DEFAULTS = {
     "history_max_entries": 5,
     "history_max_bytes": 65536,
     "default_tier": "standard",
+}
+
+PROVIDERS = {
+    "deepseek": {
+        "gateway": "https://api.deepseek.com/chat/completions",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "auth": "bearer",
+        "response_format": "openai",
+        "pricing": "deepseek-flash",
+    },
+    "openai-compatible": {
+        "gateway": "",
+        "api_key_env": "OPENAI_API_KEY",
+        "auth": "bearer",
+        "response_format": "openai",
+        "pricing": None,
+    },
 }
 
 TIER_ALIASES = {
@@ -237,17 +256,65 @@ _PROC_CACHE = {}
 _ALLOW_CACHE = set()
 _CLIP_GEN = {"n": 0}
 _PIPELINE_LOCK = threading.Lock()
+_LAST_CONFIG_ERROR = ""
 
 
 def load_config():
+    global _LAST_CONFIG_ERROR
+    _LAST_CONFIG_ERROR = ""
     cfg = dict(DEFAULTS)
+    cfg["allowed_processes"] = list(DEFAULTS["allowed_processes"])
+    explicit_key_env = False
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, encoding="utf-8") as f:
-                cfg.update(json.load(f))
-        except Exception as e:  # 配置坏了就用默认值，不让工具起不来
+                loaded = json.load(f)
+            if not isinstance(loaded, dict):
+                raise ValueError("config.json 顶层必须是对象")
+            explicit_key_env = bool(str(loaded.get("api_key_env") or "").strip())
+            cfg.update(loaded)
+        except Exception as e:
+            # 运行时用默认值保证工具仍可启动，但 doctor 必须明确暴露问题。
+            _LAST_CONFIG_ERROR = str(e)
             log("config.json 解析失败，使用默认配置: %s" % e)
+    provider = str(cfg.get("provider") or "deepseek").strip().lower()
+    cfg["provider"] = provider
+    provider_cfg = PROVIDERS.get(provider, PROVIDERS["deepseek"])
+    if not cfg.get("gateway"):
+        cfg["gateway"] = provider_cfg["gateway"]
+    if not explicit_key_env:
+        cfg["api_key_env"] = provider_cfg["api_key_env"]
     return cfg
+
+
+def validate_config(cfg):
+    """返回可直接展示的配置问题；空列表表示可启动。"""
+    problems = []
+    provider = str(cfg.get("provider") or "").strip().lower()
+    if provider not in PROVIDERS:
+        problems.append("provider 只能是 deepseek 或 openai-compatible")
+    gateway = str(cfg.get("gateway") or "").strip()
+    if not gateway:
+        problems.append("gateway 不能为空")
+    elif not gateway.lower().startswith("https://"):
+        problems.append("gateway 必须是 HTTPS 地址")
+    if not str(cfg.get("model") or "").strip():
+        problems.append("model 不能为空")
+    if not str(cfg.get("api_key_env") or "").strip():
+        problems.append("api_key_env 不能为空")
+    allowed = cfg.get("allowed_processes")
+    if not isinstance(allowed, list) or not allowed:
+        problems.append("allowed_processes 必须是非空数组")
+    elif not all(isinstance(item, str) and item.strip() for item in allowed):
+        problems.append("allowed_processes 只能包含非空字符串")
+    if cfg.get("default_tier") not in DEFAULT_TIERS:
+        problems.append("default_tier 只能是 base、standard 或 professional")
+    return problems
+
+
+def provider_settings(cfg):
+    provider = str(cfg.get("provider") or "deepseek").strip().lower()
+    return PROVIDERS.get(provider, PROVIDERS["deepseek"])
 
 
 def log(msg):
@@ -1085,6 +1152,7 @@ def usage_cost(usage):
 
 
 def enhance(protected, cfg, mode="user", iteration=False, iteration_request="", tier="base"):
+    provider = provider_settings(cfg)
     req_cfg = {
         "model": cfg["model"],
         "messages": [
@@ -1128,18 +1196,29 @@ def enhance(protected, cfg, mode="user", iteration=False, iteration_request="", 
         raise RuntimeError("API HTTP %s: %s" % (e.code, detail)) from e
 
     usage = payload.get("usage") or {}
-    cost = usage_cost(usage)
+    cost = usage_cost(usage) if provider.get("pricing") == "deepseek-flash" else None
     if usage:
-        log(
-            "tokens: prompt=%s completion=%s total=%s cached=%s est_yuan=%.6f"
-            % (
-                usage.get("prompt_tokens", "?"),
-                usage.get("completion_tokens", "?"),
-                usage.get("total_tokens", "?"),
-                usage.get("prompt_cache_hit_tokens", 0),
-                cost or 0.0,
+        if cost is None:
+            log(
+                "tokens: prompt=%s completion=%s total=%s cached=%s cost=unknown"
+                % (
+                    usage.get("prompt_tokens", "?"),
+                    usage.get("completion_tokens", "?"),
+                    usage.get("total_tokens", "?"),
+                    usage.get("prompt_cache_hit_tokens", 0),
+                )
             )
-        )
+        else:
+            log(
+                "tokens: prompt=%s completion=%s total=%s cached=%s est_yuan=%.6f"
+                % (
+                    usage.get("prompt_tokens", "?"),
+                    usage.get("completion_tokens", "?"),
+                    usage.get("total_tokens", "?"),
+                    usage.get("prompt_cache_hit_tokens", 0),
+                    cost,
+                )
+            )
     return extract_api_content(payload), usage
 
 
@@ -1208,7 +1287,6 @@ def wait_mods_released(timeout=1.2):
 
 def make_proc(events, req_mods, req_vk):
     state = {"last": 0.0}
-    hotkey_cfg = load_config()
 
     def proc(code, wparam, lparam):
         if code == 0 and wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
@@ -1216,7 +1294,8 @@ def make_proc(events, req_mods, req_vk):
             if kb.vkCode == req_vk and req_mods.issubset(mods_down()):
                 now = time.time()
                 if now - state["last"] > 0.4:  # 防长按重复触发
-                    _, _, _, allowed = is_allowed_window(hotkey_cfg)
+                    # 每次触发重新读取白名单，避免改配置后必须重启增强进程。
+                    _, _, _, allowed = is_allowed_window(load_config())
                     if allowed:
                         log("检测到组合键: %s mods=%s" % (kb.vkCode, ",".join(sorted(mods_down()))))
                         state["last"] = now
@@ -1266,8 +1345,12 @@ def system_hotkey_thread(events, cfg):
     log("系统热键已注册: %s" % cfg["hotkey"])
     while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
         if msg.message == WM_HOTKEY and msg.wParam == HOTKEY_ID:
-            log("系统热键触发")
-            events.put(("hotkey", True))
+            _, _, _, allowed = is_allowed_window(load_config())
+            if allowed:
+                log("系统热键触发")
+                events.put(("hotkey", True))
+            else:
+                log("系统热键触发但窗口不在白名单，静默跳过")
         user32.TranslateMessage(ctypes.byref(msg))
         user32.DispatchMessageW(ctypes.byref(msg))
 
@@ -1530,7 +1613,9 @@ def run_pipeline(cfg, events, use_keys=True, _locked=False):
     time.sleep(0.05)
     exe, _, hwnd0, _ = foreground_exe()
     log("触发: 前台=%s hwnd=%s" % (exe or "?", hwnd0))
-    owner, _, _, allowed = is_allowed_window(cfg)
+    # RegisterHotKey 是主通道，白名单也必须在每次触发时读取最新配置。
+    hotkey_cfg = load_config()
+    owner, _, _, allowed = is_allowed_window(hotkey_cfg)
     if use_keys and not allowed:
         log("跳过：前台窗口是 %s（不在白名单）" % (owner or exe or "?"))
         events.put(
@@ -1588,7 +1673,7 @@ def run_pipeline(cfg, events, use_keys=True, _locked=False):
             return
         def start_worker():
             try:
-                _worker(cfg, events, hwnd0, backup, draft, True)
+                _worker(hotkey_cfg, events, hwnd0, backup, draft, True)
             except Exception as e:
                 log("工作线程异常: %r" % e)
                 events.put(("failure", "失败：%s" % e))
@@ -1597,7 +1682,7 @@ def run_pipeline(cfg, events, use_keys=True, _locked=False):
         return
 
     backup = clip_get()
-    _worker(cfg, events, hwnd0, backup, backup or "", False)
+    _worker(hotkey_cfg, events, hwnd0, backup, backup or "", False)
 
 
 def resolve_default_tier(value):
@@ -1818,6 +1903,11 @@ def parse_cli_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--test", metavar="DRAFT", help="只调接口，打印增强结果")
     ap.add_argument(
+        "--doctor",
+        action="store_true",
+        help="检查 Python、配置、白名单、API Key 和网关，不发起模型请求",
+    )
+    ap.add_argument(
         "--mode",
         choices=("auto", "user", "system", "iterate"),
         default="auto",
@@ -1831,6 +1921,43 @@ def parse_cli_args(argv=None):
     )
     ap.add_argument("--clip", action="store_true", help="增强剪贴板内容并写回")
     return ap.parse_args(argv)
+
+
+def run_doctor(cfg):
+    """输出可操作的环境检查结果；不打印 API Key。"""
+    problems = validate_config(cfg)
+    if _LAST_CONFIG_ERROR:
+        problems.insert(0, "config.json 解析失败: %s" % _LAST_CONFIG_ERROR)
+    key_env = str(cfg.get("api_key_env") or "")
+    key_set = bool(os.environ.get(key_env, "").strip())
+    checks = [
+        ("python", True, "%d.%d" % sys.version_info[:2]),
+        ("config", not problems, "OK" if not problems else "；".join(problems)),
+        (
+            "api_key",
+            key_set,
+            "%s 已设置" % key_env if key_set else "%s 未设置" % key_env,
+        ),
+        (
+            "allowed_processes",
+            isinstance(cfg.get("allowed_processes"), list)
+            and bool(cfg["allowed_processes"]),
+            ", ".join(str(item) for item in cfg.get("allowed_processes", [])),
+        ),
+    ]
+    for name, ok, detail in checks:
+        print("[%s] %s: %s" % ("OK" if ok else "FAIL", name, detail))
+    gateway = str(cfg.get("gateway") or "")
+    try:
+        parsed = urllib.parse.urlparse(gateway)
+        reachable = parsed.scheme == "https" and bool(parsed.netloc)
+        print(
+            "[%s] gateway: %s"
+            % ("OK" if reachable else "FAIL", gateway or "(empty)")
+        )
+    except Exception as e:
+        print("[FAIL] gateway: %s (%s)" % (gateway, e))
+    return 0 if not problems and key_set else 1
 
 
 def configure_console():
@@ -1849,6 +1976,8 @@ def main():
     configure_console()
     args = parse_cli_args()
     cfg = load_config()
+    if args.doctor:
+        return run_doctor(cfg)
     if args.test:
         default_tier = parse_default_command(args.test)
         if default_tier is not None:

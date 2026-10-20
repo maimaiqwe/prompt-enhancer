@@ -522,7 +522,13 @@ class ApiResponseTests(unittest.TestCase):
             EH.parse_cli_args = lambda: type(
                 "Args",
                 (),
-                {"test": "草稿", "tier": "standard", "mode": "auto", "clip": False},
+                {
+                    "test": "草稿",
+                    "tier": "standard",
+                    "mode": "auto",
+                    "clip": False,
+                    "doctor": False,
+                },
             )()
             EH.load_config = lambda: dict(EH.DEFAULTS)
             EH.prepare_draft = lambda draft: {
@@ -592,6 +598,83 @@ class ApiResponseTests(unittest.TestCase):
             [item["max_tokens"] for item in captured],
             [1200, 1200, 900, 700],
         )
+
+    def test_provider_defaults_and_validation(self):
+        old_config = EH.CONFIG_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+            try:
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"provider": "openai-compatible", "gateway": ""}, f)
+                cfg = EH.load_config()
+                self.assertEqual(cfg["provider"], "openai-compatible")
+                self.assertEqual(cfg["api_key_env"], "OPENAI_API_KEY")
+                self.assertEqual(EH.validate_config(cfg), ["gateway 不能为空"])
+            finally:
+                EH.CONFIG_PATH = old_config
+
+    def test_unknown_provider_is_preserved_for_validation(self):
+        old_config = EH.CONFIG_PATH
+        with tempfile.TemporaryDirectory() as tmp:
+            EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+            try:
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump({"provider": "unknown"}, f)
+                cfg = EH.load_config()
+                self.assertEqual(cfg["provider"], "unknown")
+                self.assertIn(
+                    "provider 只能是 deepseek 或 openai-compatible",
+                    EH.validate_config(cfg),
+                )
+                self.assertEqual(
+                    EH.provider_settings(cfg)["gateway"],
+                    EH.PROVIDERS["deepseek"]["gateway"],
+                )
+            finally:
+                EH.CONFIG_PATH = old_config
+
+    def test_doctor_reports_broken_config(self):
+        old_config = EH.CONFIG_PATH
+        key_name = EH.DEFAULTS["api_key_env"]
+        old_key = os.environ.get(key_name)
+        try:
+            os.environ[key_name] = "test-key"
+            with tempfile.TemporaryDirectory() as tmp:
+                EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    f.write("{broken")
+                cfg = EH.load_config()
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(EH.run_doctor(cfg), 1)
+                self.assertIn("config.json 解析失败", output.getvalue())
+        finally:
+            EH.CONFIG_PATH = old_config
+            if old_key is None:
+                os.environ.pop(key_name, None)
+            else:
+                os.environ[key_name] = old_key
+
+    def test_doctor_does_not_print_secret(self):
+        cfg = dict(EH.DEFAULTS)
+        old_env = os.environ.get(cfg["api_key_env"])
+        old_config = EH.CONFIG_PATH
+        try:
+            os.environ[cfg["api_key_env"]] = "secret-do-not-print"
+            with tempfile.TemporaryDirectory() as tmp:
+                EH.CONFIG_PATH = os.path.join(tmp, "config.json")
+                with open(EH.CONFIG_PATH, "w", encoding="utf-8") as f:
+                    json.dump(cfg, f)
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(EH.run_doctor(EH.load_config()), 0)
+                self.assertNotIn("secret-do-not-print", output.getvalue())
+        finally:
+            EH.CONFIG_PATH = old_config
+            if old_env is None:
+                os.environ.pop(cfg["api_key_env"], None)
+            else:
+                os.environ[cfg["api_key_env"]] = old_env
 
     def test_extracts_content(self):
         payload = {
@@ -700,7 +783,13 @@ class DefaultWriterTests(unittest.TestCase):
             EH.parse_cli_args = lambda: type(
                 "Args",
                 (),
-                {"test": "$p 默认 标准", "tier": "auto", "mode": "auto", "clip": False},
+                {
+                    "test": "$p 默认 标准",
+                    "tier": "auto",
+                    "mode": "auto",
+                    "clip": False,
+                    "doctor": False,
+                },
             )()
             self.assertEqual(EH.main(), 0)
             self.assertEqual(calls, ["standard"])
@@ -760,13 +849,42 @@ class DefaultWriterTests(unittest.TestCase):
             EH.parse_cli_args = lambda: type(
                 "Args",
                 (),
-                {"test": "$p 默认 标准", "tier": "auto", "mode": "auto", "clip": False},
+                {
+                    "test": "$p 默认 标准",
+                    "tier": "auto",
+                    "mode": "auto",
+                    "clip": False,
+                    "doctor": False,
+                },
             )()
             output = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
             with contextlib.redirect_stdout(output):
                 self.assertEqual(EH.main(), 0)
         finally:
             EH.set_default_tier, EH.prepare_draft, EH.parse_cli_args = old
+
+
+class SkillBundleTests(unittest.TestCase):
+    def test_bundled_rules_match_hotkey_core(self):
+        core = os.path.join(HERE, "core", "rules.md")
+        bundled = os.path.join(
+            HERE, "skills", "prompt-enhancer", "references", "rules.md"
+        )
+        with open(core, "rb") as left, open(bundled, "rb") as right:
+            self.assertEqual(left.read(), right.read())
+
+    def test_skill_bundle_has_no_machine_specific_paths(self):
+        root = os.path.join(HERE, "skills")
+        for current, directories, files in os.walk(root):
+            directories[:] = [name for name in directories if name != "__pycache__"]
+            for name in files:
+                if not name.endswith((".md", ".py", ".yaml", ".yml")):
+                    continue
+                path = os.path.join(current, name)
+                with open(path, encoding="utf-8") as f:
+                    text = f.read()
+                self.assertNotIn("MEMORY\\", text, path)
+                self.assertNotRegex(text, r"[A-Za-z]:\\", path)
 
 
 if __name__ == "__main__":

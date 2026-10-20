@@ -1,4 +1,6 @@
 param(
+    [string]$InstallDir,
+    [string]$PythonPath,
     [switch]$NoStartup,
     [switch]$NoStart,
     [switch]$Uninstall
@@ -6,19 +8,75 @@ param(
 
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pool = Split-Path -Parent (Split-Path -Parent $here)
-$sharedLayout = Test-Path -LiteralPath (Join-Path $pool "prompt-enhancer\SKILL.md")
-$codexSkills = Join-Path $env:USERPROFILE ".codex\skills"
+if ($InstallDir) {
+    $InstallDir = [IO.Path]::GetFullPath($InstallDir)
+} else {
+    $InstallDir = $here
+}
 $startup = [Environment]::GetFolderPath("Startup")
 $shortcutPath = Join-Path $startup "Prompt Enhancer Hotkey.lnk"
-$watchdogSource = Join-Path $here "watchdog.cs"
-$watchdogExe = Join-Path $here "watchdog.exe"
-$pidPath = Join-Path $here "enhancer.pid"
+$watchdogSource = Join-Path $InstallDir "watchdog.cs"
+$watchdogExe = Join-Path $InstallDir "watchdog.exe"
+$pidPath = Join-Path $InstallDir "enhancer.pid"
+
+function Resolve-Pythonw {
+    param([string]$Requested)
+    if ($Requested) {
+        $resolved = [IO.Path]::GetFullPath($Requested)
+        if (Test-Path -LiteralPath $resolved) { return $resolved }
+        throw "Python path not found: $resolved"
+    }
+    $candidates = @(
+        (Join-Path $InstallDir "pythonw.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\pythonw.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\pythonw.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python310\pythonw.exe")
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+    $command = Get-Command pythonw.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+    throw "pythonw.exe not found; pass -PythonPath or install Python 3.10+"
+}
+
+function Sync-InstallDir {
+    if ($InstallDir -eq $here) { return }
+    if (-not (Test-Path -LiteralPath $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
+    $items = @(
+        "enhance_hotkey.py", "watchdog.cs", "run.cmd",
+        "install.ps1", "LICENSE", "README.md"
+    )
+    foreach ($item in $items) {
+        $source = Join-Path $here $item
+        if (Test-Path -LiteralPath $source) {
+            Copy-Item -LiteralPath $source -Destination $InstallDir -Force
+        }
+    }
+    foreach ($directoryName in @("core", "skills")) {
+        $source = Join-Path $here $directoryName
+        if (-not (Test-Path -LiteralPath $source)) { continue }
+        $target = Join-Path $InstallDir $directoryName
+        if (-not (Test-Path -LiteralPath $target)) {
+            Copy-Item -LiteralPath $source -Destination $InstallDir -Recurse -Force
+        } else {
+            Copy-Item -Path (Join-Path $source "*") -Destination $target -Recurse -Force
+        }
+    }
+}
 
 function StopOwnedWatchdog {
     Get-Process -Name watchdog -ErrorAction SilentlyContinue |
         Where-Object {
-            $_.Path -and $_.Path.StartsWith($here, [StringComparison]::OrdinalIgnoreCase)
+            $_.Path -and (
+                [string]::Equals($_.Path, $watchdogExe, [StringComparison]::OrdinalIgnoreCase) -or
+                $_.Path.StartsWith(
+                    $InstallDir.TrimEnd("\") + "\",
+                    [StringComparison]::OrdinalIgnoreCase
+                )
+            )
         } |
         ForEach-Object { Stop-Process -Id $_.Id -Force }
 }
@@ -39,23 +97,49 @@ if ($Uninstall) {
     StopOwnedWatchdog
     StopOwnedEnhancer
     if (Test-Path -LiteralPath $shortcutPath) {
-        Remove-Item -LiteralPath $shortcutPath -Force
+        $shortcutTarget = ""
+        try {
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcutTarget = $shell.CreateShortcut($shortcutPath).TargetPath
+        } catch {}
+        if ($shortcutTarget -and
+            [string]::Equals($shortcutTarget, $watchdogExe, [StringComparison]::OrdinalIgnoreCase)) {
+            Remove-Item -LiteralPath $shortcutPath -Force
+        }
     }
     Write-Host "UNINSTALLED startup and running processes; config/log/api key kept"
     exit 0
 }
 
-if (-not [Environment]::GetEnvironmentVariable("DEEPSEEK_API_KEY", "User")) {
-    Write-Warning "DEEPSEEK_API_KEY is not set. The app starts, but enhancement will fail."
+$pythonw = Resolve-Pythonw -Requested $PythonPath
+$configPath = Join-Path $InstallDir "config.json"
+$existingConfig = if (Test-Path -LiteralPath $configPath) {
+    [IO.File]::ReadAllBytes($configPath)
+} else {
+    $null
 }
+Sync-InstallDir
+if ($null -ne $existingConfig) {
+    # 重装时原样恢复用户配置，避免升级覆盖白名单、模型或 Key 变量名。
+    [IO.File]::WriteAllBytes($configPath, $existingConfig)
+} else {
+    $configSource = Join-Path $here "config.json"
+    if (Test-Path -LiteralPath $configSource) {
+        Copy-Item -LiteralPath $configSource -Destination $configPath -Force
+    }
+}
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[IO.File]::WriteAllText(
+    (Join-Path $InstallDir "pythonw.path"),
+    $pythonw,
+    $utf8NoBom
+)
 
-if ($sharedLayout -and (Test-Path -LiteralPath $codexSkills)) {
-    Get-ChildItem -LiteralPath $pool -Directory | ForEach-Object {
-        $link = Join-Path $codexSkills $_.Name
-        if (-not (Test-Path -LiteralPath $link)) {
-            cmd /c mklink /J "`"$link`"" "`"$($_.FullName)`"" | Out-Null
-            Write-Host "LINK $link"
-        }
+if (Test-Path -LiteralPath $configPath) {
+    $cfg = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+    $keyName = if ($cfg.api_key_env) { [string]$cfg.api_key_env } else { "DEEPSEEK_API_KEY" }
+    if (-not [Environment]::GetEnvironmentVariable($keyName, "User")) {
+        Write-Warning "$keyName is not set. The app starts, but enhancement will fail."
     }
 }
 
@@ -73,8 +157,8 @@ if (-not (Test-Path -LiteralPath $watchdogExe) -or
 if (-not $NoStartup) {
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = Join-Path $here "run.cmd"
-    $shortcut.WorkingDirectory = $here
+    $shortcut.TargetPath = $watchdogExe
+    $shortcut.WorkingDirectory = $InstallDir
     $shortcut.WindowStyle = 7
     $shortcut.Description = "Ctrl+Shift+Alt+A prompt enhancer (starts with an agent)"
     $shortcut.Save()
@@ -82,6 +166,10 @@ if (-not $NoStartup) {
 }
 
 if (-not $NoStart) {
-    Start-Process -FilePath $watchdogExe -WorkingDirectory $here -WindowStyle Hidden
+    $env:PROMPT_ENHANCER_PYTHONW = $pythonw
+    Start-Process -FilePath $watchdogExe -WorkingDirectory $InstallDir -WindowStyle Hidden
     Write-Host "WATCHDOG_STARTED"
 }
+
+Write-Host "PYTHONW $pythonw"
+Write-Host "INSTALL_DIR $InstallDir"

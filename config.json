@@ -1,5 +1,6 @@
 {
   "gateway": "https://api.deepseek.com/chat/completions",
+  "provider": "deepseek",
   "model": "deepseek-flash",
   "reasoning_effort": "none",
   "api_key_env": "DEEPSEEK_API_KEY",

@@ -14,6 +14,8 @@ internal static class PromptEnhancerWatchdog
     };
 
     private static readonly object LogLock = new object();
+    private static string[] CachedAgents;
+    private static DateTime LastConfigWriteUtc = DateTime.MinValue;
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -65,18 +67,26 @@ internal static class PromptEnhancerWatchdog
         try
         {
             string text = File.ReadAllText(configPath);
+            if (File.GetLastWriteTimeUtc(configPath) == LastConfigWriteUtc &&
+                CachedAgents != null)
+                return CachedAgents;
             Match block = Regex.Match(
                 text, "\"allowed_processes\"\\s*:\\s*\\[(.*?)\\]",
                 RegexOptions.Singleline | RegexOptions.IgnoreCase);
             if (!block.Success) return DefaultAgents;
-
             MatchCollection items = Regex.Matches(block.Groups[1].Value, "\"([^\"]+)\"");
             if (items.Count == 0) return DefaultAgents;
-
-            string[] names = new string[items.Count];
-            for (int i = 0; i < items.Count; i++)
-                names[i] = Path.GetFileNameWithoutExtension(items[i].Groups[1].Value.Trim());
-            return names;
+            var names = new System.Collections.Generic.List<string>();
+            foreach (Match item in items)
+            {
+                string value = item.Groups[1].Value.Trim();
+                if (String.IsNullOrWhiteSpace(value)) continue;
+                names.Add(Path.GetFileNameWithoutExtension(value));
+            }
+            string[] agents = names.Count == 0 ? DefaultAgents : names.ToArray();
+            CachedAgents = agents;
+            LastConfigWriteUtc = File.GetLastWriteTimeUtc(configPath);
+            return agents;
         }
         catch
         {
@@ -166,10 +176,51 @@ internal static class PromptEnhancerWatchdog
 
     private static string FindPythonw()
     {
-        string candidate = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            @"Programs\Python\Python312\pythonw.exe");
-        if (File.Exists(candidate)) return candidate;
+        string configured = Environment.GetEnvironmentVariable("PROMPT_ENHANCER_PYTHONW");
+        if (!String.IsNullOrWhiteSpace(configured) && File.Exists(configured))
+            return configured;
+
+        string pointerPath = Path.Combine(BaseDir, "pythonw.path");
+        try
+        {
+            if (File.Exists(pointerPath))
+            {
+                string pointed = File.ReadAllText(pointerPath).Trim();
+                if (!String.IsNullOrWhiteSpace(pointed) && File.Exists(pointed))
+                    return pointed;
+            }
+        }
+        catch { }
+
+        string[] candidates =
+        {
+            Path.Combine(BaseDir, "pythonw.exe"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Programs\Python\Python312\pythonw.exe"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Programs\Python\Python311\pythonw.exe"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Programs\Python\Python310\pythonw.exe"),
+        };
+        foreach (string candidate in candidates)
+        {
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        string path = Environment.GetEnvironmentVariable("PATH") ?? "";
+        foreach (string directory in path.Split(Path.PathSeparator))
+        {
+            try
+            {
+                string candidate = Path.Combine(directory.Trim(), "pythonw.exe");
+                if (File.Exists(candidate)) return candidate;
+            }
+            catch { }
+        }
+
         return "pythonw.exe";
     }
 

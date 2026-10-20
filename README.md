@@ -8,15 +8,16 @@
 
 ## 项目范围
 
-本仓库是独立的 Windows 热键程序，包含：
+本仓库包含一个独立的 Windows 热键程序，以及可供 agent 使用的提示词增强 Skill：
 
 - 全局热键与白名单窗口检测
 - 基础、标准、专业和系统提示词四类增强
 - DeepSeek 官方 API 调用
 - 再次优化、`@iter:` 迭代要求与 Skill token 保护
 - 默认档切换和本地配置
+- `skills/prompt-enhancer` 与 `skills/p`：对话内提示词增强 Skill 与快捷别名
 
-输入框中的 `$p 切换默认` 是本程序支持的本地命令，用于切换默认档位。本仓库**不包含** Codex 对话中的提示词增强 Skill；如果你的 agent 另有 `$p` Skill，请分别管理，不要把两者视为同一个组件。
+热键程序和 Skill 共用 `core/rules.md`。输入框中的 `$p 切换默认` 是热键程序支持的本地命令；对话中的 `$p` 则来自 `skills/p`，两者不要混用。
 
 ## 快速开始
 
@@ -43,6 +44,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 项目只使用 Python 标准库，不需要 `pip install`。安装器会编译轻量看门狗、创建登录启动项，并只在检测到白名单 agent 时启动增强服务。
 
+自定义安装目录或 Python 路径：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
+  -InstallDir "$env:LOCALAPPDATA\PromptEnhancer" `
+  -PythonPath "$env:LOCALAPPDATA\Programs\Python\Python312\pythonw.exe"
+```
+
+安装后先做环境自检：
+
+```powershell
+python .\enhance_hotkey.py --doctor
+```
+
+`--doctor` 会检查 Python、配置、Key 是否存在、白名单和网关格式；它不会打印 Key，也不会调用模型。
+
 卸载运行中的服务和启动项（保留配置、日志与 Key）：
 
 ```powershell
@@ -55,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -Uninstall
 2. 在支持窗口的输入框里写好草稿。
 3. 光标放在输入框任意位置，按 **Ctrl+Shift+Alt+A** -> 顶部弹一条状态 -> 等待模型返回后，输入框全文被替换成增强版。
 
-看门狗只在检测到白名单 agent 时才启动增强服务；全部 agent 关闭 8 秒后自动停止。快捷键只在白名单窗口里拦截；在别的软件里这个组合键照常可用。
+看门狗只在检测到白名单 agent 时才启动增强服务；全部 agent 关闭 8 秒后自动停止。快捷键在非白名单窗口不会触发增强，也不会弹出失败提示；由于使用 Windows 全局热键注册，该组合键仍由本程序占用。
 
 ### 档位
 
@@ -118,7 +135,13 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 
 - **热键输入框**：独立出现的 `$find-skills` 等 Skill token 会原样保留，只增强周围自然语言；整段只有 Skill token 时提示补充需求。
 - **本地切换命令**：整段只有 `$p 切换默认` 时，热键会打开档位选择框，不会把这条命令发给模型。
-- **对话 Skill**：Codex 等宿主中的 `$p` Skill 不属于本仓库；它是否会展开，由对应宿主的 Skill 配置决定。
+- **对话 Skill**：`skills/p` 和 `skills/prompt-enhancer` 可直接复制到 agent 的 skills 目录；是否展开由对应宿主的 Skill 配置决定。
+
+### 安装对话 Skill
+
+把 `skills/prompt-enhancer` 和 `skills/p` 两个目录复制到宿主的 skills 目录，保持同级关系。两个目录已经自带规则副本与默认档写入脚本，不依赖仓库其余文件；仓库内修改 `core/rules.md` 后应同步到 `skills/prompt-enhancer/references/rules.md`。
+
+如果宿主只支持单目录安装，请把 `skills/prompt-enhancer` 作为主 Skill；`skills/p` 是可选快捷别名。
 
 ### 撤销与历史
 
@@ -147,6 +170,26 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 
 设置环境变量后，请重新打开终端或 agent，使新进程读到最新值。
 
+## 更换供应商
+
+`config.json` 支持 `provider` 字段：
+
+- `deepseek`：默认，使用 `DEEPSEEK_API_KEY` 与 DeepSeek 网关。
+- `openai-compatible`：使用 `OPENAI_API_KEY`，并必须自行填写兼容 OpenAI Chat Completions 的 `gateway` 与 `model`。
+
+示例：
+
+```json
+{
+  "provider": "openai-compatible",
+  "gateway": "https://your-gateway.example.com/v1/chat/completions",
+  "api_key_env": "OPENAI_API_KEY",
+  "model": "your-model"
+}
+```
+
+费用日志只对 DeepSeek Flash 使用官方估算公式；其他供应商记录 `cost=unknown`，不会伪造价格。
+
 ## 隐私与数据流
 
 - 只有按热键时，当前输入框草稿才会发送到你配置的 API 网关；本程序没有自建中转服务器。
@@ -158,6 +201,7 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
+| `provider` | `deepseek` | `deepseek` 或 `openai-compatible` |
 | `model` | `deepseek-flash` | 官方还有 `deepseek-v4-pro`，约贵 3.4~4.5 倍 |
 | `reasoning_effort` | `none` | 设为 `high` 等会重新开启思考，显著增加费用 |
 | `hotkey` | `ctrl+shift+alt+a` | 支持 `ctrl/alt/shift/win` + 字母或 `f1`~`f24` |
@@ -196,6 +240,7 @@ python enhance_hotkey.py --mode iterate --test @'
 @iter: 更严格
 '@
 python enhance_hotkey.py --clip
+python enhance_hotkey.py --doctor
 python test_enhance_hotkey.py
 ```
 
@@ -208,7 +253,7 @@ python test_enhance_hotkey.py
 ## 生命周期
 
 - 开机：只启动 `watchdog.exe`，约 20~25 MB；不启动 Python 增强服务。
-- 打开 ChatGPT/Codex/OpenCode/WorkBuddy/ZCode/Trae/IDEA：看门狗启动 `enhance_hotkey.py`。
+- 打开 ChatGPT/Codex/OpenCode/WorkBuddy/ZCode/Trae/IDEA：看门狗启动 `enhance_hotkey.py`。修改 `allowed_processes` 后，看门狗会在配置变更后重新读取。
 - 关闭全部 agent：等待 8 秒后按 `enhancer.pid` 停止增强服务，并删除 PID 文件。
 
 ## 手动启停
