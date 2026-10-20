@@ -18,3 +18,5 @@ description: 提示词增强快捷别名，等价于 $prompt-enhancer。用户�
 - 迭代：`继续`、`iter` 或末尾 `@iter: <要求>`。
 
 参数（档位、`--no-copy`）原样透传。
+
+本 Skill 可移植到其他 agent：只要宿主能读取本目录与同级 `prompt-enhancer` 的规则文件即可复用；无执行能力时省略默认档切换，用 `$p <档位> <草稿>` 显式指定。

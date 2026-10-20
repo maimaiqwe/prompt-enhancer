@@ -96,3 +96,16 @@ Set-Clipboard -Value @'
 - 输入框内可用 `sys:` / `user:` 强制类型；增强后再按一次自动迭代，或在末尾加 `@iter: <要求>` 定向迭代
 - 默认档切换：输入框只写 `$p 切换默认` 后按 `Ctrl+Shift+Alt+A` 弹选择器；或发送 `$p 默认 <档位>` 持久切换
 - 费用、历史与配置说明：根目录 `README.md`
+
+## 适配其他 agent
+
+本 Skill 不强制绑定 Codex。核心依赖只有两件事：能读取本 Skill 目录内的 `references/rules.md`，以及能执行 `scripts/set_default.py`（可选）。
+
+把 `skills/prompt-enhancer` 和 `skills/p` 两个目录按宿主要求复制到它的 skills / agents / prompts 目录，保持同级：
+
+- 有独立 skills 目录（如 opencode、Codex）：直接安装，入口词 `$p` / `$prompt-enhancer` 原样可用。
+- 用 AGENTS.md / 系统提示词注入的宿主（如 WorkBuddy、ZCode、Trae、IDEA ACP）：把本文件与 `references/rules.md` 内容并入其指令层，并声明“用户输入 `$p ...` 时按此规则增强”。
+- 没有文件执行能力的宿主：跳过 `set_default.py`，把“默认档”写死在指令里，或用会话内 `$p <档位> <草稿>` 显式指定。
+- 触发词可按宿主习惯改成 `/enhance`、`优化提示词` 等，但档位与系统类型的解析规则不要改。
+
+取材规则按宿主能力裁剪：没有对话历史的宿主只用当前草稿；有项目上下文的宿主，专业档才按需读取。

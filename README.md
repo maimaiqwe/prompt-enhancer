@@ -4,7 +4,7 @@
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#快速开始)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#快速开始)
 
-一个面向 Windows 的全局热键提示词增强器，同时提供可供 Codex 使用的提示词增强 Skill。两者可以一起安装，也可以按需单独安装。
+一个面向 Windows 的全局热键提示词增强器，同时提供可移植到 Codex 及其他 agent 的提示词增强 Skill。两者可以一起安装，也可以按需单独安装。
 
 ## 下载哪个包
 
@@ -12,7 +12,7 @@
 
 | 需求 | 下载 | 包含 |
 | --- | --- | --- |
-| 只在 Codex 对话中用 `$p` / `$prompt-enhancer` | `prompt-enhancer-skill-vX.Y.Z.zip` | 两个 Skill、规则副本、默认档脚本 |
+| 只在 agent 对话中用 `$p` / `$prompt-enhancer` | `prompt-enhancer-skill-vX.Y.Z.zip` | 两个 Skill、规则副本、默认档脚本 |
 | 只想在输入框按热键 | `prompt-enhancer-hotkey-windows-vX.Y.Z.zip` | 热键程序、共享规则、安装器 |
 | 两个都要（推荐） | `prompt-enhancer-bundle-vX.Y.Z.zip` | Skill + 热键 + 安装器 |
 
@@ -33,7 +33,7 @@
 
 ## 安装 Skill-only
 
-**前置条件**：Codex，以及 Python 3.10+（用于切换默认档）。
+**前置条件**：任意可读取 Skill 文件的 agent 宿主；如需持久切换默认档，还要 Python 3.10+。
 
 1. 解压 Skill 包。
 2. 运行：
@@ -42,7 +42,7 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Skill
 ```
 
-默认安装到 `$CODEX_HOME\skills`；未设置 `CODEX_HOME` 时使用 `~\.codex\skills`。也可以显式指定：
+默认安装到 `$CODEX_HOME\skills`；未设置 `CODEX_HOME` 时使用 `~\.codex\skills`。其他宿主用 `-SkillsDir` 指定其 skills 目录。也可以显式指定：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
@@ -94,7 +94,7 @@ python .\enhance_hotkey.py --doctor
 
 ## 安装 Bundle
 
-**前置条件**：Windows 10/11、Python 3.10+、API Key、Codex。
+**前置条件**：Windows 10/11、Python 3.10+、API Key，以及一个支持 Skill 的 agent 宿主（默认适配 Codex）。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Bundle
@@ -124,7 +124,7 @@ cd prompt-enhancer
 [Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', '<your-key>', 'User')
 ```
 
-3. 安装并启动完整 Bundle（安装器同时写入 Codex Skill 目录）：
+3. 安装并启动完整 Bundle（安装器同时写入 agent 的 Skill 目录，默认适配 Codex）：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Bundle
