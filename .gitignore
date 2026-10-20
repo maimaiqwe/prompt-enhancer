@@ -1,5 +1,10 @@
 __pycache__/
 core/__pycache__/
+*.py[cod]
+.venv/
+*.tmp
+Thumbs.db
+.DS_Store
 log.txt
 last-enhanced.md
 last-original.md

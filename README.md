@@ -1,25 +1,47 @@
-# 提示词一键增强（Windows 全局热键）
+# Prompt Enhancer
 
-不经过对话，直接把输入框里的草稿换成增强版。
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#快速开始)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#快速开始)
+
+一个面向 Windows 的全局热键提示词增强器：不经过对话，直接把当前输入框里的草稿替换为更清晰、更完整、更可执行的提示词。
+
+## 项目范围
+
+本仓库是独立的 Windows 热键程序，包含：
+
+- 全局热键与白名单窗口检测
+- 基础、标准、专业和系统提示词四类增强
+- DeepSeek 官方 API 调用
+- 再次优化、`@iter:` 迭代要求与 Skill token 保护
+- 默认档切换和本地配置
+
+输入框中的 `$p 切换默认` 是本程序支持的本地命令，用于切换默认档位。本仓库**不包含** Codex 对话中的提示词增强 Skill；如果你的 agent 另有 `$p` Skill，请分别管理，不要把两者视为同一个组件。
 
 ## 快速开始
 
 **前置条件**：Windows 10/11、Python 3.10+（含 `pythonw.exe`）、DeepSeek 官方 API Key。
 
-1. 下载本目录。
+1. 获取源码：在 GitHub 页面选择 **Code -> Download ZIP**，或执行：
+
+```powershell
+git clone https://github.com/qwe3120695033/prompt-enhancer.git
+cd prompt-enhancer
+```
+
 2. 设置 API Key（用户环境变量，不写入仓库）：
 
 ```powershell
 [Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', '<your-key>', 'User')
 ```
 
-3. 右键 `install.ps1`，选择“使用 PowerShell 运行”；或执行：
+3. 安装并启动。右键 `install.ps1`，选择“使用 PowerShell 运行”；或执行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-安装器会编译看门狗、创建登录启动项，并只在检测到白名单 agent 时启动增强服务。
+项目只使用 Python 标准库，不需要 `pip install`。安装器会编译轻量看门狗、创建登录启动项，并只在检测到白名单 agent 时启动增强服务。
 
 卸载运行中的服务和启动项（保留配置、日志与 Key）：
 
@@ -29,7 +51,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -Uninstall
 
 ## 用法
 
-1. 双击 `run.cmd` 启动轻量看门狗（无窗口）。
+1. 正常情况下安装器已经启动看门狗；若没有，双击 `run.cmd` 启动轻量看门狗（无窗口）。
 2. 在支持窗口的输入框里写好草稿。
 3. 光标放在输入框任意位置，按 **Ctrl+Shift+Alt+A** -> 顶部弹一条状态 -> 等待模型返回后，输入框全文被替换成增强版。
 
@@ -95,7 +117,8 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 ### Skill 调用保护
 
 - **热键输入框**：独立出现的 `$find-skills` 等 Skill token 会原样保留，只增强周围自然语言；整段只有 Skill token 时提示补充需求。
-- **对话入口**：在 Codex 聊天中，`$p` 是提示词增强 Skill 的调用入口；不要把 `$p` 本身当作普通草稿，也不要用热键处理只含 `$p` 的内容。
+- **本地切换命令**：整段只有 `$p 切换默认` 时，热键会打开档位选择框，不会把这条命令发给模型。
+- **对话 Skill**：Codex 等宿主中的 `$p` Skill 不属于本仓库；它是否会展开，由对应宿主的 Skill 配置决定。
 
 ### 撤销与历史
 
@@ -122,6 +145,15 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 [Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY', '<your-key>', 'User')
 ```
 
+设置环境变量后，请重新打开终端或 agent，使新进程读到最新值。
+
+## 隐私与数据流
+
+- 只有按热键时，当前输入框草稿才会发送到你配置的 API 网关；本程序没有自建中转服务器。
+- 热键只读取当前输入框内容，不读取 agent 的聊天历史、项目文件或 Codex 记忆。
+- `log.txt`、`history.jsonl`、`last-original.md` 和 `last-enhanced.md` 可能包含草稿文本；它们已被 `.gitignore` 排除，但不会自动加密。
+- 程序会脱敏明显的 API Key、token、password 等字段，但不能保证识别所有敏感信息。请勿对不允许发送给第三方的机密内容使用云模型增强。
+
 ## 配置（config.json）
 
 | 键 | 默认 | 说明 |
@@ -139,9 +171,7 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 | `history_max_bytes` | 65536 | 历史文件总大小上限（字节） |
 | `default_tier` | `standard` | 当前默认档；可写 `base/standard/professional`，也可用 `$p 切换默认` 修改 |
 
-提示词规则唯一真源是 `core/rules.md`。在共享池的 `hotkey/` 目录运行时，实际位于 `../core/rules.md`；在开源包根目录运行时，实际位于 `core/rules.md`。`$p` 与热键共用同一份规则，修改后无需改两处。调用日志与 token 数在 `log.txt`。
-
-热键只读取当前输入框的草稿，不读取 Codex 聊天历史或项目资料；对话内 `$p` 的取材范围由 `../SKILL.md` 规定。
+提示词规则位于 `core/rules.md`。调用日志与 token 数写入本地 `log.txt`，不会提交到 Git。
 
 ## 成本参考（官方 Flash）
 
@@ -168,6 +198,8 @@ python enhance_hotkey.py --clip
 python test_enhance_hotkey.py
 ```
 
+测试套件不访问真实 API，也不需要 `DEEPSEEK_API_KEY`。GitHub Actions 会在 Windows 上运行同一组回归测试。
+
 ## 换机器 / 其他 agent
 
 把整个目录复制到新机器，设置 `DEEPSEEK_API_KEY` 后直接双击 `run.cmd`；需要登录自启时运行 `install.ps1`。
@@ -188,4 +220,4 @@ python test_enhance_hotkey.py
 
 ## License
 
-MIT。可自由使用、修改与分发；发布时请保留 `LICENSE` 文件。
+本项目采用 [MIT License](LICENSE)。欢迎提交 Issue 和 Pull Request，参与方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
