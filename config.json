@@ -1,0 +1,26 @@
+{
+  "gateway": "https://api.deepseek.com/chat/completions",
+  "model": "deepseek-flash",
+  "reasoning_effort": "none",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "hotkey": "ctrl+shift+alt+a",
+  "allowed_processes": [
+    "ChatGPT.exe",
+    "codex.exe",
+    "OpenCode.exe",
+    "WorkBuddy.exe",
+    "ZCode.exe",
+    "Trae CN.exe",
+    "idea64.exe"
+  ],
+  "max_tokens": 700,
+  "max_tokens_standard": 900,
+  "max_tokens_professional": 1200,
+  "max_tokens_system": 1200,
+  "temperature": 0.3,
+  "timeout": 60,
+  "select_all": true,
+  "history_max_entries": 5,
+  "history_max_bytes": 65536,
+  "default_tier": "standard"
+}

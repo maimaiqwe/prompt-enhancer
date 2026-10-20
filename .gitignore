@@ -1,0 +1,10 @@
+__pycache__/
+core/__pycache__/
+log.txt
+last-enhanced.md
+last-original.md
+history.jsonl
+last-state.json
+watchdog.exe
+watchdog.log
+enhancer.pid
