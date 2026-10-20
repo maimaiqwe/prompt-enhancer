@@ -209,7 +209,46 @@ internal static class PromptEnhancerWatchdog
 
     private static bool EnhancerRunning()
     {
-        return IsEnhancerPid(ReadPidState());
+        return FindEnhancerPids().Count > 0;
+    }
+
+    private static System.Collections.Generic.List<int> FindEnhancerPids()
+    {
+        var result = new System.Collections.Generic.List<int>();
+        string expected = Path.GetFullPath(Path.Combine(BaseDir, "enhance_hotkey.py"));
+        foreach (Process p in Process.GetProcessesByName("pythonw"))
+        {
+            try
+            {
+                if (p.HasExited) continue;
+                string commandLine = ReadCommandLine(p.Id);
+                if (commandLine.IndexOf(
+                    expected, StringComparison.OrdinalIgnoreCase) >= 0)
+                    result.Add(p.Id);
+            }
+            catch { }
+            finally { p.Dispose(); }
+        }
+        return result;
+    }
+
+    private static string ReadCommandLine(int pid)
+    {
+        try
+        {
+            using (var searcher = new System.Management.ManagementObjectSearcher(
+                "SELECT CommandLine FROM Win32_Process WHERE ProcessId = " + pid))
+            using (var results = searcher.Get())
+            {
+                foreach (System.Management.ManagementObject item in results)
+                {
+                    object value = item["CommandLine"];
+                    return value == null ? "" : value.ToString();
+                }
+            }
+        }
+        catch { }
+        return "";
     }
 
     private static string FindPythonw()
@@ -298,13 +337,13 @@ internal static class PromptEnhancerWatchdog
 
     private static void StopEnhancer()
     {
-        PidState state = ReadPidState();
-        if (IsEnhancerPid(state))
+        var pids = FindEnhancerPids();
+        foreach (int pid in pids)
         {
             try
             {
-                using (Process p = Process.GetProcessById(state.Pid)) p.Kill();
-                Log("no agents; enhancer stopped pid=" + state.Pid);
+                using (Process p = Process.GetProcessById(pid)) p.Kill();
+                Log("no agents; enhancer stopped pid=" + pid);
             }
             catch (Exception ex)
             {

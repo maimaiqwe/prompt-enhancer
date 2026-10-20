@@ -220,7 +220,8 @@ kernel32.OpenProcess.argtypes = (w.DWORD, w.BOOL, w.DWORD)
 CF_UNICODETEXT = 13
 GMEM_MOVEABLE = 0x0002
 WH_KEYBOARD_LL = 13
-WM_KEYDOWN, WM_SYSKEYDOWN = 0x0100, 0x0104
+WM_KEYDOWN, WM_KEYUP = 0x0100, 0x0101
+WM_SYSKEYDOWN, WM_SYSKEYUP = 0x0104, 0x0105
 VK_CONTROL, VK_SHIFT, VK_MENU = 0x11, 0x10, 0x12
 VK_LWIN, VK_RWIN = 0x5B, 0x5C
 VK_A, VK_C, VK_V = 0x41, 0x43, 0x56
@@ -1185,6 +1186,12 @@ def api_key(cfg):
     return value
 
 
+def direct_urlopen(req, timeout):
+    """官方 API 直连，避免继承失效的 HTTP(S)_PROXY 环境变量。"""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    return opener.open(req, timeout=timeout)
+
+
 def usage_cost(usage):
     """按 DeepSeek 官方 Flash 空闲/高峰未命中价估算，仅作日志参考。"""
     if not usage:
@@ -1234,11 +1241,15 @@ def enhance(protected, cfg, mode="user", iteration=False, iteration_request="", 
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=cfg["timeout"]) as resp:
+        with direct_urlopen(req, timeout=cfg["timeout"]) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
         raise RuntimeError("API HTTP %s: %s" % (e.code, detail)) from e
+    except urllib.error.URLError as e:
+        raise RuntimeError("API 连接失败: %s" % (e.reason,)) from e
+    except TimeoutError as e:
+        raise RuntimeError("API 请求超时") from e
 
     usage = payload.get("usage") or {}
     cost = usage_cost(usage) if provider.get("pricing") == "deepseek-flash" else None
@@ -1331,22 +1342,24 @@ def wait_mods_released(timeout=1.2):
 
 
 def make_proc(events, req_mods, req_vk):
-    state = {"last": 0.0}
+    state = {"vk_down": False}
 
     def proc(code, wparam, lparam):
         if code == 0 and wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
             kb = ctypes.cast(lparam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-            if kb.vkCode == req_vk and req_mods.issubset(mods_down()):
-                now = time.time()
-                if now - state["last"] > 0.4:  # 防长按重复触发
-                    # 每次触发重新读取白名单，避免改配置后必须重启增强进程。
-                    _, _, _, allowed = is_allowed_window(load_config())
-                    if allowed:
-                        log("检测到组合键: %s mods=%s" % (kb.vkCode, ",".join(sorted(mods_down()))))
-                        state["last"] = now
-                        # 修饰键还按着时，抓取交给后台线程等待松手
-                        events.put(("hotkey", True))
-                    return user32.CallNextHookEx(None, code, wparam, lparam)  # 不吞键
+            if kb.vkCode == req_vk and req_mods.issubset(mods_down()) and not state["vk_down"]:
+                # 每次触发重新读取白名单，避免改配置后必须重启增强进程。
+                _, _, _, allowed = is_allowed_window(load_config())
+                if allowed:
+                    log("检测到组合键: %s mods=%s" % (kb.vkCode, ",".join(sorted(mods_down()))))
+                    state["vk_down"] = True
+                    # 修饰键还按着时，抓取交给后台线程等待松手
+                    events.put(("hotkey", True))
+                return user32.CallNextHookEx(None, code, wparam, lparam)  # 不吞键
+        elif code == 0 and wparam in (WM_KEYUP, WM_SYSKEYUP):
+            kb = ctypes.cast(lparam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
+            if kb.vkCode == req_vk:
+                state["vk_down"] = False
         return user32.CallNextHookEx(None, code, wparam, lparam)
 
     return LowLevelKeyboardProc(proc)
@@ -1363,7 +1376,6 @@ def hotkey_thread(events, cfg):
         events.put(("status", "快捷键监听失败，见 log.txt"))
         return
     log("钩子就绪: %s" % cfg["hotkey"])
-    events.put(("status", "已就绪：%s 增强当前草稿" % cfg["hotkey"].upper()))
     msg = w.MSG()
     while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
         user32.TranslateMessage(ctypes.byref(msg))
@@ -1570,6 +1582,8 @@ def _worker(cfg, events, hwnd0, backup, draft, restore_clip=True):
             )
         except Exception as e:
             print("增强失败：%s" % e, file=sys.stderr)
+            log("增强失败: %r" % e)
+            events.put(("failure", "增强失败：%s" % e))
             return 1
         out = clean(raw)
         problems = validate_output(
@@ -2117,12 +2131,20 @@ def main():
         while not events.empty():
             print(events.get())
         return 0
+    # 同一安装目录只允许一个常驻实例，避免重复热键钩子造成并发增强。
+    instance_mutex = kernel32.CreateMutexW(None, False, "PromptEnhancerInstance_" + str(abs(hash(BASE))))
+    if not instance_mutex or ctypes.get_last_error() == 183:
+        log("已有增强实例运行，当前进程退出")
+        if instance_mutex:
+            kernel32.CloseHandle(instance_mutex)
+        return 0
     write_pid()
     try:
         raise_process_priority()
         toast_loop(queue.Queue(), cfg)
     finally:
         remove_pid()
+        kernel32.CloseHandle(instance_mutex)
     return 0
 
 

@@ -2,6 +2,7 @@
 """Prompt Enhancer 无网络回归测试。"""
 import importlib.util
 import contextlib
+import ctypes
 import io
 import json
 import os
@@ -413,6 +414,38 @@ class ParsingTests(unittest.TestCase):
                 EH._worker,
             ) = old
 
+    def test_low_level_hook_triggers_once_until_key_release(self):
+        old = (EH.is_allowed_window, EH.load_config, EH.mods_down)
+        events = queue.Queue()
+        kb = EH.KBDLLHOOKSTRUCT()
+        kb.vkCode = EH.VK_A
+        try:
+            EH.load_config = lambda: {}
+            EH.is_allowed_window = lambda cfg: ("codex.exe", "", "", True)
+            EH.mods_down = lambda: {"ctrl", "shift", "alt"}
+            proc = EH.make_proc(events, {"ctrl", "shift", "alt"}, EH.VK_A)
+            proc(0, EH.WM_KEYDOWN, ctypes.addressof(kb))
+            proc(0, EH.WM_KEYDOWN, ctypes.addressof(kb))
+            self.assertEqual(events.qsize(), 1)
+            proc(0, EH.WM_KEYUP, ctypes.addressof(kb))
+            proc(0, EH.WM_KEYDOWN, ctypes.addressof(kb))
+            self.assertEqual(events.qsize(), 2)
+        finally:
+            EH.is_allowed_window, EH.load_config, EH.mods_down = old
+
+    def test_default_tier_and_system_detection_are_stable(self):
+        cases = (
+            ("复验并优化", "user", "standard"),
+            ("标准 复验并优化", "user", "standard"),
+            ("专业 复验并优化", "user", "professional"),
+            ("基础 复验并优化", "user", "base"),
+            ("你是一名审查员，请复验并优化", "system", "system"),
+        )
+        for text, mode, tier in cases:
+            prepared = EH.parse_controls(text, "standard")
+            self.assertEqual(prepared["mode"], mode)
+            self.assertEqual(prepared["tier"], tier)
+
     def test_iteration_inherits_previous_tier(self):
         with tempfile.TemporaryDirectory() as tmp:
             old_last, old_state = EH.LAST_PATH, EH.STATE_PATH
@@ -583,9 +616,9 @@ class ApiResponseTests(unittest.TestCase):
                     }
                 ).encode("utf-8")
 
-        old_urlopen, old_key = EH.urllib.request.urlopen, EH.api_key
+        old_urlopen, old_key = EH.direct_urlopen, EH.api_key
         try:
-            EH.urllib.request.urlopen = lambda req, timeout: (
+            EH.direct_urlopen = lambda req, timeout: (
                 captured.append(json.loads(req.data.decode("utf-8"))) or Response()
             )
             EH.api_key = lambda cfg: "test-key"
@@ -594,11 +627,37 @@ class ApiResponseTests(unittest.TestCase):
             EH.enhance("草稿", cfg, tier="standard")
             EH.enhance("草稿", cfg, tier="base")
         finally:
-            EH.urllib.request.urlopen, EH.api_key = old_urlopen, old_key
+            EH.direct_urlopen, EH.api_key = old_urlopen, old_key
         self.assertEqual(
             [item["max_tokens"] for item in captured],
             [1200, 1200, 900, 700],
         )
+
+    def test_direct_urlopen_ignores_environment_proxy(self):
+        captured = []
+
+        class Opener:
+            def open(self, req, timeout):
+                captured.append((req.full_url, timeout))
+                return object()
+
+        old_build_opener = EH.urllib.request.build_opener
+        old_proxy = os.environ.get("HTTPS_PROXY")
+        try:
+            os.environ["HTTPS_PROXY"] = "http://127.0.0.1:1"
+            EH.urllib.request.build_opener = lambda *handlers: (
+                captured.append(handlers) or Opener()
+            )
+            req = EH.urllib.request.Request("https://api.example.test/v1")
+            EH.direct_urlopen(req, timeout=9)
+        finally:
+            EH.urllib.request.build_opener = old_build_opener
+            if old_proxy is None:
+                os.environ.pop("HTTPS_PROXY", None)
+            else:
+                os.environ["HTTPS_PROXY"] = old_proxy
+        self.assertIsInstance(captured[0][0], EH.urllib.request.ProxyHandler)
+        self.assertEqual(captured[1], ("https://api.example.test/v1", 9))
 
     def test_provider_defaults_and_validation(self):
         old_config = EH.CONFIG_PATH
