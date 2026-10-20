@@ -674,6 +674,35 @@ class ApiResponseTests(unittest.TestCase):
         self.assertTrue(first.startswith("PromptEnhancerInstance_"))
         self.assertEqual(len(first), 16 + len("PromptEnhancerInstance_"))
 
+    def test_default_allowlist_covers_mainstream_agents(self):
+        required = {
+            "ChatGPT.exe",
+            "codex.exe",
+            "claude.exe",
+            "DeepSeek Harness.exe",
+            "Cursor.exe",
+            "gemini.exe",
+            "OpenCode.exe",
+            "Windsurf.exe",
+            "QoderCN.exe",
+            "CodeBuddy.exe",
+            "WorkBuddy.exe",
+            "ZCode.exe",
+            "Trae CN.exe",
+            "idea64.exe",
+        }
+        self.assertTrue(required.issubset(set(EH.DEFAULTS["allowed_processes"])))
+        with open(os.path.join(HERE, "config.json"), encoding="utf-8") as f:
+            repo_config = json.load(f)
+        self.assertEqual(
+            set(repo_config["allowed_processes"]),
+            set(EH.DEFAULTS["allowed_processes"]),
+        )
+        with open(os.path.join(HERE, "watchdog.cs"), encoding="utf-8") as f:
+            watchdog_source = f.read()
+        for process_name in required:
+            self.assertIn('"%s"' % process_name, watchdog_source)
+
     def test_provider_defaults_and_validation(self):
         old_config = EH.CONFIG_PATH
         with tempfile.TemporaryDirectory() as tmp:

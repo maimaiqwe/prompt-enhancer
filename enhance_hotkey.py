@@ -73,6 +73,7 @@ DEFAULTS = {
         "ChatGPT.exe",
         "codex.exe",
         "claude.exe",
+        "DeepSeek Harness.exe",
         "Cursor.exe",
         "gemini.exe",
         "OpenCode.exe",

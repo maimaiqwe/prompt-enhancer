@@ -285,7 +285,7 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 | `model` | `deepseek-flash` | 官方还有 `deepseek-v4-pro`，约贵 3.4~4.5 倍 |
 | `reasoning_effort` | `none` | 设为 `high` 等会重新开启思考，显著增加费用 |
 | `hotkey` | `ctrl+shift+alt+a` | 支持 `ctrl/alt/shift/win` + 字母或 `f1`~`f24` |
-| `allowed_processes` | 见配置 | 只在这些窗口生效，防误替换；默认覆盖 ChatGPT、Codex、Claude Code、Cursor、Gemini、OpenCode、Windsurf、Qoder、CodeBuddy、WorkBuddy、ZCode、Trae、IDEA |
+| `allowed_processes` | 见配置 | 只在这些窗口生效，防误替换；默认覆盖 ChatGPT、Codex、Claude Code、DeepSeek Harness、Cursor、Gemini、OpenCode、Windsurf、Qoder、CodeBuddy、WorkBuddy、ZCode、Trae、IDEA |
 | `max_tokens` | 700 | 调用模型时的通用输出上限，不是实际计费量；基础档不使用该值 |
 | `max_tokens_standard` | 900 | 标准档输出上限 |
 | `max_tokens_professional` | 1200 | 专业档输出上限，避免结构化提示词被截断 |
@@ -353,7 +353,7 @@ python test_release.py
 ## 生命周期
 
 - 开机：只启动 `watchdog.exe`，约 20~25 MB；不启动 Python 增强服务。
-- 打开默认白名单内的任一 agent（ChatGPT、Codex、Claude Code、Cursor、Gemini、OpenCode、Windsurf、Qoder、CodeBuddy、WorkBuddy、ZCode、Trae、IDEA 等）：看门狗启动 `enhance_hotkey.py`。修改 `allowed_processes` 后，看门狗会在配置变更后重新读取。
+- 打开默认白名单内的任一 agent（ChatGPT、Codex、Claude Code、DeepSeek Harness、Cursor、Gemini、OpenCode、Windsurf、Qoder、CodeBuddy、WorkBuddy、ZCode、Trae、IDEA 等）：看门狗启动 `enhance_hotkey.py`。修改 `allowed_processes` 后，看门狗会在配置变更后重新读取。
 - 关闭全部 agent：等待 8 秒后按 `enhancer.pid` 停止增强服务，并删除 PID 文件。
 - 同一安装目录只允许一个增强服务；看门狗会清理同目录重复实例。不同安装目录互不互斥，也不应共用同一个热键。
 
