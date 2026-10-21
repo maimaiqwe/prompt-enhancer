@@ -242,11 +242,15 @@ function resolveComposerBox(from) {
   if (from === null || !from.isConnected) return void 0;
   let node = from.parentElement;
   for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
-    const card = node.querySelector(CARD_SELECTOR);
-    if (card !== null) {
-      const rect = card.getBoundingClientRect();
-      if (rect.width >= MIN_WIDTH) {
-        return { left: rect.left, width: rect.width, top: rect.top };
+    const candidates = [node, node.parentElement];
+    for (const scope of candidates) {
+      if (scope === null) continue;
+      const card = scope.querySelector(CARD_SELECTOR);
+      if (card !== null) {
+        const rect = card.getBoundingClientRect();
+        if (rect.width >= MIN_WIDTH) {
+          return { left: rect.left, width: rect.width, top: rect.top };
+        }
       }
     }
     node = node.parentElement;

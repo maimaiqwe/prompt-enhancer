@@ -138,19 +138,22 @@ describe('resolveComposerBox', () => {
     expect(resolveComposerBox(null)).toBeUndefined()
   })
 
-  // The marker attribute came from the skin layer's comments; the real host
-  // does not render it, and the dock row stayed unaligned in the actual UI.
-  // Without the marker the resolver must fall back to the editable field's
-  // nearest wide, rounded ancestor — the same signals the panel anchor uses.
-  it('falls back to the editable field when the card marker is absent', () => {
+  // The host renders the seat as `composerStack > [dock rows..., card]`: the
+  // card is a SIBLING of the dock rows' wrapper, not an ancestor or a
+  // descendant. A resolver that only runs querySelector on the row's ancestors
+  // never sees it — exactly why the real UI stayed unaligned while every probe
+  // page (which nested the row inside the card) stayed green.
+  it('finds the card among the ancestors' + ' siblings, matching the host seat', () => {
     const shell = document.createElement('div')
-    const region = document.createElement('div')
+    const stack = document.createElement('div')
+    const dockWrapper = document.createElement('div')
     const row = document.createElement('div')
-    const card = measure(document.createElement('div'), 860, 120, 700)
-    const textarea = document.createElement('textarea')
-    card.append(textarea)
-    region.append(row, card)
-    shell.append(region)
+    const card = document.createElement('div')
+    card.setAttribute('data-composer-card', '')
+    measure(card, 860, 120, 700)
+    dockWrapper.append(row)
+    stack.append(dockWrapper, card)
+    shell.append(stack)
     document.body.append(shell)
 
     expect(resolveComposerBox(row)).toEqual({ left: 120, width: 860, top: 700 })

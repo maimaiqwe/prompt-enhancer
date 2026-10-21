@@ -63,12 +63,14 @@ const CARD_SELECTOR = '[data-composer-card]'
 /**
  * Find the composer card that owns a dock element.
  *
- * The dock slot sits ABOVE the card rather than inside it, so this cannot reuse
- * {@link resolveAttachBox}: there is no anchor button to walk up from. It walks
- * up from the dock row instead and, at each level, looks for a card among that
- * level's descendants. The first level that has one is the nearest seat shared
- * by the row and the card, which keeps the right card in a multi-session
- * layout where several composers are mounted at once.
+ * The dock slot is a SIBLING of the card, not its ancestor or descendant: the
+ * host renders the seat as `composerStack > [dock slot rows..., card]`, so
+ * walking up with `querySelector` alone never sees the card — it only searches
+ * descendants, and the card lives in a subtree the row's ancestors do not
+ * contain. At each level this therefore also checks the level's element itself
+ * and its sibling subtrees before moving up; the first card found belongs to
+ * the nearest seat shared by the row and the card, which keeps the right card
+ * in a multi-session layout where several composers are mounted at once.
  * @param from - the dock row (or any node in the same composer seat).
  * @returns the card's box, or undefined when no card is mounted nearby.
  */
@@ -76,21 +78,25 @@ export function resolveComposerBox(from: HTMLElement | null): AttachBox | undefi
   if (from === null || !from.isConnected) return undefined
   let node: HTMLElement | null = from.parentElement
   for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
-    const card = node.querySelector<HTMLElement>(CARD_SELECTOR)
-    if (card !== null) {
-      const rect = card.getBoundingClientRect()
-      if (rect.width >= MIN_WIDTH) {
-        return { left: rect.left, width: rect.width, top: rect.top }
+    // The card may be a descendant of this level, a sibling of it, or the
+    // level itself — all three happen across host versions.
+    const candidates: (ParentNode | null)[] = [node, node.parentElement]
+    for (const scope of candidates) {
+      if (scope === null) continue
+      const card = scope.querySelector<HTMLElement>(CARD_SELECTOR)
+      if (card !== null) {
+        const rect = card.getBoundingClientRect()
+        if (rect.width >= MIN_WIDTH) {
+          return { left: rect.left, width: rect.width, top: rect.top }
+        }
       }
     }
     node = node.parentElement
   }
-  // The `[data-composer-card]` marker came from the skin layer's comments, and
-  // the running host does not render it (the dock row stayed unaligned in the
-  // real UI even though the resolver was in place). Fall back to the same
-  // signals the panel anchor uses: the editable field's nearest wide, rounded
-  // ancestor. The dock row is NOT inside the card, so this has to start from
-  // the editable itself rather than from `from`.
+  // Hosts that render no marker at all fall back to the same signals the panel
+  // anchor uses: the editable field's nearest wide, rounded ancestor. The dock
+  // row is NOT inside the card, so this has to start from the editable itself
+  // rather than from `from`.
   const doc = from.ownerDocument
   const editable = doc.querySelector<HTMLElement>(EDITABLE)
   if (editable !== null) {
