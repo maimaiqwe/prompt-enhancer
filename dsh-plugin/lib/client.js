@@ -224,8 +224,43 @@ async function requestEnhance(body, signal) {
 
 // src/client/ResultPanel.tsx
 var import_react = require("react");
+
+// src/client/anchor.ts
+var MIN_WIDTH = 280;
+var MAX_WIDTH = 1200;
+var MAX_DEPTH = 12;
+var EDITABLE = 'textarea, [contenteditable="true"], [contenteditable=""]';
+function radiusOf(element) {
+  const view = element.ownerDocument.defaultView;
+  if (view === null) return void 0;
+  const raw = view.getComputedStyle(element).borderTopLeftRadius;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) ? value : void 0;
+}
+function resolveAttachBox(anchor) {
+  if (anchor === null || !anchor.isConnected) return void 0;
+  const doc = anchor.ownerDocument;
+  const editable = doc.querySelector(EDITABLE);
+  let node = anchor;
+  let rounded;
+  let withEditable;
+  for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
+    const rect = node.getBoundingClientRect();
+    if (rect.width > MAX_WIDTH) break;
+    if (rect.width >= MIN_WIDTH && (radiusOf(node) ?? 0) > 0) {
+      const box = { left: rect.left, width: rect.width, top: rect.top };
+      rounded = box;
+      if (editable !== null && node.contains(editable)) withEditable = box;
+    }
+    node = node.parentElement;
+  }
+  return withEditable ?? rounded;
+}
+
+// src/client/ResultPanel.tsx
 var import_jsx_runtime = require("react/jsx-runtime");
 var retryable = (code) => code === "upstream" || code === "timeout" || code === "internal";
+var MIN_PANEL_WIDTH = 320;
 var UPSTREAM_ERROR_KEYS = {
   auth: "error.upstream.auth",
   "invalid-credential": "error.upstream.invalidCredential",
@@ -277,9 +312,26 @@ function fallbackCopy(text) {
   }
 }
 function ResultPanel(props) {
-  const { state, t, onApply, onCancel, onRetry } = props;
+  const { state, t, onApply, onCancel, onRetry, anchorRef } = props;
   const [copied, setCopied] = (0, import_react.useState)("idle");
   const panelRef = (0, import_react.useRef)(null);
+  const [attach, setAttach] = (0, import_react.useState)(void 0);
+  (0, import_react.useEffect)(() => {
+    const measure = () => setAttach(resolveAttachBox(anchorRef?.current ?? null));
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [anchorRef]);
+  const attachStyle = attach === void 0 ? void 0 : {
+    left: Math.max(12, attach.left),
+    width: Math.min(attach.width, Math.max(MIN_PANEL_WIDTH, window.innerWidth - 24)),
+    bottom: Math.max(12, window.innerHeight - attach.top + 8),
+    maxHeight: Math.max(180, Math.min(640, attach.top - 24))
+  };
   (0, import_react.useEffect)(() => {
     const onKeyDown = (event) => {
       if (event.isComposing) return;
@@ -330,78 +382,84 @@ function ResultPanel(props) {
     done(fallbackCopy(text));
   }, [state.result]);
   const formatMs = (ms) => ms < 1e3 ? `${ms}ms` : `${(ms / 1e3).toFixed(1)}s`;
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-overlay", onMouseDown: (event) => {
-    if (event.target === event.currentTarget) onCancel();
-  }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-    "section",
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    "div",
     {
-      ref: panelRef,
-      className: "dsh-pe-panel",
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-label": t("panel.title"),
-      tabIndex: -1,
-      children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { className: "dsh-pe-head", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-            "\u2728 ",
-            t("panel.title")
-          ] }),
-          state.phase === "result" && state.result !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-pe-meta", children: [
-            t("panel.model", { provider: state.result.provider, model: state.result.model }),
-            " \xB7 ",
-            t("panel.elapsed", { ms: formatMs(state.result.elapsedMs) })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-close", "aria-label": t("panel.close"), onClick: onCancel, children: "\u2715" })
-        ] }),
-        state.phase === "loading" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-loading", children: state.streaming === void 0 || state.streaming === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-spin", "aria-hidden": true }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t("panel.loading") }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-hint", children: t("panel.loading.hint") })
-        ] }) : (
-          // Incremental view: the text already generated, replaced by the
-          // normalized full body the moment the call settles.
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-stream", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-col-title", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-pe-spin small", "aria-hidden": true }),
-              t("panel.streaming")
+      className: `dsh-pe-overlay${attach === void 0 ? "" : " is-anchored"}`,
+      onMouseDown: (event) => {
+        if (event.target === event.currentTarget) onCancel();
+      },
+      children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "section",
+        {
+          ref: panelRef,
+          className: "dsh-pe-panel",
+          role: "dialog",
+          "aria-modal": attach === void 0 ? "true" : void 0,
+          "aria-label": t("panel.title"),
+          tabIndex: -1,
+          style: attachStyle,
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { className: "dsh-pe-head", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-pe-head-icon", "aria-hidden": true, children: "\u2728" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-pe-head-title", children: t("panel.title") }),
+              state.phase === "result" && state.result !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-pe-meta", children: [
+                t("panel.model", { provider: state.result.provider, model: state.result.model }),
+                " \xB7 ",
+                t("panel.elapsed", { ms: formatMs(state.result.elapsedMs) })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-close", "aria-label": t("panel.close"), onClick: onCancel, children: "\u2715" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { className: "dsh-pe-col-text", children: state.streaming })
-          ] })
-        ) }),
-        state.phase === "error" && state.error !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-error", children: state.error.localized !== void 0 ? (
-          // Client-side guard failures carry their own pre-localized copy.
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: state.error.localized })
-        ) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: localizedErrorMessage(t, state.error.code, state.error.params) }),
-          state.error.message !== void 0 && state.error.message !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-error-detail", children: state.error.message })
-        ] }) }),
-        state.phase === "result" && state.result !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-body", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-col", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-col-title", children: t("panel.original") }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { className: "dsh-pe-col-text", children: state.original })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-col", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-col-title", children: t("panel.enhanced") }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { className: "dsh-pe-col-text", children: state.result.text })
-          ] })
-        ] }),
-        state.phase === "result" && state.stale && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-stale", children: [
-          "\u26A0 ",
-          t("panel.stale.warn")
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("footer", { className: "dsh-pe-foot", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-pe-grow" }),
-          state.phase === "error" && retryable(state.error?.code) && onRetry !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action plain", onClick: onRetry, children: t("panel.retry") }),
-          state.phase === "result" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action plain", onClick: copy, children: copied === "ok" ? t("panel.copied") : copied === "failed" ? t("panel.copyFailed") : t("panel.copy") }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action primary", onClick: onApply, children: t("panel.apply") })
-          ] }),
-          state.phase !== "result" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action plain", onClick: onCancel, children: state.phase === "loading" ? t("panel.cancel") : t("panel.close") })
-        ] })
-      ]
+            state.phase === "loading" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-loading", children: state.streaming === void 0 || state.streaming === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-spin", "aria-hidden": true }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: t("panel.loading") }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-hint", children: t("panel.loading.hint") })
+            ] }) : (
+              // Incremental view: the text already generated, replaced by the
+              // normalized full body the moment the call settles.
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-stream", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-col-title", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-pe-spin small", "aria-hidden": true }),
+                  t("panel.streaming")
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { className: "dsh-pe-col-text", children: state.streaming })
+              ] })
+            ) }),
+            state.phase === "error" && state.error !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-error", children: state.error.localized !== void 0 ? (
+              // Client-side guard failures carry their own pre-localized copy.
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: state.error.localized })
+            ) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: localizedErrorMessage(t, state.error.code, state.error.params) }),
+              state.error.message !== void 0 && state.error.message !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-error-detail", children: state.error.message })
+            ] }) }),
+            state.phase === "result" && state.result !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-body", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-col", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-col-title", children: t("panel.original") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { className: "dsh-pe-col-text", children: state.original })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-col", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "dsh-pe-col-title", children: t("panel.enhanced") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { className: "dsh-pe-col-text", children: state.result.text })
+              ] })
+            ] }),
+            state.phase === "result" && state.stale && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-pe-stale", children: [
+              "\u26A0 ",
+              t("panel.stale.warn")
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("footer", { className: "dsh-pe-foot", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-pe-grow" }),
+              state.phase === "error" && retryable(state.error?.code) && onRetry !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action plain", onClick: onRetry, children: t("panel.retry") }),
+              state.phase === "result" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action plain", onClick: copy, children: copied === "ok" ? t("panel.copied") : copied === "failed" ? t("panel.copyFailed") : t("panel.copy") }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action primary", onClick: onApply, children: t("panel.apply") })
+              ] }),
+              state.phase !== "result" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-pe-btn-action plain", onClick: onCancel, children: state.phase === "loading" ? t("panel.cancel") : t("panel.close") })
+            ] })
+          ]
+        }
+      )
     }
-  ) });
+  );
 }
 
 // src/client/TierMenu.tsx
@@ -466,99 +524,113 @@ function decodeClientSettings(section) {
 }
 
 // src/client/tier-store.ts
-var tierOverrides = /* @__PURE__ */ new Map();
-var contextOverrides = /* @__PURE__ */ new Map();
-var STORAGE_KEY = "dsh-prompt-enhance:overrides:v1";
+var DEFAULT_KEY = "dsh-prompt-enhance:default-tier:v1";
+var SESSION_KEY = "dsh-prompt-enhance:session-picks:v1";
+var LEGACY_KEY = "dsh-prompt-enhance:overrides:v1";
 var MAX_ENTRIES = 64;
-function storageOf() {
+var picks = /* @__PURE__ */ new Map();
+var defaultTier;
+function storageOf(kind) {
   try {
-    return typeof localStorage === "undefined" ? void 0 : localStorage;
+    const store = kind === "local" ? globalThis.localStorage : globalThis.sessionStorage;
+    return store ?? void 0;
   } catch {
     return void 0;
   }
 }
+function readJson(store, key) {
+  if (store === void 0) return void 0;
+  try {
+    const raw = store.getItem(key);
+    if (raw === null || raw === "") return void 0;
+    return JSON.parse(raw);
+  } catch {
+    return void 0;
+  }
+}
+function writeJson(store, key, value) {
+  if (store === void 0) return;
+  try {
+    store.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
 function hydrate() {
-  const store = storageOf();
-  if (store === void 0) return;
-  let parsed;
+  const local = storageOf("local");
+  const stored = readJson(local, DEFAULT_KEY);
+  defaultTier = typeof stored === "string" ? normalizeTier(stored, DEFAULT_TIER) : void 0;
   try {
-    const raw = store.getItem(STORAGE_KEY);
-    if (raw === null || raw === "") return;
-    parsed = JSON.parse(raw);
-  } catch {
-    return;
-  }
-  for (const [sessionId, value] of Object.entries(parsed.tier ?? {})) {
-    tierOverrides.set(sessionId, normalizeTier(value, DEFAULT_TIER));
-  }
-  for (const [sessionId, value] of Object.entries(parsed.context ?? {})) {
-    if (typeof value === "boolean") contextOverrides.set(sessionId, value);
-  }
-}
-function persist() {
-  const store = storageOf();
-  if (store === void 0) return;
-  const blob = {
-    tier: Object.fromEntries(tierOverrides),
-    context: Object.fromEntries(contextOverrides)
-  };
-  try {
-    store.setItem(STORAGE_KEY, JSON.stringify(blob));
+    local?.removeItem(LEGACY_KEY);
   } catch {
   }
-}
-function prune(map) {
-  while (map.size > MAX_ENTRIES) {
-    const oldest = map.keys().next();
-    if (oldest.done === true) return;
-    map.delete(oldest.value);
+  const entries = readJson(storageOf("session"), SESSION_KEY);
+  for (const [sessionId, value] of Object.entries(entries ?? {})) {
+    if (value === null || typeof value !== "object") continue;
+    const record = value;
+    const pick = {};
+    if (typeof record.tier === "string") pick.tier = normalizeTier(record.tier, DEFAULT_TIER);
+    if (typeof record.context === "boolean") pick.context = record.context;
+    if (pick.tier !== void 0 || pick.context !== void 0) picks.set(sessionId, pick);
   }
+}
+function persistPicks() {
+  while (picks.size > MAX_ENTRIES) {
+    const oldest = picks.keys().next();
+    if (oldest.done === true) break;
+    picks.delete(oldest.value);
+  }
+  writeJson(storageOf("session"), SESSION_KEY, Object.fromEntries(picks));
+}
+function touch(sessionId, next) {
+  picks.delete(sessionId);
+  if (next.tier !== void 0 || next.context !== void 0) picks.set(sessionId, next);
+  persistPicks();
+  notify();
 }
 hydrate();
 var listeners2 = /* @__PURE__ */ new Set();
 var version = 0;
-function effectiveTier(sessionId) {
-  const override = tierOverrides.get(sessionId);
-  if (override !== void 0) return override;
+function defaultTierOf() {
+  if (defaultTier !== void 0) return defaultTier;
   return normalizeTier(getClientSettings().defaultTier, DEFAULT_TIER);
+}
+function tierCanBeDefault(tier) {
+  return tier !== "system";
+}
+function effectiveTier(sessionId) {
+  return picks.get(sessionId)?.tier ?? defaultTierOf();
 }
 function effectiveUseContext(sessionId) {
   if (!getClientSettings().contextAware) return false;
   const tier = effectiveTier(sessionId);
   if (!tierAllowsContext(tier)) return false;
-  const override = contextOverrides.get(sessionId);
-  if (override !== void 0) return override;
-  return TIER_CONTEXT_PRESET[tier].useContext;
+  return picks.get(sessionId)?.context ?? TIER_CONTEXT_PRESET[tier].useContext;
+}
+function hasSessionPick(sessionId) {
+  return picks.get(sessionId) !== void 0;
 }
 function tierAllowsContext(tier) {
   return TIER_CONTEXT_PRESET[tier].useContext;
 }
 function selectTier(sessionId, tier) {
-  tierOverrides.delete(sessionId);
-  tierOverrides.set(sessionId, tier);
-  contextOverrides.delete(sessionId);
-  prune(tierOverrides);
-  persist();
-  notify();
+  touch(sessionId, { ...picks.get(sessionId), tier });
 }
 function selectUseContext(sessionId, value) {
-  contextOverrides.delete(sessionId);
-  contextOverrides.set(sessionId, value);
-  prune(contextOverrides);
-  persist();
+  touch(sessionId, { ...picks.get(sessionId), context: value });
+}
+function setDefaultTier(tier) {
+  if (!tierCanBeDefault(tier)) return false;
+  defaultTier = tier;
+  writeJson(storageOf("local"), DEFAULT_KEY, tier);
+  void persistWriter?.(tier);
   notify();
+  return true;
 }
 function registerTierPersist(writer) {
   persistWriter = writer;
   notify();
 }
 var persistWriter;
-function canPersistTier() {
-  return persistWriter !== void 0;
-}
-function persistDefaultTier(tier) {
-  return persistWriter?.(tier);
-}
 function subscribe(listener) {
   listeners2.add(listener);
   return () => {
@@ -596,17 +668,17 @@ var HINT_KEY = {
 function TierMenu({ sessionKey, t }) {
   (0, import_react2.useSyncExternalStore)(subscribe, getVersion);
   const masterSettings = (0, import_react2.useSyncExternalStore)(subscribeClientSettings, getClientSettings);
-  const canPin = canPersistTier();
   const tier = effectiveTier(sessionKey);
   const useContext = effectiveUseContext(sessionKey);
+  const pinnedDefault = defaultTierOf();
+  const temporary = hasSessionPick(sessionKey) && tier !== pinnedDefault;
   const contextLock = !masterSettings.contextAware ? t("tier.menu.context.locked") : tierAllowsContext(tier) ? void 0 : t("tier.menu.context.tierlocked");
   const detailsRef = (0, import_react2.useRef)(null);
   const titleId = (0, import_react2.useId)();
+  const groupName = `${(0, import_react2.useId)()}-default`;
   const menuRef = (0, import_react2.useRef)(null);
-  const [pinned, setPinned] = (0, import_react2.useState)(false);
   const close = (0, import_react2.useCallback)(() => {
     if (detailsRef.current !== null) detailsRef.current.open = false;
-    setPinned(false);
   }, []);
   (0, import_react2.useEffect)(() => {
     const onPointerDown = (event) => {
@@ -629,10 +701,7 @@ function TierMenu({ sessionKey, t }) {
     const root = detailsRef.current;
     if (root === null) return;
     const onToggle = () => {
-      if (!root.open) {
-        setPinned(false);
-        return;
-      }
+      if (!root.open) return;
       const first = menuRef.current?.querySelector("button");
       if (first instanceof HTMLElement) first.focus();
     };
@@ -643,15 +712,14 @@ function TierMenu({ sessionKey, t }) {
   }, []);
   const pick = (0, import_react2.useCallback)((next) => {
     selectTier(sessionKey, next);
-    close();
-  }, [sessionKey, close]);
+  }, [sessionKey]);
+  const makeDefault = (0, import_react2.useCallback)((next) => {
+    if (!setDefaultTier(next)) return;
+    selectTier(sessionKey, next);
+  }, [sessionKey]);
   const toggleContext = (0, import_react2.useCallback)((event) => {
     selectUseContext(sessionKey, event.target.checked === true);
   }, [sessionKey]);
-  const pinDefault = (0, import_react2.useCallback)(() => {
-    void persistDefaultTier(tier);
-    setPinned(true);
-  }, [tier]);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("details", { className: "dsh-pe-tier", ref: detailsRef, children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       "summary",
@@ -667,24 +735,49 @@ function TierMenu({ sessionKey, t }) {
     ),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-pe-tier-menu", ref: menuRef, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-title", id: titleId, children: t("tier.menu.title") }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { role: "radiogroup", "aria-labelledby": titleId, children: TIERS.map((option) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-        "button",
-        {
-          type: "button",
-          role: "radio",
-          "aria-checked": option === tier,
-          className: `dsh-pe-tier-item${option === tier ? " is-active" : ""}`,
-          onClick: () => pick(option),
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsh-pe-tier-item-head", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-badge", "aria-hidden": true, children: BADGE[option] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-item-name", children: t(NAME_KEY[option]) })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-item-hint", children: t(HINT_KEY[option]) })
-          ]
-        },
-        option
-      )) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-legend", children: t("tier.menu.legend") }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { role: "radiogroup", "aria-labelledby": titleId, children: TIERS.map((option) => {
+        const pinnable = tierCanBeDefault(option);
+        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-pe-tier-row${option === tier ? " is-active" : ""}`, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+            "button",
+            {
+              type: "button",
+              role: "radio",
+              "aria-checked": option === tier,
+              "aria-label": `${t(NAME_KEY[option])}\uFF1A${t(HINT_KEY[option])}`,
+              className: "dsh-pe-tier-item",
+              onClick: () => pick(option),
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "dsh-pe-tier-item-head", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-badge", "aria-hidden": true, children: BADGE[option] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-item-name", children: t(NAME_KEY[option]) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-mark", "aria-hidden": true, children: "\u2713" })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-item-hint", children: t(HINT_KEY[option]) })
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "label",
+            {
+              className: `dsh-pe-tier-default${pinnable ? "" : " is-locked"}`,
+              title: pinnable ? t("tier.menu.default") : t("tier.menu.default.systemBlocked"),
+              children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "radio",
+                  name: groupName,
+                  checked: option === pinnedDefault,
+                  disabled: !pinnable,
+                  onChange: () => makeDefault(option),
+                  "aria-label": `${t("tier.menu.default")}\uFF1A${t(NAME_KEY[option])}`
+                }
+              )
+            }
+          )
+        ] }, option);
+      }) }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
         "label",
         {
@@ -704,13 +797,7 @@ function TierMenu({ sessionKey, t }) {
           ]
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", children: pinned ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-pinned", role: "status", children: t("tier.menu.default.done") }) : canPin && tier !== "system" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dsh-pe-tier-pin", onClick: pinDefault, children: t("tier.menu.default") }) : canPin ? (
-        // 系统 is a whole system prompt: pinning it would turn every later
-        // enhancement (shortcut and /enhance included) into a persona
-        // rewrite, so the hotkey layer refuses it too. Saying why beats
-        // hiding the button and leaving the omission unexplained.
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-pinned", children: t("tier.menu.default.systemBlocked") })
-      ) : null })
+      temporary ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", role: "status", children: t("tier.menu.session", { tier: t(NAME_KEY[tier]) }) }) : null
     ] })
   ] });
 }
@@ -933,6 +1020,13 @@ function undoTarget() {
 var import_react3 = require("react");
 var fallbackSeq = 0;
 var zoneKeys = /* @__PURE__ */ new WeakMap();
+function hostSessionIdOf(sources) {
+  const fromSnapshot = sources.session?.sessionId;
+  if (typeof fromSnapshot === "string" && fromSnapshot !== "") return fromSnapshot;
+  const direct = sources.sessionId;
+  if (typeof direct === "string" && direct !== "") return direct;
+  return void 0;
+}
 function fallbackKeyOf(share) {
   if (share === void 0) return `pe:mount:${++fallbackSeq}`;
   const known = zoneKeys.get(share);
@@ -941,14 +1035,15 @@ function fallbackKeyOf(share) {
   zoneKeys.set(share, minted);
   return minted;
 }
-function useSessionKey(maybeSessionId, share) {
+function useSessionKey(sources, share) {
+  const real = hostSessionIdOf(sources);
   const fallback = (0, import_react3.useRef)(void 0);
-  if (maybeSessionId !== void 0 && maybeSessionId !== "") return maybeSessionId;
+  if (real !== void 0) return real;
   if (fallback.current === void 0) fallback.current = fallbackKeyOf(share);
   return fallback.current;
 }
-function serverSessionId(maybeSessionId) {
-  return maybeSessionId !== void 0 && maybeSessionId !== "" ? maybeSessionId : void 0;
+function serverSessionId(sources) {
+  return hostSessionIdOf(sources);
 }
 
 // src/client/EnhanceButton.tsx
@@ -960,9 +1055,10 @@ function stringOf(value) {
   return typeof value === "string" ? value : "";
 }
 function EnhanceButton(props) {
-  const { t, sessionId, useInput, inputActions } = props;
-  const uiKey = useSessionKey(sessionId, inputActions);
-  const wireId = serverSessionId(sessionId);
+  const { t, sessionId, session, useInput, inputActions } = props;
+  const sources = { sessionId, session };
+  const uiKey = useSessionKey(sources, inputActions);
+  const wireId = serverSessionId(sources);
   const draft = useInput((state) => stringOf(state.draft));
   const phase = useInput((state) => state.phase);
   const occurrenceCount = useInput((state) => countOf(state.occurrences));
@@ -1117,6 +1213,7 @@ function EnhanceButton(props) {
         {
           state: owned,
           t,
+          anchorRef: rootRef,
           onApply: apply2,
           onCancel: () => closePanel(),
           onRetry: owned.phase === "error" ? start : void 0
@@ -1150,8 +1247,8 @@ function useElapsedSeconds(active) {
   return seconds;
 }
 function UndoBar(props) {
-  const { t, sessionId, useInput, inputActions } = props;
-  const uiKey = useSessionKey(sessionId, inputActions);
+  const { t, sessionId, session, useInput, inputActions } = props;
+  const uiKey = useSessionKey({ sessionId, session }, inputActions);
   const draft = useInput((state) => {
     const value = state.draft;
     return typeof value === "string" ? value : "";
@@ -1268,12 +1365,13 @@ var zh = {
   "error.upstream.toolCall": "\u6A21\u578B\u8BF7\u6C42\u4E86\u5DE5\u5177\u8C03\u7528\uFF0C\u63D0\u793A\u8BCD\u589E\u5F3A\u53EA\u9700\u8981\u7EAF\u6587\u672C\uFF1B\u8BF7\u66F4\u6362\u6A21\u578B\u540E\u91CD\u8BD5\u3002",
   "error.upstream.maxTokens": "\u91CD\u5199\u7ED3\u679C\u8FBE\u5230\u8F93\u51FA\u4E0A\u9650\uFF08maxOutputTokens\uFF09\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u8C03\u5927\u4E0A\u9650\u6216\u7CBE\u7B80\u539F\u6587\u540E\u91CD\u8BD5\u3002",
   "tier.menu.title": "\u589E\u5F3A\u6863\u4F4D",
+  "tier.menu.legend": "\u70B9\u6863\u4F4D\uFF1D\u53EA\u5728\u672C\u4F1A\u8BDD\u4E34\u65F6\u7528\uFF1B\u52FE\u53F3\u4FA7\u5706\u70B9\uFF1D\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
+  "tier.menu.session": "\u672C\u4F1A\u8BDD\u4E34\u65F6\u4F7F\u7528\u300C{tier}\u300D\uFF0C\u5173\u95ED DSH \u540E\u56DE\u5230\u9ED8\u8BA4\u6863\u3002",
   "tier.menu.context": "\u7ED3\u5408\u4E0A\u4E0B\u6587",
   "tier.menu.context.hint": "\u5141\u8BB8\u8BFB\u53D6\u672C\u4F1A\u8BDD\u6700\u8FD1\u51E0\u6761\u6D88\u606F\u6765\u6D88\u89E3\u6307\u4EE3\u3001\u8865\u5168\u672F\u8BED\uFF1B\u5173\u95ED\u540E\u53EA\u6539\u8349\u7A3F\u672C\u8EAB\u3002",
   "tier.menu.context.locked": "\u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u300C\u4E0A\u4E0B\u6587\u611F\u77E5\u300D\u5DF2\u5173\u95ED\uFF0C\u8FD9\u91CC\u6682\u4E0D\u53EF\u7528\u3002",
   "tier.menu.context.tierlocked": "\u57FA\u7840\u6863\u53EA\u505A\u8F7B\u5EA6\u7406\u987A\u3001\u4E0D\u6269\u5199\uFF0C\u56E0\u6B64\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\u3002",
   "tier.menu.default": "\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
-  "tier.menu.default.done": "\u5DF2\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.menu.default.systemBlocked": "\u7CFB\u7EDF\u6863\u4E0D\u80FD\u8BBE\u4E3A\u9ED8\u8BA4\uFF08\u4F1A\u6539\u6389\u6BCF\u6B21\u589E\u5F3A\u7684\u4EBA\u8BBE\uFF09",
   "tier.base": "\u57FA\u7840",
   "tier.base.hint": "\u672C\u5730\u6574\u7406\uFF0C\u4E0D\u8C03\u7528\u6A21\u578B\uFF1A\u53EA\u7406\u987A\u7A7A\u683C\u3001\u6807\u70B9\u4E0E\u53E3\u5934\u7985\uFF0C\u4E0D\u6269\u5199\u3001\u4E0D\u91CD\u6392\u7ED3\u6784\u3002",
@@ -1336,12 +1434,13 @@ var en = {
   "error.upstream.toolCall": "The model requested tool calls, but prompt enhance needs plain text \u2014 switch models and retry.",
   "error.upstream.maxTokens": "The rewrite hit the output cap (maxOutputTokens) \u2014 raise it in settings or shorten the draft.",
   "tier.menu.title": "Enhancement tier",
+  "tier.menu.legend": "Click a tier to use it in this conversation only; tick the dot to make it the default.",
+  "tier.menu.session": "Using \u201C{tier}\u201D in this conversation only \u2014 the default returns when DSH closes.",
   "tier.menu.context": "Use conversation context",
   "tier.menu.context.hint": "Lets the rewrite read the last few messages of this conversation to resolve references and fill in established terms. Off means the draft alone is rewritten.",
   "tier.menu.context.locked": "Context awareness is switched off in the plugin settings, so this toggle is unavailable.",
   "tier.menu.context.tierlocked": "The basic tier only tidies the wording and never expands, so it does not read context.",
   "tier.menu.default": "Set as default tier",
-  "tier.menu.default.done": "Set as the default tier",
   "tier.menu.default.systemBlocked": "System cannot be the default \u2014 it would reset the persona on every enhancement",
   "tier.base": "Basic",
   "tier.base.hint": "Local tidy-up, no model call: spaces, punctuation and verbal tics only \u2014 no expansion, no restructuring.",
@@ -1359,6 +1458,486 @@ var NS = "prompt-enhance";
 // src/client/styles.ts
 var STYLE_ID = "dsh-prompt-enhance-styles";
 var CSS = `
+/* ---- tokens -------------------------------------------------------------
+   Declared on every root the plugin owns. The composer slot has no host
+   variables of its own, so anything read outside these roots carries a
+   literal fallback as well. The tier root is listed in its own right: the
+   popover is rendered inside the composer cluster today, but a menu that
+   only inherits its palette from that wrapper would paint itself with the
+   light fallbacks the moment it is mounted anywhere else. */
+.dsh-pe-cluster,
+.dsh-pe-tier,
+.dsh-pe-panel,
+.dsh-pe-undo,
+.dsh-pe-working,
+.dsh-pe-notice {
+  --pe-surface: #ffffff;
+  --pe-surface-2: #f7f8fa;
+  --pe-surface-3: #eef0f4;
+  --pe-fg: #0f1115;
+  --pe-fg-2: #5f6673;
+  --pe-fg-3: #8b919c;
+  --pe-line: rgba(9, 11, 15, 0.1);
+  --pe-line-2: rgba(9, 11, 15, 0.18);
+  --pe-hover: rgba(9, 11, 15, 0.045);
+  --pe-ink: #12141a;
+  --pe-on-ink: #ffffff;
+  --pe-accent: #4a5bd6;
+  --pe-accent-soft: rgba(74, 91, 214, 0.1);
+  --pe-accent-line: rgba(74, 91, 214, 0.28);
+  --pe-danger: #b42318;
+  --pe-danger-soft: rgba(180, 35, 24, 0.08);
+  --pe-ok: #1c7a52;
+  --pe-warn-fg: #8a5a00;
+  --pe-warn-line: rgba(176, 122, 0, 0.28);
+  --pe-warn-bg: rgba(230, 158, 60, 0.1);
+  --pe-radius-lg: 14px;
+  --pe-radius-md: 10px;
+  --pe-radius-sm: 7px;
+  /* One lift, used only by surfaces that float: a wide soft drop plus a
+     hairline ring, so the edge stays crisp at any zoom instead of blurring
+     into the page. */
+  --pe-shadow-float: 0 1px 2px rgba(9, 11, 15, 0.06),
+    0 12px 28px -10px rgba(9, 11, 15, 0.2),
+    0 0 0 1px rgba(9, 11, 15, 0.06);
+  --pe-shadow-panel: 0 2px 4px rgba(9, 11, 15, 0.05),
+    0 24px 48px -18px rgba(9, 11, 15, 0.22),
+    0 0 0 1px rgba(9, 11, 15, 0.07);
+  --pe-ring: rgba(74, 91, 214, 0.32);
+  --pe-ease: 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --pe-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --pe-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dsh-pe-cluster,
+  .dsh-pe-tier,
+  .dsh-pe-panel,
+  .dsh-pe-undo,
+  .dsh-pe-working,
+  .dsh-pe-notice {
+    --pe-surface: #191b20;
+    --pe-surface-2: #212429;
+    --pe-surface-3: #2a2e35;
+    --pe-fg: #e9ecf2;
+    --pe-fg-2: #a4abb8;
+    --pe-fg-3: #7d8492;
+    --pe-line: rgba(255, 255, 255, 0.1);
+    --pe-line-2: rgba(255, 255, 255, 0.19);
+    --pe-hover: rgba(255, 255, 255, 0.06);
+    --pe-ink: #e9ecf2;
+    --pe-on-ink: #14161a;
+    --pe-accent: #9aa6ff;
+    --pe-accent-soft: rgba(154, 166, 255, 0.14);
+    --pe-accent-line: rgba(154, 166, 255, 0.32);
+    --pe-danger: #ff9a90;
+    --pe-danger-soft: rgba(255, 154, 144, 0.12);
+    --pe-ok: #6ddba4;
+    --pe-warn-fg: #e5c07b;
+    --pe-warn-line: rgba(229, 192, 123, 0.3);
+    --pe-warn-bg: rgba(229, 192, 123, 0.12);
+    --pe-shadow-float: 0 1px 2px rgba(0, 0, 0, 0.4),
+      0 12px 28px -10px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.07);
+    --pe-shadow-panel: 0 2px 4px rgba(0, 0, 0, 0.4),
+      0 24px 48px -18px rgba(0, 0, 0, 0.66),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    --pe-ring: rgba(154, 166, 255, 0.38);
+  }
+}
+
+/* ---- focus ---------------------------------------------------------------
+   One focus treatment for everything clickable. It never shifts layout, and it
+   only appears for keyboard users, so a mouse click does not leave a ring
+   behind on the composer. */
+.dsh-pe-cluster :focus-visible,
+.dsh-pe-panel :focus-visible,
+.dsh-pe-undo :focus-visible,
+.dsh-pe-working :focus-visible,
+.dsh-pe-notice :focus-visible {
+  outline: 2px solid var(--pe-ring);
+  outline-offset: 2px;
+}
+
+/* ---- composer cluster ----------------------------------------------------
+   The tier capsule and the \u2728 button are one control group: they share a
+   height, a radius and a hover treatment, so the row reads as a unit rather
+   than two unrelated chips. */
+.dsh-pe-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--pe-font);
+}
+
+.dsh-pe-tier { position: relative; display: inline-flex; }
+.dsh-pe-tier > summary { list-style: none; }
+.dsh-pe-tier > summary::-webkit-details-marker { display: none; }
+
+.dsh-pe-tier-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 7px 0 6px;
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  border-radius: var(--pe-radius-sm, 7px);
+  background: var(--pe-surface, #ffffff);
+  color: var(--pe-fg-2, #5f6673);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--pe-ease, 140ms ease),
+    border-color var(--pe-ease, 140ms ease),
+    color var(--pe-ease, 140ms ease);
+}
+.dsh-pe-tier-btn:hover {
+  border-color: var(--pe-line-2, rgba(9, 11, 15, 0.18));
+  color: var(--pe-fg, #0f1115);
+}
+.dsh-pe-tier[open] > .dsh-pe-tier-btn {
+  border-color: var(--pe-line-2, rgba(9, 11, 15, 0.18));
+  color: var(--pe-fg, #0f1115);
+  background: var(--pe-surface-2, #f7f8fa);
+}
+
+.dsh-pe-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  background: var(--pe-surface-3, #eef0f4);
+  color: var(--pe-fg-2, #5f6673);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  transition: background var(--pe-ease, 140ms ease),
+    color var(--pe-ease, 140ms ease);
+}
+/* The caret is drawn, not a glyph: at 9px the font version sat on the
+   baseline and read as a stray comma. */
+.dsh-pe-tier-caret {
+  width: 7px;
+  height: 7px;
+  border-right: 1.4px solid currentColor;
+  border-bottom: 1.4px solid currentColor;
+  transform: translateY(-1.5px) rotate(45deg);
+  opacity: 0.55;
+  transition: transform var(--pe-ease, 140ms ease);
+}
+.dsh-pe-tier[open] > .dsh-pe-tier-btn > .dsh-pe-tier-caret {
+  transform: translateY(1px) rotate(225deg);
+}
+
+/* ---- tier popover --------------------------------------------------------
+   324px: wide enough that an 11px Chinese hint holds two lines, narrow enough
+   to sit under the capsule without covering the composer. */
+.dsh-pe-tier-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  /* The capsule sits at the right edge of the composer, so the menu grows
+     leftward; anchoring at left:0 would push it off-screen. */
+  left: auto;
+  right: 0;
+  z-index: 40;
+  width: 324px;
+  padding: 6px;
+  border-radius: var(--pe-radius-lg, 14px);
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  background: var(--pe-surface, #ffffff);
+  color: var(--pe-fg, #0f1115);
+  box-shadow: var(--pe-shadow-float, 0 12px 28px -10px rgba(9, 11, 15, 0.2));
+  font-size: 12px;
+  font-family: var(--pe-font);
+  transform-origin: bottom right;
+  animation: dsh-pe-pop-in var(--pe-ease, 140ms ease);
+}
+
+.dsh-pe-tier-title {
+  padding: 6px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pe-fg-3, #8b919c);
+}
+
+.dsh-pe-tier-legend {
+  padding: 0 8px 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--pe-fg-3, #8b919c);
+}
+
+.dsh-pe-tier-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  border-radius: var(--pe-radius-md, 10px);
+}
+.dsh-pe-tier-row:hover { background: var(--pe-hover, rgba(9, 11, 15, 0.045)); }
+.dsh-pe-tier-row.is-active {
+  background: var(--pe-surface-2, #f7f8fa);
+  box-shadow: inset 2px 0 0 var(--pe-accent, #4a5bd6);
+}
+
+.dsh-pe-tier-item {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 9px;
+  border: none;
+  border-radius: var(--pe-radius-md, 10px);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.dsh-pe-tier-item-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pe-fg, #0f1115);
+}
+.dsh-pe-tier-row.is-active .dsh-pe-tier-badge {
+  background: var(--pe-accent-soft, rgba(74, 91, 214, 0.1));
+  color: var(--pe-accent, #4a5bd6);
+}
+/* The tick is decoration for the checked row: the radio group already exposes
+   the state, so it is aria-hidden in the markup. */
+.dsh-pe-tier-mark {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--pe-accent, #4a5bd6);
+  opacity: 0;
+  transition: opacity var(--pe-ease, 140ms ease);
+}
+.dsh-pe-tier-item[aria-checked='true'] .dsh-pe-tier-mark { opacity: 1; }
+.dsh-pe-tier-item-hint {
+  display: block;
+  margin-top: 3px;
+  padding-left: 24px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--pe-fg-3, #8b919c);
+}
+
+/* Native radio / checkbox restyled rather than replaced: the tests and the
+   keyboard both address them by role, and appearance:none keeps that working
+   while letting the control share the palette. */
+.dsh-pe-tier-default {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  flex: none;
+  border-radius: var(--pe-radius-md, 10px);
+  cursor: pointer;
+}
+.dsh-pe-tier-default:hover { background: var(--pe-hover, rgba(9, 11, 15, 0.045)); }
+.dsh-pe-tier-default.is-locked { opacity: 0.4; cursor: not-allowed; }
+.dsh-pe-tier-default.is-locked:hover { background: transparent; }
+
+.dsh-pe-tier-default input,
+.dsh-pe-tier-context input {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 1px solid var(--pe-line-2, rgba(9, 11, 15, 0.18));
+  background: var(--pe-surface, #ffffff);
+  cursor: pointer;
+  transition: border-color var(--pe-ease, 140ms ease),
+    background var(--pe-ease, 140ms ease);
+}
+.dsh-pe-tier-default input { border-radius: 50%; }
+.dsh-pe-tier-default input:checked {
+  border-color: var(--pe-accent, #4a5bd6);
+  background: radial-gradient(
+    circle,
+    var(--pe-accent, #4a5bd6) 0 3.5px,
+    transparent 4px
+  );
+}
+.dsh-pe-tier-default input:disabled,
+.dsh-pe-tier-context input:disabled { cursor: not-allowed; }
+
+.dsh-pe-tier-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 9px;
+  border-top: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  font-size: 12px;
+  color: var(--pe-fg, #0f1115);
+  cursor: pointer;
+}
+.dsh-pe-tier-context:hover { background: var(--pe-hover, rgba(9, 11, 15, 0.045)); }
+.dsh-pe-tier-context input { border-radius: 4px; }
+.dsh-pe-tier-context input:checked {
+  border-color: var(--pe-ink, #12141a);
+  background-color: var(--pe-ink, #12141a);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.2 2.2 4.8-5' fill='none' stroke='%23ffffff' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 11px 11px;
+}
+.dsh-pe-tier-context.is-locked { opacity: 0.5; cursor: not-allowed; }
+.dsh-pe-tier-context.is-locked:hover { background: transparent; }
+
+.dsh-pe-tier-foot {
+  margin-top: 4px;
+  padding: 8px 9px 4px;
+  border-top: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--pe-fg-3, #8b919c);
+}
+
+/* ---- \u2728 button ----------------------------------------------------------- */
+.dsh-pe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--pe-radius-sm, 7px);
+  background: transparent;
+  color: var(--pe-fg-2, #5f6673);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--pe-ease, 140ms ease),
+    border-color var(--pe-ease, 140ms ease);
+}
+.dsh-pe-btn:hover:not(:disabled):not([aria-disabled='true']) {
+  background: var(--pe-hover, rgba(9, 11, 15, 0.045));
+  border-color: var(--pe-line, rgba(9, 11, 15, 0.1));
+}
+.dsh-pe-btn:disabled,
+.dsh-pe-btn[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+/* The busy icon is the ring itself and rotates by its own rule. Rotating this
+   wrapper as well would spin it twice, and the old dotted-circle glyph it used
+   to hold is rotationally symmetric \u2014 animating it looked frozen. */
+.dsh-pe-btn.is-busy .dsh-pe-btn-icon { display: inline-flex; align-items: center; }
+.dsh-pe-ring-sm { width: 12px; height: 12px; }
+
+/* ---- dock rows ------------------------------------------------------------
+   One quiet line above the composer. Same height and same icon column for the
+   working, applied and failed states, so the composer never jumps when one
+   replaces another. */
+.dsh-pe-undo,
+.dsh-pe-working,
+.dsh-pe-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  padding: 1px 2px;
+  font-size: 12px;
+  font-family: var(--pe-font);
+  color: var(--pe-fg-2, #5f6673);
+}
+.dsh-pe-undo .dsh-pe-undo-check { color: var(--pe-ok, #1c7a52); font-size: 11px; }
+.dsh-pe-undo-link {
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  background: var(--pe-surface, #ffffff);
+  color: var(--pe-fg, #0f1115);
+  border-radius: 6px;
+  padding: 2px 9px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background var(--pe-ease, 140ms ease),
+    border-color var(--pe-ease, 140ms ease);
+}
+.dsh-pe-undo-link:hover {
+  border-color: var(--pe-line-2, rgba(9, 11, 15, 0.18));
+  background: var(--pe-surface-2, #f7f8fa);
+}
+.dsh-pe-undo-x,
+.dsh-pe-working-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 5px;
+  font-size: 11px;
+  transition: opacity var(--pe-ease, 140ms ease),
+    background var(--pe-ease, 140ms ease);
+}
+.dsh-pe-undo-x:hover,
+.dsh-pe-working-x:hover {
+  opacity: 1;
+  background: var(--pe-hover, rgba(9, 11, 15, 0.045));
+}
+.dsh-pe-undo-hint { font-size: 11px; color: var(--pe-fg-3, #8b919c); }
+
+.dsh-pe-working-label { flex: 1; min-width: 0; }
+.dsh-pe-working-elapsed {
+  font-size: 11px;
+  color: var(--pe-fg-3, #8b919c);
+  font-variant-numeric: tabular-nums;
+}
+/* A real ring: a font glyph that is rotationally symmetric looks frozen when
+   it spins. */
+.dsh-pe-ring {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: dsh-pe-spin 0.8s linear infinite;
+  opacity: 0.7;
+}
+
+/* Failure line: only the icon carries colour, so a wall of red copy does not
+   fight the composer underneath. */
+.dsh-pe-notice { color: var(--pe-fg, #0f1115); }
+.dsh-pe-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pe-danger-soft, rgba(180, 35, 24, 0.08));
+  color: var(--pe-danger, #b42318);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex: none;
+}
+.dsh-pe-notice-text { flex: 1; min-width: 0; }
+
+/* ---- preview panel -------------------------------------------------------
+   Two placements. Standalone (no composer to attach to): a centred sheet over
+   a light scrim. Anchored: the panel hangs directly above the composer card,
+   matching its width and horizontal edges, so the result reads as an
+   extension of the box the user was typing in. */
 .dsh-pe-overlay {
   position: fixed;
   inset: 0;
@@ -1366,61 +1945,103 @@ var CSS = `
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.32);
-  padding: 24px 16px;
+  background: rgba(9, 11, 15, 0.14);
+  padding: 24px;
+  animation: dsh-pe-fade-in var(--pe-ease, 140ms ease);
 }
+/* Anchored mode is not modal: the user is still looking at the composer it
+   belongs to, so there is nothing to dim. The overlay stays click-to-close. */
+.dsh-pe-overlay.is-anchored {
+  display: block;
+  padding: 0;
+  background: transparent;
+  animation: none;
+}
+
 .dsh-pe-panel {
-  --pe-bg: #1f2127;
-  --pe-fg: #e6e8ee;
-  --pe-fg-dim: rgba(230, 232, 238, 0.55);
-  --pe-border: rgba(127, 127, 127, 0.35);
-  --pe-separator: rgba(127, 127, 127, 0.25);
-  --pe-hover: rgba(127, 127, 127, 0.18);
-  --pe-danger: #ffb4a8;
-  --pe-warn-fg: #e8c07d;
-  --pe-warn-border: rgba(230, 158, 60, 0.35);
-  --pe-warn-bg: rgba(230, 158, 60, 0.12);
   display: flex;
   flex-direction: column;
   width: min(880px, 100%);
   max-height: min(70vh, 640px);
-  border-radius: 12px;
-  border: 1px solid var(--pe-border);
-  background: var(--pe-bg);
-  color: var(--pe-fg);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  border-radius: var(--pe-radius-lg, 14px);
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  background: var(--pe-surface, #ffffff);
+  color: var(--pe-fg, #0f1115);
+  box-shadow: var(--pe-shadow-panel, 0 24px 48px -18px rgba(9, 11, 15, 0.22));
   overflow: hidden;
   outline: none;
+  font-family: var(--pe-font);
 }
-@media (prefers-color-scheme: light) {
-  .dsh-pe-panel {
-    --pe-bg: #ffffff;
-    --pe-fg: #1c1e24;
-    --pe-fg-dim: rgba(28, 30, 36, 0.55);
-    --pe-border: rgba(0, 0, 0, 0.18);
-    --pe-separator: rgba(0, 0, 0, 0.12);
-    --pe-hover: rgba(0, 0, 0, 0.08);
-    --pe-danger: #a63a2e;
-    --pe-warn-fg: #8a5a00;
-    --pe-warn-border: rgba(176, 122, 0, 0.4);
-    --pe-warn-bg: rgba(230, 158, 60, 0.15);
-  }
+.dsh-pe-overlay:not(.is-anchored) .dsh-pe-panel {
+  animation: dsh-pe-lift-in var(--pe-ease, 140ms ease);
 }
+/* Anchored placement is inline-styled by ResultPanel with the composer card's
+   measured rect; this rule only pins it out of the flex flow. */
+.dsh-pe-overlay.is-anchored .dsh-pe-panel {
+  position: fixed;
+  animation: dsh-pe-lift-in var(--pe-ease, 140ms ease);
+}
+
 .dsh-pe-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--pe-separator);
+  gap: 9px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+}
+.dsh-pe-head-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--pe-accent-soft, rgba(74, 91, 214, 0.1));
+  font-size: 11px;
+  line-height: 1;
+  flex: none;
+}
+.dsh-pe-head-title {
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
-.dsh-pe-head .dsh-pe-meta { margin-left: auto; font-weight: 400; font-size: 11px; opacity: 0.6; }
+.dsh-pe-head .dsh-pe-meta {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--pe-fg-3, #8b919c);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dsh-pe-close {
-  border: none; background: transparent; color: inherit; opacity: 0.6;
-  font-size: 15px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pe-fg-3, #8b919c);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  transition: background var(--pe-ease, 140ms ease),
+    color var(--pe-ease, 140ms ease);
 }
-.dsh-pe-close:hover { opacity: 1; background: var(--pe-hover); }
+/* The close button shares the row with the meta line, so it only claims the
+   auto margin when the meta is absent. */
+.dsh-pe-head .dsh-pe-meta + .dsh-pe-close { margin-left: 4px; }
+.dsh-pe-close:hover {
+  background: var(--pe-hover, rgba(9, 11, 15, 0.045));
+  color: var(--pe-fg, #0f1115);
+}
+
 .dsh-pe-body { display: flex; flex: 1; min-height: 0; }
 .dsh-pe-col {
   flex: 1 1 0;
@@ -1428,312 +2049,142 @@ var CSS = `
   display: flex;
   flex-direction: column;
 }
-.dsh-pe-col + .dsh-pe-col { border-left: 1px solid var(--pe-separator); }
+.dsh-pe-col + .dsh-pe-col { border-left: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1)); }
 .dsh-pe-col-title {
-  padding: 8px 14px 6px;
-  font-size: 11px;
+  padding: 10px 14px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.04em;
-  opacity: 0.55;
+  color: var(--pe-fg-3, #8b919c);
 }
 .dsh-pe-col-text {
   flex: 1;
   margin: 0;
-  padding: 0 14px 12px;
+  padding: 0 14px 14px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--pe-fg, #0f1115);
 }
+
+.dsh-pe-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 30px 16px;
+  font-size: 12.5px;
+  color: var(--pe-fg-2, #5f6673);
+}
+.dsh-pe-loading .dsh-pe-hint { font-size: 11px; color: var(--pe-fg-3, #8b919c); }
+.dsh-pe-stream {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.dsh-pe-stream .dsh-pe-col-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 14px;
+}
+
 .dsh-pe-error {
-  padding: 20px 16px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--pe-danger);
+  padding: 22px 16px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--pe-danger, #b42318);
   white-space: pre-wrap;
 }
 .dsh-pe-error .dsh-pe-error-detail {
   margin-top: 8px;
-  font-size: 12px;
-  opacity: 0.75;
-  color: inherit;
+  padding: 8px 10px;
+  border-radius: var(--pe-radius-sm, 7px);
+  background: var(--pe-surface-2, #f7f8fa);
+  color: var(--pe-fg-2, #5f6673);
+  font-family: var(--pe-mono);
+  font-size: 11px;
+  line-height: 1.6;
 }
-.dsh-pe-loading {
-  display: flex; flex-direction: column; gap: 8px;
-  align-items: center; justify-content: center;
-  flex: 1; padding: 28px 16px; font-size: 13px;
+
+.dsh-pe-stale {
+  padding: 8px 14px;
+  border-top: 1px solid var(--pe-warn-line, rgba(176, 122, 0, 0.28));
+  background: var(--pe-warn-bg, rgba(230, 158, 60, 0.1));
+  color: var(--pe-warn-fg, #8a5a00);
+  font-size: 11.5px;
+  line-height: 1.6;
 }
-.dsh-pe-loading .dsh-pe-hint { font-size: 11px; opacity: 0.55; }
-/* Incremental view: the streamed text takes the whole body, left-aligned. */
-.dsh-pe-stream {
-  display: flex; flex-direction: column;
-  flex: 1; min-height: 0; width: 100%;
-}
-.dsh-pe-stream .dsh-pe-col-title {
-  display: flex; align-items: center; gap: 6px;
-  padding-left: 0;
-}
-.dsh-pe-spin.small { width: 11px; height: 11px; border-width: 1px; }
-.dsh-pe-spin {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid var(--pe-separator); border-top-color: #6ea8ff;
-  animation: dsh-pe-spin 0.9s linear infinite;
-}
+
 .dsh-pe-foot {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border-top: 1px solid var(--pe-separator);
+  border-top: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  background: var(--pe-surface, #ffffff);
 }
 .dsh-pe-foot .dsh-pe-grow { flex: 1; }
 .dsh-pe-btn-action {
-  border: none; border-radius: 6px; padding: 6px 14px;
-  font-size: 12px; cursor: pointer; line-height: 1;
-}
-.dsh-pe-btn-action.primary { background: #3f76e1; color: #fff; }
-.dsh-pe-btn-action.primary:hover { background: #4d82ec; }
-.dsh-pe-btn-action.plain { background: var(--pe-hover); color: inherit; }
-.dsh-pe-btn-action.plain:hover { background: rgba(127, 127, 127, 0.3); }
-
-.dsh-pe-stale {
-  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-family: inherit;
   font-size: 12px;
-  line-height: 1.5;
-  border-top: 1px solid var(--pe-warn-border);
-  background: var(--pe-warn-bg);
-  color: var(--pe-warn-fg);
-}
-
-.dsh-pe-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 28px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  opacity: 0.75;
-  font-size: 12px;
-  line-height: 1;
+  line-height: 1.4;
   cursor: pointer;
-  white-space: nowrap;
+  transition: background var(--pe-ease, 140ms ease),
+    border-color var(--pe-ease, 140ms ease);
 }
-.dsh-pe-btn:hover:not(:disabled) { opacity: 1; background: var(--pe-hover); }
-.dsh-pe-btn:disabled { opacity: 0.45; cursor: default; }
-.dsh-pe-btn .dsh-pe-btn-icon { font-size: 14px; }
-/* The busy icon is the ring itself and rotates by its own rule. Rotating this
-   wrapper as well would spin it twice, and the old dotted-circle glyph it used
-   to hold is rotationally symmetric \u2014 animating it looked frozen. */
-.dsh-pe-btn.is-busy .dsh-pe-btn-icon { display: inline-flex; align-items: center; }
-.dsh-pe-ring-sm { width: 12px; height: 12px; }
-@keyframes dsh-pe-spin { to { transform: rotate(360deg); } }
-
-.dsh-pe-undo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 4px;
-  font-size: 12px;
-  color: inherit;
-  opacity: 0.85;
+.dsh-pe-btn-action.primary {
+  background: var(--pe-ink, #12141a);
+  color: var(--pe-on-ink, #ffffff);
 }
-.dsh-pe-undo .dsh-pe-undo-check { color: #7ed491; }
-.dsh-pe-undo-link {
-  border: none; background: var(--pe-hover); color: inherit;
-  border-radius: 5px; padding: 3px 10px; font-size: 12px; cursor: pointer;
+.dsh-pe-btn-action.primary:hover { opacity: 0.88; }
+.dsh-pe-btn-action.plain {
+  background: var(--pe-surface, #ffffff);
+  border-color: var(--pe-line, rgba(9, 11, 15, 0.1));
+  color: var(--pe-fg, #0f1115);
 }
-.dsh-pe-undo-link:hover { background: rgba(127,127,127,0.3); }
-.dsh-pe-undo-x {
-  border: none; background: transparent; color: inherit; opacity: 0.55;
-  cursor: pointer; padding: 0 4px; font-size: 12px;
+.dsh-pe-btn-action.plain:hover {
+  background: var(--pe-surface-2, #f7f8fa);
+  border-color: var(--pe-line-2, rgba(9, 11, 15, 0.18));
 }
-.dsh-pe-undo-x:hover { opacity: 1; }
-.dsh-pe-undo-hint { opacity: 0.55; font-size: 11px; }
-
-/* In-flight line for direct runs. A direct enhancement has no overlay, so
-   without this row the only feedback is the spinner \u2014 which, on a slow model,
-   reads as "the click did nothing". Same dock row and metrics as the undo line
-   it replaces, so the composer never jumps. */
-.dsh-pe-working {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 4px;
-  font-size: 12px;
-  color: inherit;
-  opacity: 0.85;
-}
-.dsh-pe-working-label { flex: 1; min-width: 0; }
-.dsh-pe-working-elapsed {
-  opacity: 0.55;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.dsh-pe-working-x {
-  border: none; background: transparent; color: inherit; opacity: 0.55;
-  cursor: pointer; padding: 0 4px; font-size: 12px;
-}
-.dsh-pe-working-x:hover { opacity: 1; }
-/* The dock spinner is a real ring: the glyph path used to animate a whole
-   luminous symbol, and the dotted circle it replaced is rotationally
-   symmetric, so its rotation was invisible. */
-.dsh-pe-ring {
-  width: 12px; height: 12px; flex: none;
+.dsh-pe-spin {
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 1.5px solid currentColor;
-  border-top-color: transparent;
-  animation: dsh-pe-spin 0.8s linear infinite;
+  border: 2px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  border-top-color: var(--pe-accent, #4a5bd6);
+  animation: dsh-pe-spin 0.9s linear infinite;
+}
+.dsh-pe-spin.small { width: 11px; height: 11px; border-width: 1.5px; }
+
+/* ---- motion -------------------------------------------------------------- */
+@keyframes dsh-pe-spin { to { transform: rotate(360deg); } }
+@keyframes dsh-pe-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dsh-pe-lift-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dsh-pe-pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .dsh-pe-tier-menu,
+  .dsh-pe-overlay,
+  .dsh-pe-panel { animation: none; }
+  .dsh-pe-tier-caret { transition: none; }
   .dsh-pe-ring { animation-duration: 2s; }
 }
-/* Failure line for direct runs: same row as the undo confirmation, but the
-   icon carries the only colour, so a wall of red copy does not fight the
-   composer underneath. */
-.dsh-pe-notice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 4px;
-  font-size: 12px;
-  color: var(--pe-danger, #e5534b);
-}
-.dsh-pe-notice-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 1px solid currentColor; font-size: 10px; line-height: 1; flex: none;
-}
-.dsh-pe-notice-text { flex: 1; min-width: 0; }
-
-/* Tier picker + \u2728 share one row. The composer slot has no --pe-* variables of
-   its own, so every color here carries a literal fallback: inside the slot
-   those variables are undefined and an unguarded reference would paint
-   nothing. */
-.dsh-pe-cluster {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-.dsh-pe-tier { position: relative; display: inline-flex; }
-.dsh-pe-tier > summary { list-style: none; }
-.dsh-pe-tier > summary::-webkit-details-marker { display: none; }
-.dsh-pe-tier-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 28px;
-  padding: 0 6px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  opacity: 0.75;
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-}
-.dsh-pe-tier-btn:hover { opacity: 1; background: var(--pe-hover, rgba(127, 127, 127, 0.18)); }
-.dsh-pe-tier[open] .dsh-pe-tier-btn { opacity: 1; background: var(--pe-hover, rgba(127, 127, 127, 0.18)); }
-.dsh-pe-tier-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  background: var(--pe-hover, rgba(127, 127, 127, 0.22));
-  font-size: 11px;
-  line-height: 1;
-}
-.dsh-pe-tier-caret { font-size: 9px; opacity: 0.7; }
-.dsh-pe-tier-menu {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  /* The capsule sits at the right edge of the composer, so the menu grows
-     leftward; anchoring at left:0 would push it off-screen. */
-  left: auto;
-  right: 0;
-  z-index: 40;
-  width: 268px;
-  padding: 6px;
-  border: 1px solid var(--pe-border, rgba(127, 127, 127, 0.28));
-  border-radius: 10px;
-  background: var(--pe-bg, #1f2124);
-  color: var(--pe-fg, inherit);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-  font-size: 12px;
-}
-@media (prefers-color-scheme: light) {
-  .dsh-pe-tier-menu { background: var(--pe-bg, #ffffff); }
-}
-.dsh-pe-tier-title {
-  padding: 2px 6px 6px;
-  font-size: 11px;
-  opacity: 0.6;
-}
-.dsh-pe-tier-item {
-  display: block;
-  width: 100%;
-  padding: 6px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.dsh-pe-tier-item:hover { background: var(--pe-hover, rgba(127, 127, 127, 0.18)); }
-.dsh-pe-tier-item.is-active { background: var(--pe-hover, rgba(127, 127, 127, 0.26)); }
-.dsh-pe-tier-item-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-.dsh-pe-tier-item-hint {
-  display: block;
-  margin-top: 2px;
-  padding-left: 22px;
-  font-size: 11px;
-  line-height: 1.45;
-  opacity: 0.62;
-}
-.dsh-pe-tier-context {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  padding: 6px;
-  border-top: 1px solid var(--pe-separator, rgba(127, 127, 127, 0.22));
-  cursor: pointer;
-}
-.dsh-pe-tier-context input { accent-color: currentColor; }
-.dsh-pe-tier-context.is-locked { opacity: 0.45; cursor: not-allowed; }
-.dsh-pe-tier-context.is-locked input { cursor: not-allowed; }
-.dsh-pe-tier-foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 26px;
-  padding: 2px 4px 2px;
-}
-.dsh-pe-tier-pinned { font-size: 11px; opacity: 0.65; }
-.dsh-pe-tier-pin {
-  border: none;
-  border-radius: 6px;
-  background: var(--pe-hover, rgba(127, 127, 127, 0.22));
-  color: inherit;
-  padding: 4px 10px;
-  font-size: 11px;
-  cursor: pointer;
-}
-.dsh-pe-tier-pin:hover { background: rgba(127, 127, 127, 0.32); }
 `;
 function ensureStyles() {
   if (document.getElementById(STYLE_ID) !== null) return false;

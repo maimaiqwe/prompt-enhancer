@@ -1,33 +1,37 @@
 /**
  * The tier picker that sits LEFT of the ✨ enhance button in the composer.
  *
- * One capsule showing the tier in force for this session; clicking it opens a
- * small popover with the four tiers, a "结合上下文" toggle, and a "设为默认档"
- * action. The picker never sends a request itself — it only writes selection
- * state that `EnhanceButton` reads when the user clicks ✨ (or presses the
- * shortcut), so switching tiers costs nothing and is instantly reversible.
+ * The capsule shows the tier in force for this session. Opening it gives one row
+ * per tier plus two verb-shaped controls:
  *
- * Everything here is defensive about the surrounding host: the popover is
- * positioned with plain CSS (`position: absolute` inside a `position: relative`
- * wrapper), it closes on outside pointerdown and on Escape, and it renders
- * nothing when the plugin is disabled.
+ * - click a row → that tier for **this conversation only** (held in
+ *   `sessionStorage`, so a refresh keeps it and closing DSH drops it);
+ * - tick the radio at the row's right edge → make that tier the **default** for
+ *   every new conversation. 系统 is exempt: it is a whole system prompt, and the
+ *   Windows hotkey layer refuses to make it a default for the same reason.
+ *
+ * The picker never sends a request itself — it only writes selection state that
+ * `EnhanceButton` reads when the user clicks ✨ (or presses the shortcut), so
+ * switching tiers costs nothing and is instantly reversible.
  * @module dsh-prompt-enhance/client/TierMenu
  */
 
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { TIERS, type Tier } from '../tiers'
 import { getClientSettings, subscribeClientSettings } from './settings'
 import {
-  canPersistTier,
+  defaultTierOf,
   effectiveTier,
   effectiveUseContext,
   getVersion,
-  persistDefaultTier,
+  hasSessionPick,
   selectTier,
   selectUseContext,
+  setDefaultTier,
   subscribe,
   tierAllowsContext,
+  tierCanBeDefault,
 } from './tier-store'
 
 /** Props of the picker: a locale seat plus the session key it acts on. */
@@ -72,9 +76,10 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   // selections themselves are read through the store's accessors.
   useSyncExternalStore(subscribe, getVersion)
   const masterSettings = useSyncExternalStore(subscribeClientSettings, getClientSettings)
-  const canPin = canPersistTier()
   const tier = effectiveTier(sessionKey)
   const useContext = effectiveUseContext(sessionKey)
+  const pinnedDefault = defaultTierOf()
+  const temporary = hasSessionPick(sessionKey) && tier !== pinnedDefault
   // Two independent reasons the row can be inert: the plugin-level master
   // switch, and the tier itself (基础 never takes history). Both are reported,
   // because a disabled checkbox with the wrong explanation is worse than none.
@@ -85,15 +90,12 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
       : t('tier.menu.context.tierlocked')
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
   const titleId = useId()
+  const groupName = `${useId()}-default`
   const menuRef = useRef<HTMLDivElement | null>(null)
-  // "已设为默认档" is transient feedback: it is cleared when the popover closes
-  // so reopening never shows a stale confirmation.
-  const [pinned, setPinned] = useState(false)
 
   /** Close the popover (the native `details` element owns the open state). */
   const close = useCallback((): void => {
     if (detailsRef.current !== null) detailsRef.current.open = false
-    setPinned(false)
   }, [])
 
   // Outside pointerdown / Escape close the popover. `details` has no built-in
@@ -123,10 +125,7 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
     const root = detailsRef.current
     if (root === null) return
     const onToggle = (): void => {
-      if (!root.open) {
-        setPinned(false)
-        return
-      }
+      if (!root.open) return
       const first = menuRef.current?.querySelector('button')
       if (first instanceof HTMLElement) first.focus()
     }
@@ -137,13 +136,24 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   }, [])
 
   /**
-   * Pick a tier for this session and close the popover.
+   * Pick a tier for this session. The popover stays open on purpose: the two
+   * decisions on screen (which tier, and whether it becomes the default) are
+   * usually made in one visit, and the footer that reports "临时" only makes
+   * sense while it is visible.
    * @param next - the tier chosen.
    */
   const pick = useCallback((next: Tier): void => {
     selectTier(sessionKey, next)
-    close()
-  }, [sessionKey, close])
+  }, [sessionKey])
+
+  /**
+   * Make a tier the default for every new conversation, and use it here too.
+   * @param next - the tier to persist.
+   */
+  const makeDefault = useCallback((next: Tier): void => {
+    if (!setDefaultTier(next)) return
+    selectTier(sessionKey, next)
+  }, [sessionKey])
 
   /**
    * Toggle "结合上下文" for this session.
@@ -152,17 +162,6 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   const toggleContext = useCallback((event: { target: { checked: boolean } }): void => {
     selectUseContext(sessionKey, event.target.checked === true)
   }, [sessionKey])
-
-  /**
-   * Persist the current tier as the plugin default (survives a reload and
-   * applies to the shortcut and `/enhance` too). The picker stays open so the
-   * confirmation is visible; the write is fire-and-forget because a failed
-   * persist only loses the default, never the running session.
-   */
-  const pinDefault = useCallback((): void => {
-    void persistDefaultTier(tier)
-    setPinned(true)
-  }, [tier])
 
   return (
     <details className="dsh-pe-tier" ref={detailsRef}>
@@ -176,25 +175,48 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
       </summary>
       <div className="dsh-pe-tier-menu" ref={menuRef}>
         <div className="dsh-pe-tier-title" id={titleId}>{t('tier.menu.title')}</div>
-        {/* A radio group, not a menu: the popover also holds a checkbox and a
-            button, which a role="menu" container may not contain. */}
+        <div className="dsh-pe-tier-legend">{t('tier.menu.legend')}</div>
+        {/* A radio group, not a menu: the popover also holds checkbox and radio
+            inputs, which a role="menu" container may not contain. */}
         <div role="radiogroup" aria-labelledby={titleId}>
-          {TIERS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={option === tier}
-              className={`dsh-pe-tier-item${option === tier ? ' is-active' : ''}`}
-              onClick={() => pick(option)}
-            >
-              <span className="dsh-pe-tier-item-head">
-                <span className="dsh-pe-tier-badge" aria-hidden>{BADGE[option]}</span>
-                <span className="dsh-pe-tier-item-name">{t(NAME_KEY[option])}</span>
-              </span>
-              <span className="dsh-pe-tier-item-hint">{t(HINT_KEY[option])}</span>
-            </button>
-          ))}
+          {TIERS.map((option) => {
+            const pinnable = tierCanBeDefault(option)
+            return (
+              <div key={option} className={`dsh-pe-tier-row${option === tier ? ' is-active' : ''}`}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={option === tier}
+                  aria-label={`${t(NAME_KEY[option])}：${t(HINT_KEY[option])}`}
+                  className="dsh-pe-tier-item"
+                  onClick={() => pick(option)}
+                >
+                  <span className="dsh-pe-tier-item-head">
+                    <span className="dsh-pe-tier-badge" aria-hidden>{BADGE[option]}</span>
+                    <span className="dsh-pe-tier-item-name">{t(NAME_KEY[option])}</span>
+                    {/* Decoration for the checked state: the radio group
+                        already exposes it, so this never carries information
+                        on its own. */}
+                    <span className="dsh-pe-tier-mark" aria-hidden>✓</span>
+                  </span>
+                  <span className="dsh-pe-tier-item-hint">{t(HINT_KEY[option])}</span>
+                </button>
+                <label
+                  className={`dsh-pe-tier-default${pinnable ? '' : ' is-locked'}`}
+                  title={pinnable ? t('tier.menu.default') : t('tier.menu.default.systemBlocked')}
+                >
+                  <input
+                    type="radio"
+                    name={groupName}
+                    checked={option === pinnedDefault}
+                    disabled={!pinnable}
+                    onChange={() => makeDefault(option)}
+                    aria-label={`${t('tier.menu.default')}：${t(NAME_KEY[option])}`}
+                  />
+                </label>
+              </div>
+            )
+          })}
         </div>
         <label
           className={`dsh-pe-tier-context${contextLock === undefined ? '' : ' is-locked'}`}
@@ -208,21 +230,11 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
           />
           <span>{t('tier.menu.context')}</span>
         </label>
-        <div className="dsh-pe-tier-foot">
-          {pinned ? (
-            <span className="dsh-pe-tier-pinned" role="status">{t('tier.menu.default.done')}</span>
-          ) : canPin && tier !== 'system' ? (
-            <button type="button" className="dsh-pe-tier-pin" onClick={pinDefault}>
-              {t('tier.menu.default')}
-            </button>
-          ) : canPin ? (
-            // 系统 is a whole system prompt: pinning it would turn every later
-            // enhancement (shortcut and /enhance included) into a persona
-            // rewrite, so the hotkey layer refuses it too. Saying why beats
-            // hiding the button and leaving the omission unexplained.
-            <span className="dsh-pe-tier-pinned">{t('tier.menu.default.systemBlocked')}</span>
-          ) : null}
-        </div>
+        {temporary ? (
+          <div className="dsh-pe-tier-foot" role="status">
+            {t('tier.menu.session', { tier: t(NAME_KEY[tier]) })}
+          </div>
+        ) : null}
       </div>
     </details>
   )

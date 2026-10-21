@@ -11,11 +11,19 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EnhanceError } from '../shared/protocol'
 import type { PromptEnhanceKey } from './locales'
 import type { PanelState } from './ui-state'
+import { resolveAttachBox, type AttachBox } from './anchor'
 
 /** Props of the preview panel. */
 export interface ResultPanelProps {
   state: PanelState
   t: TranslateNS<'prompt-enhance'>
+  /**
+   * The ✨ button the panel attaches to. The panel measures the composer card
+   * around it and hangs above that card instead of floating in the middle of
+   * the screen; without a ref (or when nothing measures) it keeps the centred
+   * sheet, which is still a usable placement.
+   */
+  anchorRef?: { readonly current: HTMLElement | null }
   /** Fill the enhanced text back into the composer (the button owns setDraft). */
   onApply: () => void
   /** Close without touching the composer (also aborts an in-flight call). */
@@ -26,6 +34,9 @@ export interface ResultPanelProps {
 
 /** Whether one error phase is worth retrying (model/transport failures). */
 const retryable = (code: string | undefined): boolean => code === 'upstream' || code === 'timeout' || code === 'internal'
+
+/** Floor for the anchored panel: narrower than this the two columns collapse. */
+const MIN_PANEL_WIDTH = 320
 
 /**
  * Wire `reason` (`UpstreamReason`, kebab-case as the host sends it) → the
@@ -113,9 +124,38 @@ function fallbackCopy(text: string): boolean {
 
 /** One enhancement preview overlay. */
 export function ResultPanel(props: ResultPanelProps): ReactNode {
-  const { state, t, onApply, onCancel, onRetry } = props
+  const { state, t, onApply, onCancel, onRetry, anchorRef } = props
   const [copied, setCopied] = useState<'idle' | 'ok' | 'failed'>('idle')
   const panelRef = useRef<HTMLElement | null>(null)
+  const [attach, setAttach] = useState<AttachBox | undefined>(undefined)
+
+  // Measure the composer card on mount and whenever the window changes shape:
+  // the panel hangs above it, so a resize (or the on-screen keyboard opening)
+  // invalidates both its width and the space it has to grow into. Scroll is
+  // watched too — a composer that sits in a scrolling conversation moves under
+  // a fixed-position panel.
+  useEffect(() => {
+    const measure = (): void => setAttach(resolveAttachBox(anchorRef?.current ?? null))
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [anchorRef])
+
+  // Above the composer, never past the viewport edges: the panel may not be
+  // able to match the card exactly on a narrow window, so the distance to the
+  // edge wins over the width match.
+  const attachStyle = attach === undefined
+    ? undefined
+    : {
+        left: Math.max(12, attach.left),
+        width: Math.min(attach.width, Math.max(MIN_PANEL_WIDTH, window.innerWidth - 24)),
+        bottom: Math.max(12, window.innerHeight - attach.top + 8),
+        maxHeight: Math.max(180, Math.min(640, attach.top - 24)),
+      }
 
   // Keyboard handling: Escape closes (cancels) the panel — except during IME
   // composition, where Esc cancels candidate input — and Tab cycles inside
@@ -188,17 +228,25 @@ export function ResultPanel(props: ResultPanelProps): ReactNode {
   const formatMs = (ms: number): string => (ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`)
 
   return (
-    <div className="dsh-pe-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
+    <div
+      className={`dsh-pe-overlay${attach === undefined ? '' : ' is-anchored'}`}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}
+    >
       <section
         ref={panelRef}
         className="dsh-pe-panel"
         role="dialog"
-        aria-modal="true"
+        // Anchored next to the composer the panel is a preview, not a modal:
+        // the composer stays usable and outside clicks dismiss. Only the
+        // centred sheet actually blocks the page beneath it.
+        aria-modal={attach === undefined ? 'true' : undefined}
         aria-label={t('panel.title')}
         tabIndex={-1}
+        style={attachStyle}
       >
         <header className="dsh-pe-head">
-          <span>✨ {t('panel.title')}</span>
+          <span className="dsh-pe-head-icon" aria-hidden>✨</span>
+          <span className="dsh-pe-head-title">{t('panel.title')}</span>
           {state.phase === 'result' && state.result !== undefined && (
             <span className="dsh-pe-meta">
               {t('panel.model', { provider: state.result.provider, model: state.result.model })} · {t('panel.elapsed', { ms: formatMs(state.result.elapsedMs) })}

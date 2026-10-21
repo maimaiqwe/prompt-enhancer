@@ -42,8 +42,8 @@ src/
     EnhanceButton.tsx   守卫链 + fetch + 直填/面板分流 + undo 注册
     ResultPanel.tsx     预览面板（仅系统档；loading/stream/result/error、焦点陷阱、复制兜底）
     UndoBar.tsx         dock 一行：撤销条 + 直填失败的内联错误行
-    TierMenu.tsx        档位胶囊 + 四档下拉 + 上下文开关 + 设为默认档
-    tier-store.ts       会话级档位/上下文覆盖 + 默认档持久化写手
+    TierMenu.tsx        档位胶囊 + 四档下拉（点整行＝本会话临时档，行尾单选＝默认档）+ 上下文开关
+    tier-store.ts       会话临时档（sessionStorage）+ 默认档（localStorage）两层选择状态
     enhance-client.ts   同源 fetch + SSE 读取 + 类型化错误
     settings.ts         客户端设置镜像（不 import host config）
     shortcut.ts         快捷键解析/匹配（event.code 优先，布局无关）

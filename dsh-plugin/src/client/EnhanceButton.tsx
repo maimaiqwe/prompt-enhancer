@@ -70,11 +70,14 @@ function stringOf(value: unknown): string {
 
 /** One composer's enhance trigger. */
 export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
-  const { t, sessionId, useInput, inputActions } = props
-  // 0.1.1-rc.2 carries sessionId on the props; 0.1.2-rc.1 dropped it. Use the
-  // host id for UI keying when present, else a stable per-mount fallback.
-  const uiKey = useSessionKey(sessionId, inputActions)
-  const wireId = serverSessionId(sessionId)
+  const { t, sessionId, session, useInput, inputActions } = props
+  // 0.1.1-rc.2 carries `sessionId` on the props; 0.1.2-rc.1 dropped it but hands
+  // every composer slot the conversation snapshot, whose `sessionId` is the real
+  // one. The fallback below is per-mount, so keying on it would forget every
+  // per-session pick at the next refresh.
+  const sources = { sessionId, session }
+  const uiKey = useSessionKey(sources, inputActions)
+  const wireId = serverSessionId(sources)
   const draft = useInput((state) => stringOf((state as { draft?: unknown }).draft))
   const phase = useInput((state) => (state as { phase?: unknown }).phase)
   const occurrenceCount = useInput((state) => countOf((state as { occurrences?: unknown }).occurrences))
@@ -299,6 +302,7 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
           <ResultPanel
             state={owned}
             t={t}
+            anchorRef={rootRef}
             onApply={apply}
             onCancel={() => ui.closePanel()}
             onRetry={owned.phase === 'error' ? start : undefined}

@@ -59,10 +59,10 @@ function useElapsedSeconds(active: boolean): number {
 
 /** One session's dock row. */
 export function UndoBar(props: UndoBarProps): ReactNode {
-  const { t, sessionId, useInput, inputActions } = props
-  // 0.1.1-rc.2 carries sessionId on the props; 0.1.2-rc.1 dropped it. Use the
-  // host id for UI keying when present, else a stable per-mount fallback.
-  const uiKey = useSessionKey(sessionId, inputActions)
+  const { t, sessionId, session, useInput, inputActions } = props
+  // Same resolution as the button: the snapshot id when the host provides one,
+  // otherwise the legacy field, otherwise a per-mount fallback.
+  const uiKey = useSessionKey({ sessionId, session }, inputActions)
   // Defensive like the button: a host that omits `draft` must not make the
   // applied/current comparison read `undefined` as "the user kept typing" and
   // silently drop an undo entry.

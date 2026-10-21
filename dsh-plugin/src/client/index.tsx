@@ -71,9 +71,10 @@ export function apply(ctx: ClientContext): void {
     }
     sync()
     ctx.effect(() => scope.subscribe(sync), 'dsh-prompt-enhance: settings mirror')
-    // The tier picker's "设为默认档" writes back through the same scope, so the
-    // choice persists without a second RPC surface. A profile without the
-    // settings service simply keeps the picker session-scoped.
+    // The tier picker's default radio writes back through the same scope, so the
+    // shortcut and `/enhance` agree with the picker. The picker keeps its own
+    // `localStorage` copy and reads it first, so a profile without the settings
+    // service still remembers a default — only the host copy stays behind.
     registerTierPersist((tier: Tier) => scope.set('defaultTier', tier))
   })
 

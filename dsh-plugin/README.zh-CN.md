@@ -125,7 +125,7 @@ dsh plugin --profile web remove dsh-prompt-enhance
 | `maxOutputTokens` | `2048` | 单次增强调用的输出 token 预算 |
 | `maxInputChars` | `12000` | 输入字符数上限(按 Unicode 字符统计,不是 token 数;一个 emoji 算一个字符);超限**拒绝而不截断** |
 | `timeoutMs` | `60000` | 单次调用的端到端超时 |
-| `defaultTier` | `standard` | 默认档位:`base` 只轻度理顺、`standard` 输出一个连续段落、`professional` 输出五段结构化提示词、`system` 输出八段系统提示词。输入框旁档位胶囊改的就是这一项——改完热生效,下一个会话跟随新默认 |
+| `defaultTier` | `standard` | 默认档位:`base` 只轻度理顺、`standard` 输出一个连续段落、`professional` 输出五段结构化提示词、`system` 输出八段系统提示词。胶囊里每行右端的单选改的就是这一项——客户端同时存一份 `localStorage` 副本并优先读它,所以宿主这份落后时胶囊仍记得你的选择;`system` 不能设为默认 |
 | `systemPrompt` | 内置策略 | 自定义增强策略文本;与内置策略如何组合见 `strategyMode` |
 | `strategyMode` | `replace-default` | 自定义策略的组合方式:`replace-default` **整体替换**内置策略(向后兼容,但「不改变原意、不编造、只输出正文、镜像输入语言」等硬性约束不会自动保留,需自行写入);`extend-default` 把自定义文本**追加在内置策略之后**,硬性约束继续生效 |
 | `shortcut` | `ctrl+shift+alt+a` | 快捷键规格(至少一个修饰键 + 单个字母/数字/功能键——纯裸键会被忽略,绝不会吞掉正常打字);留空禁用 |
