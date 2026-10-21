@@ -23,6 +23,80 @@ const tierOverrides = new Map<string, Tier>()
 /** Per-session context choices; absent means "follow the tier preset". */
 const contextOverrides = new Map<string, boolean>()
 
+/**
+ * Overrides outlive the module, not just the render.
+ *
+ * A DSH client bundle is dropped and re-executed on every page refresh, and a
+ * refresh is the normal way to pick up a plugin update — so those happen often.
+ * Keeping the picks in plain module state meant a toggle flipped to 不结合上下文
+ * silently came back on at the next reload, which reads as "it ignored me".
+ * The storage is a best-effort cache: a browser that refuses `localStorage`
+ * (private mode, a sandboxed frame) simply behaves as before, per session.
+ */
+const STORAGE_KEY = 'dsh-prompt-enhance:overrides:v1'
+
+/** Oldest sessions are dropped past this, so the blob cannot grow forever. */
+const MAX_ENTRIES = 64
+
+interface StoredOverrides {
+  readonly tier?: Record<string, unknown>
+  readonly context?: Record<string, unknown>
+}
+
+function storageOf(): Storage | undefined {
+  try {
+    return typeof localStorage === 'undefined' ? undefined : localStorage
+  } catch {
+    // Access itself can throw when storage is blocked by policy.
+    return undefined
+  }
+}
+
+function hydrate(): void {
+  const store = storageOf()
+  if (store === undefined) return
+  let parsed: StoredOverrides
+  try {
+    const raw = store.getItem(STORAGE_KEY)
+    if (raw === null || raw === '') return
+    parsed = JSON.parse(raw) as StoredOverrides
+  } catch {
+    // A corrupt or foreign blob is not worth failing the composer over.
+    return
+  }
+  for (const [sessionId, value] of Object.entries(parsed.tier ?? {})) {
+    tierOverrides.set(sessionId, normalizeTier(value, DEFAULT_TIER))
+  }
+  for (const [sessionId, value] of Object.entries(parsed.context ?? {})) {
+    if (typeof value === 'boolean') contextOverrides.set(sessionId, value)
+  }
+}
+
+function persist(): void {
+  const store = storageOf()
+  if (store === undefined) return
+  const blob: StoredOverrides = {
+    tier: Object.fromEntries(tierOverrides),
+    context: Object.fromEntries(contextOverrides),
+  }
+  try {
+    store.setItem(STORAGE_KEY, JSON.stringify(blob))
+  } catch {
+    // Quota or a blocked store: the in-memory picks still hold for this page.
+  }
+}
+
+/** Keep the newest `MAX_ENTRIES` keys of one override map. */
+function prune(map: Map<string, unknown>): void {
+  while (map.size > MAX_ENTRIES) {
+    const oldest = map.keys().next()
+    if (oldest.done === true) return
+    map.delete(oldest.value)
+  }
+}
+
+hydrate()
+
 const listeners = new Set<() => void>()
 let version = 0
 
@@ -71,8 +145,13 @@ export function tierAllowsContext(tier: Tier): boolean {
  * @param tier - the tier to use from now on in this conversation.
  */
 export function selectTier(sessionId: string, tier: Tier): void {
+  // Re-inserting moves the key to the tail, so `prune` drops the least recently
+  // touched sessions rather than an arbitrary one.
+  tierOverrides.delete(sessionId)
   tierOverrides.set(sessionId, tier)
   contextOverrides.delete(sessionId)
+  prune(tierOverrides)
+  persist()
   notify()
 }
 
@@ -82,7 +161,10 @@ export function selectTier(sessionId: string, tier: Tier): void {
  * @param value - whether history may ground the next call.
  */
 export function selectUseContext(sessionId: string, value: boolean): void {
+  contextOverrides.delete(sessionId)
   contextOverrides.set(sessionId, value)
+  prune(contextOverrides)
+  persist()
   notify()
 }
 
@@ -93,11 +175,13 @@ export function selectUseContext(sessionId: string, value: boolean): void {
  * This is a reset primitive, not a reaction to the default changing: an
  * explicit per-session pick stays valid when the operator edits `defaultTier`
  * elsewhere, and silently discarding it would undo a choice the user can still
- * see on screen.
+ * see on screen. It also wipes the stored blob, otherwise the reset would only
+ * last until the next refresh.
  */
 export function clearOverrides(): void {
   tierOverrides.clear()
   contextOverrides.clear()
+  persist()
   notify()
 }
 

@@ -14,7 +14,7 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { TierMenu } from '../src/client/TierMenu'
 import { zh } from '../src/client/locales'
 import { DEFAULT_CLIENT_SETTINGS, setClientSettings } from '../src/client/settings'
-import { clearOverrides, effectiveTier, effectiveUseContext, registerTierPersist } from '../src/client/tier-store'
+import { clearOverrides, effectiveTier, effectiveUseContext, registerTierPersist, selectUseContext } from '../src/client/tier-store'
 
 const t = ((key: string, params?: Record<string, unknown>): string => {
   let s = (zh as Record<string, string>)[key] ?? key
@@ -130,6 +130,26 @@ describe('TierMenu', () => {
     registerTierPersist(undefined)
     render(<TierMenu sessionKey={SESSION} t={t} />)
     expect(screen.queryByText(t('tier.menu.default'))).toBeNull()
+  })
+
+  it('refuses to pin the system tier, like the hotkey layer does', () => {
+    // 系统 rewrites a whole persona; making it the default would turn every
+    // later enhancement into that, so the action is explained away instead.
+    registerTierPersist(writer())
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.system')) }))
+    expect(screen.queryByText(t('tier.menu.default'))).toBeNull()
+    expect(screen.getByText(t('tier.menu.default.systemBlocked'))).toBeTruthy()
+  })
+
+  it('keeps a session choice across a client reload', async () => {
+    // A refresh re-executes the bundle; without a stored copy the toggle the
+    // user just switched off would come back on and look ignored.
+    selectUseContext(SESSION, false)
+    expect(window.localStorage.getItem('dsh-prompt-enhance:overrides:v1')).toContain('"context"')
+    vi.resetModules()
+    const fresh = await import('../src/client/tier-store')
+    expect(fresh.effectiveUseContext(SESSION)).toBe(false)
   })
 
   it('closes the popover after a pick', () => {

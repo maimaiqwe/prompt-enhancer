@@ -211,10 +211,16 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
         <div className="dsh-pe-tier-foot">
           {pinned ? (
             <span className="dsh-pe-tier-pinned" role="status">{t('tier.menu.default.done')}</span>
-          ) : canPin ? (
+          ) : canPin && tier !== 'system' ? (
             <button type="button" className="dsh-pe-tier-pin" onClick={pinDefault}>
               {t('tier.menu.default')}
             </button>
+          ) : canPin ? (
+            // 系统 is a whole system prompt: pinning it would turn every later
+            // enhancement (shortcut and /enhance included) into a persona
+            // rewrite, so the hotkey layer refuses it too. Saying why beats
+            // hiding the button and leaving the omission unexplained.
+            <span className="dsh-pe-tier-pinned">{t('tier.menu.default.systemBlocked')}</span>
           ) : null}
         </div>
       </div>

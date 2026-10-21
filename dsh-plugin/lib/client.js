@@ -468,6 +468,53 @@ function decodeClientSettings(section) {
 // src/client/tier-store.ts
 var tierOverrides = /* @__PURE__ */ new Map();
 var contextOverrides = /* @__PURE__ */ new Map();
+var STORAGE_KEY = "dsh-prompt-enhance:overrides:v1";
+var MAX_ENTRIES = 64;
+function storageOf() {
+  try {
+    return typeof localStorage === "undefined" ? void 0 : localStorage;
+  } catch {
+    return void 0;
+  }
+}
+function hydrate() {
+  const store = storageOf();
+  if (store === void 0) return;
+  let parsed;
+  try {
+    const raw = store.getItem(STORAGE_KEY);
+    if (raw === null || raw === "") return;
+    parsed = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  for (const [sessionId, value] of Object.entries(parsed.tier ?? {})) {
+    tierOverrides.set(sessionId, normalizeTier(value, DEFAULT_TIER));
+  }
+  for (const [sessionId, value] of Object.entries(parsed.context ?? {})) {
+    if (typeof value === "boolean") contextOverrides.set(sessionId, value);
+  }
+}
+function persist() {
+  const store = storageOf();
+  if (store === void 0) return;
+  const blob = {
+    tier: Object.fromEntries(tierOverrides),
+    context: Object.fromEntries(contextOverrides)
+  };
+  try {
+    store.setItem(STORAGE_KEY, JSON.stringify(blob));
+  } catch {
+  }
+}
+function prune(map) {
+  while (map.size > MAX_ENTRIES) {
+    const oldest = map.keys().next();
+    if (oldest.done === true) return;
+    map.delete(oldest.value);
+  }
+}
+hydrate();
 var listeners2 = /* @__PURE__ */ new Set();
 var version = 0;
 function effectiveTier(sessionId) {
@@ -487,12 +534,18 @@ function tierAllowsContext(tier) {
   return TIER_CONTEXT_PRESET[tier].useContext;
 }
 function selectTier(sessionId, tier) {
+  tierOverrides.delete(sessionId);
   tierOverrides.set(sessionId, tier);
   contextOverrides.delete(sessionId);
+  prune(tierOverrides);
+  persist();
   notify();
 }
 function selectUseContext(sessionId, value) {
+  contextOverrides.delete(sessionId);
   contextOverrides.set(sessionId, value);
+  prune(contextOverrides);
+  persist();
   notify();
 }
 function registerTierPersist(writer) {
@@ -651,7 +704,13 @@ function TierMenu({ sessionKey, t }) {
           ]
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", children: pinned ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-pinned", role: "status", children: t("tier.menu.default.done") }) : canPin ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dsh-pe-tier-pin", onClick: pinDefault, children: t("tier.menu.default") }) : null })
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", children: pinned ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-pinned", role: "status", children: t("tier.menu.default.done") }) : canPin && tier !== "system" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dsh-pe-tier-pin", onClick: pinDefault, children: t("tier.menu.default") }) : canPin ? (
+        // 系统 is a whole system prompt: pinning it would turn every later
+        // enhancement (shortcut and /enhance included) into a persona
+        // rewrite, so the hotkey layer refuses it too. Saying why beats
+        // hiding the button and leaving the omission unexplained.
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-pinned", children: t("tier.menu.default.systemBlocked") })
+      ) : null })
     ] })
   ] });
 }
@@ -1215,6 +1274,7 @@ var zh = {
   "tier.menu.context.tierlocked": "\u57FA\u7840\u6863\u53EA\u505A\u8F7B\u5EA6\u7406\u987A\u3001\u4E0D\u6269\u5199\uFF0C\u56E0\u6B64\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\u3002",
   "tier.menu.default": "\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.menu.default.done": "\u5DF2\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
+  "tier.menu.default.systemBlocked": "\u7CFB\u7EDF\u6863\u4E0D\u80FD\u8BBE\u4E3A\u9ED8\u8BA4\uFF08\u4F1A\u6539\u6389\u6BCF\u6B21\u589E\u5F3A\u7684\u4EBA\u8BBE\uFF09",
   "tier.base": "\u57FA\u7840",
   "tier.base.hint": "\u672C\u5730\u6574\u7406\uFF0C\u4E0D\u8C03\u7528\u6A21\u578B\uFF1A\u53EA\u7406\u987A\u7A7A\u683C\u3001\u6807\u70B9\u4E0E\u53E3\u5934\u7985\uFF0C\u4E0D\u6269\u5199\u3001\u4E0D\u91CD\u6392\u7ED3\u6784\u3002",
   "tier.standard": "\u6807\u51C6",
@@ -1282,6 +1342,7 @@ var en = {
   "tier.menu.context.tierlocked": "The basic tier only tidies the wording and never expands, so it does not read context.",
   "tier.menu.default": "Set as default tier",
   "tier.menu.default.done": "Set as the default tier",
+  "tier.menu.default.systemBlocked": "System cannot be the default \u2014 it would reset the persona on every enhancement",
   "tier.base": "Basic",
   "tier.base.hint": "Local tidy-up, no model call: spaces, punctuation and verbal tics only \u2014 no expansion, no restructuring.",
   "tier.standard": "Standard",
