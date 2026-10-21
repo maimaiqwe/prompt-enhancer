@@ -524,3 +524,67 @@ describe('direct fill (基础/标准/专业)', () => {
     expect(await screen.findByText(zh['panel.apply'])).toBeTruthy()
   })
 })
+
+describe('in-flight feedback for direct runs', () => {
+  afterEach(() => {
+    cleanup()
+    ui.setNotice(undefined)
+  })
+
+  // A direct run has no overlay, so without a dock line the only sign of life
+  // is the button spinner — which on a slow model reads as "nothing happened".
+  it('raises a working row with elapsed seconds while the one-shot request is in flight', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sx')
+    let release!: (value: { text: string; provider: string; model: string; elapsedMs: number }) => void
+    const gate = new Promise<Parameters<typeof release>[0]>((resolve) => { release = resolve })
+    vi.mocked(requestEnhance).mockReturnValue(gate)
+
+    fireEvent.click(enhanceButton())
+    expect(await screen.findByText(zh['working.label'])).toBeTruthy()
+    // The clock renders from the first second on, so the row can never be a
+    // static label that a frozen run would impersonate.
+    expect(screen.getByText('0 秒')).toBeTruthy()
+    // The undo line never competes with it for the same row.
+    expect(screen.queryByText(zh['undo.applied'])).toBeNull()
+
+    act(() => { release({ text: '增强文本', provider: 'p', model: 'm', elapsedMs: 5 }) })
+    await screen.findByText(zh['undo.applied'])
+    expect(screen.queryByText(zh['working.label'])).toBeNull()
+  })
+
+  it('cancels a direct run from the dock row without reporting a failure', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sy')
+    let rejectRun!: (reason: unknown) => void
+    vi.mocked(requestEnhance).mockReturnValue(
+      new Promise<never>((_resolve, fail) => { rejectRun = fail }) as never,
+    )
+
+    fireEvent.click(enhanceButton())
+    fireEvent.click(await screen.findByRole('button', { name: zh['working.cancel'] }))
+    // Closing the panel aborts the request; the rejection that follows IS the
+    // cancellation and must not surface as an error notice.
+    act(() => { rejectRun(new Error('aborted')) })
+    await vi.waitFor(() => {
+      expect(screen.queryByText(zh['working.label'])).toBeNull()
+    })
+    expect(screen.queryByText(zh['error.internal'])).toBeNull()
+    expect(setDraft).not.toHaveBeenCalled()
+  })
+
+  it('keeps the dock silent in panel mode — the overlay is its progress indicator', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'system' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    renderComposer(input, { setDraft: vi.fn() } as never, 'sz')
+    vi.mocked(requestEnhance).mockReturnValue(new Promise(() => {}) as never)
+
+    fireEvent.click(enhanceButton())
+    expect(await screen.findByText(zh['panel.loading'])).toBeTruthy()
+    expect(screen.queryByText(zh['working.label'])).toBeNull()
+  })
+})

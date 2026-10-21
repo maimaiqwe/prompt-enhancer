@@ -987,6 +987,11 @@ function EnhanceButton(props) {
       closePanel();
     };
     const fail = (error) => {
+      if (controller.signal.aborted) {
+        if (written !== void 0 && stillOurs()) inputActions.setDraft(draft);
+        closePanel();
+        return;
+      }
       const detail = error instanceof EnhanceClientError ? error.detail : { code: "internal", message: error instanceof Error ? error.message : String(error) };
       if (!direct) {
         settleError(uiKey, detail);
@@ -1055,7 +1060,7 @@ function EnhanceButton(props) {
           "aria-label": otherBusy ? t("button.otherBusy") : t("button.title"),
           "aria-disabled": otherBusy || void 0,
           onClick: start,
-          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": true, children: busy ? "\u25CC" : "\u2728" })
+          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": true, children: busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-ring dsh-pe-ring-sm" }) : "\u2728" })
         }
       )
     ] }),
@@ -1078,6 +1083,25 @@ function EnhanceButton(props) {
 // src/client/UndoBar.tsx
 var import_react5 = require("react");
 var import_jsx_runtime4 = require("react/jsx-runtime");
+function useElapsedSeconds(active) {
+  const startRef = (0, import_react5.useRef)(void 0);
+  const [seconds, setSeconds] = (0, import_react5.useState)(0);
+  (0, import_react5.useEffect)(() => {
+    if (!active) {
+      startRef.current = void 0;
+      setSeconds(0);
+      return;
+    }
+    startRef.current ?? (startRef.current = Date.now());
+    setSeconds(Math.floor((Date.now() - startRef.current) / 1e3));
+    const timer = setInterval(() => {
+      if (startRef.current === void 0) return;
+      setSeconds(Math.floor((Date.now() - startRef.current) / 1e3));
+    }, 1e3);
+    return () => clearInterval(timer);
+  }, [active]);
+  return seconds;
+}
 function UndoBar(props) {
   const { t, sessionId, useInput, inputActions } = props;
   const uiKey = useSessionKey(sessionId, inputActions);
@@ -1088,9 +1112,30 @@ function UndoBar(props) {
   (0, import_react5.useSyncExternalStore)(subscribe2, getVersion2);
   const entry = peekUndo(uiKey);
   const notice2 = getNotice();
+  const panel = getPanel();
+  const running = panel !== void 0 && panel.sessionId === uiKey && panel.phase === "loading" && panel.mode === "direct";
+  const seconds = useElapsedSeconds(running);
   (0, import_react5.useEffect)(() => {
     if (entry !== void 0 && entry.applied !== draft) popUndo(uiKey);
   }, [draft, entry, uiKey]);
+  if (running) {
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-working", role: "status", "aria-live": "polite", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-ring", "aria-hidden": true }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-working-label", children: t("working.label") }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-working-elapsed", children: t("working.elapsed", { seconds }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "dsh-pe-working-x",
+          "aria-label": t("working.cancel"),
+          title: t("working.cancel"),
+          onClick: () => closePanel(),
+          children: "\u2715"
+        }
+      )
+    ] });
+  }
   if (entry === void 0 || entry.applied !== draft) {
     if (notice2 === void 0 || notice2.sessionId !== uiKey) return null;
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-notice", role: "status", children: [
@@ -1149,6 +1194,9 @@ var zh = {
   "undo.undo": "\u64A4\u9500",
   "undo.dismiss": "\u5173\u95ED\u63D0\u793A",
   "undo.hint": "Ctrl+Z \u53EF\u64A4\u9500",
+  "working.label": "\u6B63\u5728\u589E\u5F3A\u2026",
+  "working.elapsed": "{seconds} \u79D2",
+  "working.cancel": "\u53D6\u6D88",
   "notice.dismiss": "\u5173\u95ED\u63D0\u793A",
   "error.empty": "\u8F93\u5165\u6846\u4E3A\u7A7A\uFF0C\u8BF7\u5148\u8F93\u5165\u8981\u589E\u5F3A\u7684\u63D0\u793A\u8BCD\u3002",
   "error.tooLong": "\u5185\u5BB9\u5171 {count} \u4E2A\u5B57\u7B26\uFF0C\u8D85\u8FC7 {max} \u4E2A\u5B57\u7B26\u4E0A\u9650\uFF08\u6309 Unicode \u5B57\u7B26\u6570\u7EDF\u8BA1\uFF0C\u4E0D\u662F token \u6570\uFF09\u3002\u4E3A\u907F\u514D\u6539\u53D8\u539F\u610F\u4E0D\u4F1A\u81EA\u52A8\u622A\u65AD\uFF0C\u8BF7\u7CBE\u7B80\u540E\u518D\u8BD5\u3002",
@@ -1213,6 +1261,9 @@ var en = {
   "undo.undo": "Undo",
   "undo.dismiss": "Dismiss",
   "undo.hint": "Ctrl+Z undoes it",
+  "working.label": "Enhancing\u2026",
+  "working.elapsed": "{seconds}s",
+  "working.cancel": "Cancel",
   "notice.dismiss": "Dismiss",
   "error.empty": "The input box is empty \u2014 type a prompt to enhance first.",
   "error.tooLong": "The draft is {count} characters, above the {max} cap (Unicode characters, not tokens). It is never auto-truncated (that would change your meaning) \u2014 please shorten it.",
@@ -1425,7 +1476,11 @@ var CSS = `
 .dsh-pe-btn:hover:not(:disabled) { opacity: 1; background: var(--pe-hover); }
 .dsh-pe-btn:disabled { opacity: 0.45; cursor: default; }
 .dsh-pe-btn .dsh-pe-btn-icon { font-size: 14px; }
-.dsh-pe-btn.is-busy .dsh-pe-btn-icon { animation: dsh-pe-spin 1s linear infinite; }
+/* The busy icon is the ring itself and rotates by its own rule. Rotating this
+   wrapper as well would spin it twice, and the old dotted-circle glyph it used
+   to hold is rotationally symmetric \u2014 animating it looked frozen. */
+.dsh-pe-btn.is-busy .dsh-pe-btn-icon { display: inline-flex; align-items: center; }
+.dsh-pe-ring-sm { width: 12px; height: 12px; }
 @keyframes dsh-pe-spin { to { transform: rotate(360deg); } }
 
 .dsh-pe-undo {
@@ -1449,6 +1504,44 @@ var CSS = `
 }
 .dsh-pe-undo-x:hover { opacity: 1; }
 .dsh-pe-undo-hint { opacity: 0.55; font-size: 11px; }
+
+/* In-flight line for direct runs. A direct enhancement has no overlay, so
+   without this row the only feedback is the spinner \u2014 which, on a slow model,
+   reads as "the click did nothing". Same dock row and metrics as the undo line
+   it replaces, so the composer never jumps. */
+.dsh-pe-working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.85;
+}
+.dsh-pe-working-label { flex: 1; min-width: 0; }
+.dsh-pe-working-elapsed {
+  opacity: 0.55;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.dsh-pe-working-x {
+  border: none; background: transparent; color: inherit; opacity: 0.55;
+  cursor: pointer; padding: 0 4px; font-size: 12px;
+}
+.dsh-pe-working-x:hover { opacity: 1; }
+/* The dock spinner is a real ring: the glyph path used to animate a whole
+   luminous symbol, and the dotted circle it replaced is rotationally
+   symmetric, so its rotation was invisible. */
+.dsh-pe-ring {
+  width: 12px; height: 12px; flex: none;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: dsh-pe-spin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dsh-pe-ring { animation-duration: 2s; }
+}
 /* Failure line for direct runs: same row as the undo confirmation, but the
    icon carries the only colour, so a wall of red copy does not fight the
    composer underneath. */

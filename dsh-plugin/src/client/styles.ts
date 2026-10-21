@@ -177,7 +177,11 @@ export const CSS = `
 .dsh-pe-btn:hover:not(:disabled) { opacity: 1; background: var(--pe-hover); }
 .dsh-pe-btn:disabled { opacity: 0.45; cursor: default; }
 .dsh-pe-btn .dsh-pe-btn-icon { font-size: 14px; }
-.dsh-pe-btn.is-busy .dsh-pe-btn-icon { animation: dsh-pe-spin 1s linear infinite; }
+/* The busy icon is the ring itself and rotates by its own rule. Rotating this
+   wrapper as well would spin it twice, and the old dotted-circle glyph it used
+   to hold is rotationally symmetric — animating it looked frozen. */
+.dsh-pe-btn.is-busy .dsh-pe-btn-icon { display: inline-flex; align-items: center; }
+.dsh-pe-ring-sm { width: 12px; height: 12px; }
 @keyframes dsh-pe-spin { to { transform: rotate(360deg); } }
 
 .dsh-pe-undo {
@@ -201,6 +205,44 @@ export const CSS = `
 }
 .dsh-pe-undo-x:hover { opacity: 1; }
 .dsh-pe-undo-hint { opacity: 0.55; font-size: 11px; }
+
+/* In-flight line for direct runs. A direct enhancement has no overlay, so
+   without this row the only feedback is the spinner — which, on a slow model,
+   reads as "the click did nothing". Same dock row and metrics as the undo line
+   it replaces, so the composer never jumps. */
+.dsh-pe-working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.85;
+}
+.dsh-pe-working-label { flex: 1; min-width: 0; }
+.dsh-pe-working-elapsed {
+  opacity: 0.55;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.dsh-pe-working-x {
+  border: none; background: transparent; color: inherit; opacity: 0.55;
+  cursor: pointer; padding: 0 4px; font-size: 12px;
+}
+.dsh-pe-working-x:hover { opacity: 1; }
+/* The dock spinner is a real ring: the glyph path used to animate a whole
+   luminous symbol, and the dotted circle it replaced is rotationally
+   symmetric, so its rotation was invisible. */
+.dsh-pe-ring {
+  width: 12px; height: 12px; flex: none;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: dsh-pe-spin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dsh-pe-ring { animation-duration: 2s; }
+}
 /* Failure line for direct runs: same row as the undo confirmation, but the
    icon carries the only colour, so a wall of red copy does not fight the
    composer underneath. */

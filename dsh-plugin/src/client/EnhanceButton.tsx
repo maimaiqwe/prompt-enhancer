@@ -202,6 +202,15 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       ui.closePanel()
     }
     const fail = (error: unknown): void => {
+      // A cancelled run is not a failure: the user pressed the dock's ✕ (or
+      // closed the panel), which aborts the request and rejects with an
+      // AbortError. Reporting that as an internal error would blame the user
+      // for the one outcome they asked for.
+      if (controller.signal.aborted) {
+        if (written !== undefined && stillOurs()) inputActions.setDraft(draft)
+        ui.closePanel()
+        return
+      }
       const detail: EnhanceError = error instanceof EnhanceClientError
         ? error.detail
         : { code: 'internal', message: error instanceof Error ? error.message : String(error) }
@@ -299,7 +308,9 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
           aria-disabled={otherBusy || undefined}
           onClick={start}
         >
-          <span className="dsh-pe-btn-icon" aria-hidden>{busy ? '◌' : '✨'}</span>
+          <span className="dsh-pe-btn-icon" aria-hidden>
+            {busy ? <span className="dsh-pe-ring dsh-pe-ring-sm" /> : '✨'}
+          </span>
         </button>
       </span>
       {owned !== undefined && (
