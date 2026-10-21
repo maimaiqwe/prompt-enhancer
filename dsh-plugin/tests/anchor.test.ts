@@ -114,7 +114,9 @@ describe('resolveComposerBox', () => {
 
   it('prefers the nearest card in a multi-composer layout', () => {
     // Two seats mounted at once: the row must follow its own card, not the
-    // first one in the document.
+    // first one in the document. This also pins the sibling search: a sibling
+    // lookup must not reach ABOVE the current level, or the other seat's card
+    // (an earlier subtree) would win.
     const other = document.createElement('div')
     other.setAttribute('data-composer-card', '')
     measure(other, 500, 0, 100)

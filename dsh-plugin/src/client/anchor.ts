@@ -54,6 +54,16 @@ function radiusOf(element: HTMLElement): number | undefined {
 }
 
 /**
+ * The marked card inside a scope, or the scope itself when it is the card.
+ * @param scope - a subtree (or the candidate node) to search.
+ * @returns the first marked card element, or null.
+ */
+function matchesCard(scope: Element): HTMLElement | null {
+  if (scope.matches(CARD_SELECTOR)) return scope as HTMLElement
+  return scope.querySelector<HTMLElement>(CARD_SELECTOR)
+}
+
+/**
  * The shell's stable marker for the input card. Documented by the skin layer as
  * "the official shell's stable card anchor" (unlike its hashed class names,
  * which are the host's private business).
@@ -78,17 +88,29 @@ export function resolveComposerBox(from: HTMLElement | null): AttachBox | undefi
   if (from === null || !from.isConnected) return undefined
   let node: HTMLElement | null = from.parentElement
   for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
-    // The card may be a descendant of this level, a sibling of it, or the
-    // level itself — all three happen across host versions.
-    const candidates: (ParentNode | null)[] = [node, node.parentElement]
-    for (const scope of candidates) {
-      if (scope === null) continue
-      const card = scope.querySelector<HTMLElement>(CARD_SELECTOR)
-      if (card !== null) {
-        const rect = card.getBoundingClientRect()
-        if (rect.width >= MIN_WIDTH) {
-          return { left: rect.left, width: rect.width, top: rect.top }
-        }
+    // The card may be a descendant of this level, a SIBLING of it (the host
+    // nests the dock rows and the card side by side under the stack), or the
+    // level itself. Siblings are checked individually, NOT via the parent:
+    // querying the parent's subtree would re-search this level (wasted work)
+    // and also reach subtrees ABOVE the current level, which in a
+    // multi-composer layout can return another seat's card.
+    let card: HTMLElement | null = matchesCard(node)
+    if (card === null) {
+      for (let sibling = node.nextElementSibling; sibling !== null; sibling = sibling.nextElementSibling) {
+        card = matchesCard(sibling)
+        if (card !== null) break
+      }
+    }
+    if (card === null) {
+      for (let sibling = node.previousElementSibling; sibling !== null; sibling = sibling.previousElementSibling) {
+        card = matchesCard(sibling)
+        if (card !== null) break
+      }
+    }
+    if (card !== null) {
+      const rect = card.getBoundingClientRect()
+      if (rect.width >= MIN_WIDTH) {
+        return { left: rect.left, width: rect.width, top: rect.top }
       }
     }
     node = node.parentElement

@@ -237,20 +237,32 @@ function radiusOf(element) {
   const value = Number.parseFloat(raw);
   return Number.isFinite(value) ? value : void 0;
 }
+function matchesCard(scope) {
+  if (scope.matches(CARD_SELECTOR)) return scope;
+  return scope.querySelector(CARD_SELECTOR);
+}
 var CARD_SELECTOR = "[data-composer-card]";
 function resolveComposerBox(from) {
   if (from === null || !from.isConnected) return void 0;
   let node = from.parentElement;
   for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
-    const candidates = [node, node.parentElement];
-    for (const scope of candidates) {
-      if (scope === null) continue;
-      const card = scope.querySelector(CARD_SELECTOR);
-      if (card !== null) {
-        const rect = card.getBoundingClientRect();
-        if (rect.width >= MIN_WIDTH) {
-          return { left: rect.left, width: rect.width, top: rect.top };
-        }
+    let card = matchesCard(node);
+    if (card === null) {
+      for (let sibling = node.nextElementSibling; sibling !== null; sibling = sibling.nextElementSibling) {
+        card = matchesCard(sibling);
+        if (card !== null) break;
+      }
+    }
+    if (card === null) {
+      for (let sibling = node.previousElementSibling; sibling !== null; sibling = sibling.previousElementSibling) {
+        card = matchesCard(sibling);
+        if (card !== null) break;
+      }
+    }
+    if (card !== null) {
+      const rect = card.getBoundingClientRect();
+      if (rect.width >= MIN_WIDTH) {
+        return { left: rect.left, width: rect.width, top: rect.top };
       }
     }
     node = node.parentElement;
