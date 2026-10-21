@@ -8,7 +8,7 @@
  *
  * @module scripts/install-profile
  */
-import { cp, mkdir, rm, stat, readFile } from 'node:fs/promises'
+import { cp, lstat, mkdir, realpath, rm, stat, readFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -40,6 +40,18 @@ if (!(await exists(join(root, 'lib', 'index.js')))) {
 if (!(await exists(profile))) {
   console.error(`profile directory not found: ${profile}`)
   process.exit(1)
+}
+
+// A `link:` dependency makes the profile entry a symlink into this repo.
+// Copying onto it would write through the link (or replace it with a real
+// directory), so a linked install is already live and needs no copy.
+const linked = await lstat(target).then(
+  (info) => info.isSymbolicLink(),
+  () => false,
+)
+if (linked) {
+  console.log(`skip: ${target} is linked to ${await realpath(target)} — already live.`)
+  process.exit(0)
 }
 
 await mkdir(target, { recursive: true })

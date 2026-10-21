@@ -16,7 +16,9 @@ All notable changes are documented here. Versions follow [npm](https://www.npmjs
 
 **默认快捷键改为 `ctrl+shift+alt+a`**，与本机 Windows 热键层一致；档位真源仍共用 `core/rules.md`，两者不会在措辞上分叉。
 
-**新增脚本。** `npm run install:profile` 把 `lib/ src/ package.json cordis.patch.yml …` 同步进 DSH profile 的 `node_modules/dsh-prompt-enhance`（profile 里是实体目录而非软链，改完必须同步）。宿主半区改动重启 DSH 生效，客户端改动刷新页面生效。
+**新增脚本。** `npm run install:profile` 把 `lib/ src/ package.json cordis.patch.yml …` 同步进 DSH profile 的 `node_modules/dsh-prompt-enhance`（profile 里是实体目录而非软链，改完必须同步）。`npm run verify:profile` 逐文件比对仓库构建物与 profile 拷贝的 sha256，不一致退出 1 并说明两种可能：忘了同步，或 profile 里跑过一次 `pnpm install` 把上游 0.2.7 装了回来。宿主半区改动重启 DSH 生效，客户端改动刷新页面生效。
+
+**复验修复（同轮）。** ① 插件设置里的「上下文感知」恢复为真正的总开关：关掉后宿主拒绝所有按次传入的 `useContext`，胶囊上的勾选状态也随之显示为关并禁用；② 基础档的上下文行一并锁住并给出档位专属说明（该档规则禁止扩写，读取历史会让它和规则打架），不再出现「勾上却无效果」；③ 档位列表由 `role="menu"` 改为 `role="radiogroup"` + `role="radio"`——同一个弹层里还有复选框和按钮，`menu` 容器不允许这些子元素；④ 弹层改为贴右边缘展开（`right: 0`），胶囊位于输入框右端，向左展开才不会溢出视口；⑤ 没有绑定 settings 服务时不渲染「设为默认档」，避免按下即静默丢弃；⑥ `install-profile.mjs` 识别 `link:` 依赖，遇到软链不覆盖（并注明不要改成 `link:`：那会让 `@deepseek-ai/dsh-llm` 解析到本仓库 devDependencies 的另一份实例，cordis 服务身份会冲突）。
 
 ## 0.2.7 (2026-09-30)
 

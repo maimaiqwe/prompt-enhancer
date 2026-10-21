@@ -469,9 +469,14 @@ function effectiveTier(sessionId) {
 }
 function effectiveUseContext(sessionId) {
   if (!getClientSettings().contextAware) return false;
+  const tier = effectiveTier(sessionId);
+  if (!tierAllowsContext(tier)) return false;
   const override = contextOverrides.get(sessionId);
   if (override !== void 0) return override;
-  return TIER_CONTEXT_PRESET[effectiveTier(sessionId)].useContext;
+  return TIER_CONTEXT_PRESET[tier].useContext;
+}
+function tierAllowsContext(tier) {
+  return TIER_CONTEXT_PRESET[tier].useContext;
 }
 function selectTier(sessionId, tier) {
   tierOverrides.set(sessionId, tier);
@@ -529,11 +534,13 @@ var HINT_KEY = {
 };
 function TierMenu({ sessionKey, t }) {
   (0, import_react2.useSyncExternalStore)(subscribe, getVersion);
-  const masterContext = (0, import_react2.useSyncExternalStore)(subscribeClientSettings, getClientSettings).contextAware;
+  const masterSettings = (0, import_react2.useSyncExternalStore)(subscribeClientSettings, getClientSettings);
   const canPin = canPersistTier();
   const tier = effectiveTier(sessionKey);
   const useContext = effectiveUseContext(sessionKey);
+  const contextLock = !masterSettings.contextAware ? t("tier.menu.context.locked") : tierAllowsContext(tier) ? void 0 : t("tier.menu.context.tierlocked");
   const detailsRef = (0, import_react2.useRef)(null);
+  const titleId = (0, import_react2.useId)();
   const menuRef = (0, import_react2.useRef)(null);
   const [pinned, setPinned] = (0, import_react2.useState)(false);
   const close = (0, import_react2.useCallback)(() => {
@@ -597,13 +604,13 @@ function TierMenu({ sessionKey, t }) {
         ]
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-pe-tier-menu", role: "menu", ref: menuRef, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-title", children: t("tier.menu.title") }),
-      TIERS.map((option) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-pe-tier-menu", ref: menuRef, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-title", id: titleId, children: t("tier.menu.title") }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { role: "radiogroup", "aria-labelledby": titleId, children: TIERS.map((option) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
         "button",
         {
           type: "button",
-          role: "menuitemradio",
+          role: "radio",
           "aria-checked": option === tier,
           className: `dsh-pe-tier-item${option === tier ? " is-active" : ""}`,
           onClick: () => pick(option),
@@ -616,19 +623,19 @@ function TierMenu({ sessionKey, t }) {
           ]
         },
         option
-      )),
+      )) }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
         "label",
         {
-          className: `dsh-pe-tier-context${masterContext ? "" : " is-locked"}`,
-          title: masterContext ? t("tier.menu.context.hint") : t("tier.menu.context.locked"),
+          className: `dsh-pe-tier-context${contextLock === void 0 ? "" : " is-locked"}`,
+          title: contextLock ?? t("tier.menu.context.hint"),
           children: [
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
               "input",
               {
                 type: "checkbox",
                 checked: useContext,
-                disabled: !masterContext,
+                disabled: contextLock !== void 0,
                 onChange: toggleContext
               }
             ),
@@ -1041,6 +1048,7 @@ var zh = {
   "tier.menu.context": "\u7ED3\u5408\u4E0A\u4E0B\u6587",
   "tier.menu.context.hint": "\u5141\u8BB8\u8BFB\u53D6\u672C\u4F1A\u8BDD\u6700\u8FD1\u51E0\u6761\u6D88\u606F\u6765\u6D88\u89E3\u6307\u4EE3\u3001\u8865\u5168\u672F\u8BED\uFF1B\u5173\u95ED\u540E\u53EA\u6539\u8349\u7A3F\u672C\u8EAB\u3002",
   "tier.menu.context.locked": "\u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u300C\u4E0A\u4E0B\u6587\u611F\u77E5\u300D\u5DF2\u5173\u95ED\uFF0C\u8FD9\u91CC\u6682\u4E0D\u53EF\u7528\u3002",
+  "tier.menu.context.tierlocked": "\u57FA\u7840\u6863\u53EA\u505A\u8F7B\u5EA6\u7406\u987A\u3001\u4E0D\u6269\u5199\uFF0C\u56E0\u6B64\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\u3002",
   "tier.menu.default": "\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.menu.default.done": "\u5DF2\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.base": "\u57FA\u7840",
@@ -1101,6 +1109,7 @@ var en = {
   "tier.menu.context": "Use conversation context",
   "tier.menu.context.hint": "Lets the rewrite read the last few messages of this conversation to resolve references and fill in established terms. Off means the draft alone is rewritten.",
   "tier.menu.context.locked": "Context awareness is switched off in the plugin settings, so this toggle is unavailable.",
+  "tier.menu.context.tierlocked": "The basic tier only tidies the wording and never expands, so it does not read context.",
   "tier.menu.default": "Set as default tier",
   "tier.menu.default.done": "Set as the default tier",
   "tier.base": "Basic",
@@ -1355,7 +1364,10 @@ var CSS = `
 .dsh-pe-tier-menu {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 0;
+  /* The capsule sits at the right edge of the composer, so the menu grows
+     leftward; anchoring at left:0 would push it off-screen. */
+  left: auto;
+  right: 0;
   z-index: 40;
   width: 268px;
   padding: 6px;

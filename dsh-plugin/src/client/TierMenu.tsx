@@ -14,7 +14,7 @@
  * @module dsh-prompt-enhance/client/TierMenu
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { TIERS, type Tier } from '../tiers'
 import { getClientSettings, subscribeClientSettings } from './settings'
@@ -27,6 +27,7 @@ import {
   selectTier,
   selectUseContext,
   subscribe,
+  tierAllowsContext,
 } from './tier-store'
 
 /** Props of the picker: a locale seat plus the session key it acts on. */
@@ -70,11 +71,20 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   // Re-render on selection changes; the version counter is the snapshot, the
   // selections themselves are read through the store's accessors.
   useSyncExternalStore(subscribe, getVersion)
-  const masterContext = useSyncExternalStore(subscribeClientSettings, getClientSettings).contextAware
+  const masterSettings = useSyncExternalStore(subscribeClientSettings, getClientSettings)
   const canPin = canPersistTier()
   const tier = effectiveTier(sessionKey)
   const useContext = effectiveUseContext(sessionKey)
+  // Two independent reasons the row can be inert: the plugin-level master
+  // switch, and the tier itself (基础 never takes history). Both are reported,
+  // because a disabled checkbox with the wrong explanation is worse than none.
+  const contextLock = !masterSettings.contextAware
+    ? t('tier.menu.context.locked')
+    : tierAllowsContext(tier)
+      ? undefined
+      : t('tier.menu.context.tierlocked')
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
+  const titleId = useId()
   const menuRef = useRef<HTMLDivElement | null>(null)
   // "已设为默认档" is transient feedback: it is cleared when the popover closes
   // so reopening never shows a stale confirmation.
@@ -164,32 +174,36 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
         <span className="dsh-pe-tier-badge" aria-hidden>{BADGE[tier]}</span>
         <span className="dsh-pe-tier-caret" aria-hidden>▾</span>
       </summary>
-      <div className="dsh-pe-tier-menu" role="menu" ref={menuRef}>
-        <div className="dsh-pe-tier-title">{t('tier.menu.title')}</div>
-        {TIERS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="menuitemradio"
-            aria-checked={option === tier}
-            className={`dsh-pe-tier-item${option === tier ? ' is-active' : ''}`}
-            onClick={() => pick(option)}
-          >
-            <span className="dsh-pe-tier-item-head">
-              <span className="dsh-pe-tier-badge" aria-hidden>{BADGE[option]}</span>
-              <span className="dsh-pe-tier-item-name">{t(NAME_KEY[option])}</span>
-            </span>
-            <span className="dsh-pe-tier-item-hint">{t(HINT_KEY[option])}</span>
-          </button>
-        ))}
+      <div className="dsh-pe-tier-menu" ref={menuRef}>
+        <div className="dsh-pe-tier-title" id={titleId}>{t('tier.menu.title')}</div>
+        {/* A radio group, not a menu: the popover also holds a checkbox and a
+            button, which a role="menu" container may not contain. */}
+        <div role="radiogroup" aria-labelledby={titleId}>
+          {TIERS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={option === tier}
+              className={`dsh-pe-tier-item${option === tier ? ' is-active' : ''}`}
+              onClick={() => pick(option)}
+            >
+              <span className="dsh-pe-tier-item-head">
+                <span className="dsh-pe-tier-badge" aria-hidden>{BADGE[option]}</span>
+                <span className="dsh-pe-tier-item-name">{t(NAME_KEY[option])}</span>
+              </span>
+              <span className="dsh-pe-tier-item-hint">{t(HINT_KEY[option])}</span>
+            </button>
+          ))}
+        </div>
         <label
-          className={`dsh-pe-tier-context${masterContext ? '' : ' is-locked'}`}
-          title={masterContext ? t('tier.menu.context.hint') : t('tier.menu.context.locked')}
+          className={`dsh-pe-tier-context${contextLock === undefined ? '' : ' is-locked'}`}
+          title={contextLock ?? t('tier.menu.context.hint')}
         >
           <input
             type="checkbox"
             checked={useContext}
-            disabled={!masterContext}
+            disabled={contextLock !== undefined}
             onChange={toggleContext}
           />
           <span>{t('tier.menu.context')}</span>

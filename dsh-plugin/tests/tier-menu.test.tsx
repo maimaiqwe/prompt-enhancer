@@ -54,7 +54,7 @@ describe('TierMenu', () => {
   it('picking a tier updates the selection without touching the default setting', () => {
     const before = DEFAULT_CLIENT_SETTINGS.defaultTier
     render(<TierMenu sessionKey={SESSION} t={t} />)
-    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.system')) }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.system')) }))
     expect(effectiveTier(SESSION)).toBe('system')
     expect(DEFAULT_CLIENT_SETTINGS.defaultTier).toBe(before)
   })
@@ -63,27 +63,38 @@ describe('TierMenu', () => {
     render(<TierMenu sessionKey={SESSION} t={t} />)
     // 标准 admits history.
     expect(effectiveUseContext(SESSION)).toBe(true)
-    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.base')) }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.base')) }))
     // 基础 never does: its rules forbid expansion.
     expect(effectiveUseContext(SESSION)).toBe(false)
   })
 
   it('lets the context row override the preset for this session only', () => {
     render(<TierMenu sessionKey={SESSION} t={t} />)
-    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.base')) }))
+    // 标准 admits history, so the row is the place to turn it back off.
     const box = screen.getByRole('checkbox') as HTMLInputElement
-    expect(box.checked).toBe(false)
+    expect(box.checked).toBe(true)
     fireEvent.click(box)
-    expect(effectiveUseContext(SESSION)).toBe(true)
+    expect(effectiveUseContext(SESSION)).toBe(false)
     // Another session keeps its own preset.
     expect(effectiveUseContext('session-b')).toBe(true)
+  })
+
+  it('locks the context row on a tier that cannot use history', () => {
+    // 基础 never reads context (the host refuses it too), so offering a
+    // clickable checkbox would show a state the next call silently ignores.
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.base')) }))
+    const box = screen.getByRole('checkbox') as HTMLInputElement
+    expect(box.checked).toBe(false)
+    expect(box.disabled).toBe(true)
+    expect(screen.getByTitle(t('tier.menu.context.tierlocked'))).toBeTruthy()
   })
 
   it('persists the tier through the registered writer', async () => {
     const writer = vi.fn(async () => {})
     registerTierPersist(writer)
     render(<TierMenu sessionKey={SESSION} t={t} />)
-    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.professional')) }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.professional')) }))
     fireEvent.click(screen.getByText(t('tier.menu.default')))
     expect(writer).toHaveBeenCalledWith('professional')
   })
@@ -109,7 +120,7 @@ describe('TierMenu', () => {
     const box = screen.getByRole('checkbox') as HTMLInputElement
     expect(box.disabled).toBe(true)
     expect(box.checked).toBe(false)
-    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.professional')) }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.professional')) }))
     expect(effectiveUseContext(SESSION)).toBe(false)
   })
 
@@ -125,7 +136,7 @@ describe('TierMenu', () => {
     const { container } = render(<TierMenu sessionKey={SESSION} t={t} />)
     const details = container.querySelector('details') as HTMLDetailsElement
     details.open = true
-    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.professional')) }))
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(t('tier.professional')) }))
     expect(details.open).toBe(false)
   })
 })

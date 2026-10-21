@@ -104,7 +104,8 @@
     "typecheck": "tsc -p . --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run gen:tiers && npm run build && npm test"
+    "prepublishOnly": "npm run gen:tiers && npm run build && npm test",
+    "verify:profile": "node scripts/verify-profile.mjs"
   },
   "publishConfig": {
     "access": "public"

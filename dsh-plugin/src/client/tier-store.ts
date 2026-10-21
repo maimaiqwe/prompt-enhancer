@@ -44,9 +44,23 @@ export function effectiveTier(sessionId: string): Tier {
  */
 export function effectiveUseContext(sessionId: string): boolean {
   if (!getClientSettings().contextAware) return false
+  const tier = effectiveTier(sessionId)
+  // 基础档 is a local tidy-up: its rules forbid expansion, and history is the
+  // main source of expansion. The host refuses context for it regardless, so
+  // reporting an override here would show a toggle the next call ignores.
+  if (!tierAllowsContext(tier)) return false
   const override = contextOverrides.get(sessionId)
   if (override !== undefined) return override
-  return TIER_CONTEXT_PRESET[effectiveTier(sessionId)].useContext
+  return TIER_CONTEXT_PRESET[tier].useContext
+}
+
+/**
+ * Whether this tier can use context at all.
+ * @param tier - the tier to ask about.
+ * @returns false for tiers whose rules leave no room for supplied history.
+ */
+export function tierAllowsContext(tier: Tier): boolean {
+  return TIER_CONTEXT_PRESET[tier].useContext
 }
 
 /**

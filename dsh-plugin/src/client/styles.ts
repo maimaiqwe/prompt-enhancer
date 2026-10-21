@@ -247,7 +247,10 @@ export const CSS = `
 .dsh-pe-tier-menu {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 0;
+  /* The capsule sits at the right edge of the composer, so the menu grows
+     leftward; anchoring at left:0 would push it off-screen. */
+  left: auto;
+  right: 0;
   z-index: 40;
   width: 268px;
   padding: 6px;

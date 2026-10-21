@@ -282,9 +282,10 @@ npm run build         # 规则生成校验 + 类型检查 + 双半区构建
 npm run watch         # esbuild 监听构建双半区
 npm run gen:tiers     # 改了 core/rules.md 之后重新生成档位常量
 npm run install:profile   # 把构建产物同步进 DSH profile（默认 desktop profile）
+npm run verify:profile    # 比对 profile 拷贝与本次构建的 sha256，不一致退出 1
 ```
 
-**改完怎么生效:** 客户端半区（`src/client/`）刷新页面即可；宿主半区（`src/`）要重启 DSH。profile 里存的是实体目录而不是软链，所以每次 `npm run build` 之后都要再跑一次 `npm run install:profile`。
+**改完怎么生效:** 客户端半区（`src/client/`）刷新页面即可；宿主半区（`src/`）要重启 DSH。profile 里存的是实体目录而不是软链，所以每次 `npm run build` 之后都要再跑一次 `npm run install:profile`，改完用 `npm run verify:profile` 确认确实同步了。⚠️ 在 DSH 里装/卸任何插件都会触发一次 `pnpm install`，那会把 profile 里的这份拷贝换回 npm 上的上游 `0.2.7`——发现改动「没生效」时先跑 `verify:profile`，再跑一次 `install:profile`。不要改用 `link:` 依赖图省事：软链会让 `@deepseek-ai/dsh-llm` 解析到本仓库 devDependencies 里的另一份实例，cordis 服务身份冲突，插件会静默挂不上。
 
 **测试覆盖:** 输入校验(空 / 零宽字符 / 超长)、输出规范化(剥围栏、折行、拒空)、以桩 `ctx.llm` 流驱动的增强器(正常路径、AUTH/NO_ADAPTER/max-tokens 终结、空输出、挂起流失超时、预中止的调用方、路由优先级)、路由的真实 `node:http` 端到端套件(回环栅栏、方法守卫、畸形 body、结构化错误信封、停用开关)、档位组合与上下文窗口收窄、档位胶囊交互、撤销栈、快捷键解析与匹配、配置解析、客户端设置解码器。
 

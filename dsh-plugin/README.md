@@ -279,9 +279,14 @@ Daily debug loop (link install + watch): install once via `dsh plugin --profile 
 npm install
 npm run typecheck     # tsc --noEmit
 npm test              # unit + real-http + component suites
-npm run build         # typecheck + both halves
+npm run build         # rule-generation check + typecheck + both halves
 npm run watch         # esbuild watch for both halves
+npm run gen:tiers     # regenerate tier constants after editing core/rules.md
+npm run install:profile   # copy lib/ and src/ into the DSH profile
+npm run verify:profile    # compare profile copies against this build (sha256)
 ```
+
+**Getting changes live:** client-half changes need a page refresh, host-half changes need a DSH restart. The profile holds a **real directory**, not a symlink, so every `npm run build` needs a following `npm run install:profile` — and `npm run verify:profile` proves it landed. ⚠️ Installing or removing *any* plugin in DSH triggers a `pnpm install`, which replaces that copy with the upstream `0.2.7` from npm; when a change mysteriously "does not apply", run `verify:profile` first, then `install:profile` again. Do not switch the dependency to `link:` to avoid this: a symlink makes `@deepseek-ai/dsh-llm` resolve to the second copy under this repo's devDependencies, and the cordis service identity clash makes the plugin silently fail to mount.
 
 **Test coverage:** input validation, output normalization, the enhancer against stubbed `ctx.llm` streams, a real-`node:http` route suite (loopback Host fence, disconnect abort, error envelopes), the loopback/Host fence units, prompt framing, config resolution, the undo stack, shortcut parsing, client settings, and React component tests locking the enhance → apply → undo flow (guards, stale marking, diverged-draft undo semantics).
 
