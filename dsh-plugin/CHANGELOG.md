@@ -8,7 +8,7 @@ All notable changes are documented here. Versions follow [npm](https://www.npmjs
 
 **规则真源唯一。** 档位措辞不在插件里手写：仓库根 `core/rules.md` 是唯一真源（与 Windows 热键层共用同一份文件），`npm run gen:tiers` 把它按 `## [SECTION]` 切成 `src/generated/tier-rules.ts`，`npm run build` 先跑 `--check`，生成物落后于规则文件即失败。四档共用 `[COMMON]` 段，因此保真底线、不编造、只输出正文、Skill 占位符（`__PO_SKILL_0001__`）原样保留这些约束不随切档丢失。
 
-**输入框控件。** `conversation.input.right` 槽位里新增档位胶囊（位于 ✨ 左侧，显示 基/标/专/系），点开是四档 + 「结合上下文」开关 + 「设为默认档」。切档只改选择、不发请求；「设为默认档」经 `settingsScope.set('defaultTier', …)` 写回宿主配置并热生效。
+**输入框控件。** `conversation.input.right` 槽位里新增档位胶囊（位于 ✨ 左侧，显示 基/标/专/系），点开是四档（每行右端一颗圆点＝设为默认）+ 「结合上下文」开关（同样带一颗圆点）。切档只改选择、不发请求；设默认档经 `settingsScope.set('defaultTier', …)` 写回宿主配置并热生效。
 
 **两层选择状态。** 持久默认（`defaultTier`）+ 每会话覆盖，一次专业档不会悄悄改掉以后所有会话。上下文开关同样两层：切档时套用该档预设（基础永不带上文；标准 4 条 / 3000 字；专业与系统 12 条 / 6000 字），之后可当场覆盖当前会话，且预设与 `contextMaxMessages` / `contextMaxChars` 取较小值。
 

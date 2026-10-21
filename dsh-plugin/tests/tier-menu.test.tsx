@@ -224,31 +224,50 @@ describe('TierMenu', () => {
     expect(fresh.defaultTierOf()).toBe('professional')
   })
 
-  it('pins the context default from the row radio and applies it here', () => {
+  it('never writes the default when only the checkbox is flipped', () => {
+    // The user's core complaint: flipping 结合上下文 must stay a session-local
+    // change. Only the dot writes the default.
     render(<TierMenu sessionKey={SESSION} t={t} />)
-    fireEvent.click(contextDefaultRadio())
-    expect(defaultContextOf()).toBe(true)
-    // Pinning applies the state here too, and a fresh conversation inherits it.
-    expect(effectiveUseContext(SESSION)).toBe(true)
-    expect(effectiveUseContext('session-b')).toBe(true)
-    // The radio now reads pinned. A button, not a real radio: `aria-checked`
-    // is the state, and `.checked` does not exist on a button element.
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(effectiveUseContext(SESSION)).toBe(false)
+    expect(defaultContextOf()).toBe(undefined)
+  })
+
+  it('reads the dot as "what you see is the default"', () => {
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    // 标准's preset already is the default for a new conversation, so the dot
+    // starts ticked even though nothing was ever pinned.
     expect(contextDefaultRadio().getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(contextDefaultRadio().getAttribute('aria-checked')).toBe('false')
+    expect(screen.getByText(t('tier.menu.context.overridden', { state: zh['tier.menu.context.off'], default: zh['tier.menu.context.on'] }))).toBeTruthy()
+  })
+
+  it('pins the state on screen from the dot, without touching the session pick', () => {
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    fireEvent.click(screen.getByRole('checkbox')) // this session: off
+    fireEvent.click(contextDefaultRadio()) // dot → pin off as the default
+    expect(defaultContextOf()).toBe(false)
+    expect(contextDefaultRadio().getAttribute('aria-checked')).toBe('true')
+    // A fresh conversation inherits it; the tier preset no longer decides.
+    expect(effectiveUseContext('session-b')).toBe(false)
+  })
+
+  it('unpins when the dot is clicked on a state that already is the default', () => {
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    fireEvent.click(contextDefaultRadio()) // pin the preset on
+    expect(defaultContextOf()).toBe(true)
+    // Clicking again on the same state drops the pin (a button, not a real
+    // radio — a checked radio would swallow this second click).
+    fireEvent.click(contextDefaultRadio())
+    expect(defaultContextOf()).toBe(undefined)
   })
 
   it('pins context off and survives a reload', async () => {
     render(<TierMenu sessionKey={SESSION} t={t} />)
     fireEvent.click(tierRow('professional'))
-    fireEvent.click(contextDefaultRadio()) // currently on → pins on
-    expect(defaultContextOf()).toBe(true)
-    // Tick again on the already-pinned state → unpins (button click, always
-    // reachable — unlike a real radio, which swallows repeat clicks).
-    fireEvent.click(contextDefaultRadio())
-    expect(defaultContextOf()).toBe(undefined)
-    // Pin off via a session override of the checkbox first.
-    fireEvent.click(screen.getByRole('checkbox'))
-    expect(effectiveUseContext(SESSION)).toBe(false)
-    fireEvent.click(contextDefaultRadio()) // current off → pins off
+    fireEvent.click(screen.getByRole('checkbox')) // session: off
+    fireEvent.click(contextDefaultRadio()) // pin off
     expect(defaultContextOf()).toBe(false)
     vi.resetModules()
     const fresh = await import('../src/client/tier-store')

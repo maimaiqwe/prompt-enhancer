@@ -23,13 +23,13 @@ import { getClientSettings, subscribeClientSettings } from './settings'
 import {
   defaultContextOf,
   defaultTierOf,
+  effectiveDefaultContext,
   effectiveTier,
   effectiveUseContext,
   getVersion,
   hasSessionPick,
   selectTier,
   selectUseContext,
-  sessionContextPick,
   setDefaultContext,
   setDefaultTier,
   subscribe,
@@ -82,14 +82,11 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   const tier = effectiveTier(sessionKey)
   const useContext = effectiveUseContext(sessionKey)
   const pinnedDefault = defaultTierOf()
-  const pinnedContext = defaultContextOf()
-  const sessionContext = sessionContextPick(sessionKey)
   const temporary = hasSessionPick(sessionKey) && tier !== pinnedDefault
-  // The radio reads "pinned" when a default exists at all; when the session
-  // also carries its own pick that differs, it is temporarily overriding even
-  // the default — which the footer language already covers for tiers.
-  const contextIsPinned = pinnedContext !== undefined
-  const contextIsOverridden = sessionContext !== undefined && sessionContext !== pinnedContext
+  // What a fresh conversation would start with. Describing the pin with
+  // `useContext` instead would report the session's own override back as the
+  // default, so a temporary "off" would make a pinned "on" read as "pinned: off".
+  const defaultContext = effectiveDefaultContext(tier)
   // Two independent reasons the row can be inert: the plugin-level master
   // switch, and the tier itself (基础 never takes history). Both are reported,
   // because a disabled checkbox with the wrong explanation is worse than none.
@@ -98,6 +95,10 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
     : tierAllowsContext(tier)
       ? undefined
       : t('tier.menu.context.tierlocked')
+  // The dot answers "is what I see the default?", not "does a default exist?".
+  // With no pin at all the tier preset decides, and that preset IS the default
+  // for a fresh conversation — so the dot is on until the user flips the box.
+  const contextIsDefault = useContext === defaultContext
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
   const titleId = useId()
   const groupName = `${useId()}-default`
@@ -177,9 +178,14 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   }, [sessionKey])
 
   /**
-   * Pin the context toggle as the default for every new conversation (or unpin
-   * it when the same state is ticked again — the radio mirrors the tier rows).
-   * @param next - the default on/off to persist.
+   * Make the context toggle's CURRENT state the default for every new
+   * conversation, or drop the pin when the current state already is the pinned
+   * one (so the tier presets decide again).
+   *
+   * The dot means "what you see is the default", not "a default exists": that is
+   * why it goes empty the moment the checkbox is flipped away from the default,
+   * and why this is the only control that writes it.
+   * @param next - the state on screen right now.
    */
   const makeDefaultContext = useCallback((next: boolean): void => {
     if (defaultContextOf() === next) {
@@ -187,8 +193,7 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
       return
     }
     setDefaultContext(next)
-    selectUseContext(sessionKey, next)
-  }, [sessionKey])
+  }, [])
 
   return (
     <details className="dsh-pe-tier" ref={detailsRef}>
@@ -268,19 +273,22 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
                 ? t('tier.menu.context.lockedHint')
                 : contextLock !== undefined
                   ? contextLock
-                  : contextIsPinned
+                  : contextIsDefault
                     ? t('tier.menu.context.pinned', { state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off') })
-                    : t('tier.menu.context.pin')
+                    : t('tier.menu.context.overridden', {
+                        state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off'),
+                        default: t(defaultContext ? 'tier.menu.context.on' : 'tier.menu.context.off'),
+                      })
             }
           >
             {/* A button with role="radio", not a real radio: a checked radio
                 swallows repeat clicks (no change event fires), which would make
-                "tick again to unpin" unreachable. The tier rows use the same
+                "click again to unpin" unreachable. The tier rows use the same
                 button pattern. */}
             <button
               type="button"
               role="radio"
-              aria-checked={contextIsPinned}
+              aria-checked={contextIsDefault}
               disabled={contextLock !== undefined || !contextIsPinnable}
               aria-label={`${t('tier.menu.context.default')}：${t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off')}`}
               onClick={() => makeDefaultContext(useContext)}
@@ -290,6 +298,14 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
         {temporary ? (
           <div className="dsh-pe-tier-foot" role="status">
             {t('tier.menu.session', { tier: t(NAME_KEY[tier]) })}
+          </div>
+        ) : null}
+        {contextLock === undefined && !contextIsDefault ? (
+          <div className="dsh-pe-tier-foot" role="status">
+            {t('tier.menu.context.overridden', {
+              state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off'),
+              default: t(defaultContext ? 'tier.menu.context.on' : 'tier.menu.context.off'),
+            })}
           </div>
         ) : null}
       </div>

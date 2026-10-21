@@ -635,15 +635,17 @@ function setDefaultContext(value) {
 function effectiveTier(sessionId) {
   return picks.get(sessionId)?.tier ?? defaultTierOf();
 }
-function sessionContextPick(sessionId) {
-  return picks.get(sessionId)?.context;
-}
 function effectiveUseContext(sessionId) {
   if (!getClientSettings().contextAware) return false;
   const tier = effectiveTier(sessionId);
   if (!tierAllowsContext(tier)) return false;
   const pick = picks.get(sessionId)?.context;
   if (pick !== void 0) return pick;
+  const pinned = defaultContextOf();
+  if (pinned !== void 0) return pinned;
+  return TIER_CONTEXT_PRESET[tier].useContext;
+}
+function effectiveDefaultContext(tier) {
   const pinned = defaultContextOf();
   if (pinned !== void 0) return pinned;
   return TIER_CONTEXT_PRESET[tier].useContext;
@@ -713,12 +715,10 @@ function TierMenu({ sessionKey, t }) {
   const tier = effectiveTier(sessionKey);
   const useContext = effectiveUseContext(sessionKey);
   const pinnedDefault = defaultTierOf();
-  const pinnedContext = defaultContextOf();
-  const sessionContext = sessionContextPick(sessionKey);
   const temporary = hasSessionPick(sessionKey) && tier !== pinnedDefault;
-  const contextIsPinned = pinnedContext !== void 0;
-  const contextIsOverridden = sessionContext !== void 0 && sessionContext !== pinnedContext;
+  const defaultContext2 = effectiveDefaultContext(tier);
   const contextLock = !masterSettings.contextAware ? t("tier.menu.context.locked") : tierAllowsContext(tier) ? void 0 : t("tier.menu.context.tierlocked");
+  const contextIsDefault = useContext === defaultContext2;
   const detailsRef = (0, import_react2.useRef)(null);
   const titleId = (0, import_react2.useId)();
   const groupName = `${(0, import_react2.useId)()}-default`;
@@ -773,8 +773,7 @@ function TierMenu({ sessionKey, t }) {
       return;
     }
     setDefaultContext(next);
-    selectUseContext(sessionKey, next);
-  }, [sessionKey]);
+  }, []);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("details", { className: "dsh-pe-tier", ref: detailsRef, children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       "summary",
@@ -861,14 +860,17 @@ function TierMenu({ sessionKey, t }) {
               // The pin radio has its own vocabulary: "there is nothing to pin
               // here" is a different sentence from the checkbox's reason, and
               // the checkbox already carries the specific one.
-              !contextIsPinnable ? t("tier.menu.context.lockedHint") : contextLock !== void 0 ? contextLock : contextIsPinned ? t("tier.menu.context.pinned", { state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off") }) : t("tier.menu.context.pin")
+              !contextIsPinnable ? t("tier.menu.context.lockedHint") : contextLock !== void 0 ? contextLock : contextIsDefault ? t("tier.menu.context.pinned", { state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off") }) : t("tier.menu.context.overridden", {
+                state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off"),
+                default: t(defaultContext2 ? "tier.menu.context.on" : "tier.menu.context.off")
+              })
             ),
             children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
               "button",
               {
                 type: "button",
                 role: "radio",
-                "aria-checked": contextIsPinned,
+                "aria-checked": contextIsDefault,
                 disabled: contextLock !== void 0 || !contextIsPinnable,
                 "aria-label": `${t("tier.menu.context.default")}\uFF1A${t(useContext ? "tier.menu.context.on" : "tier.menu.context.off")}`,
                 onClick: () => makeDefaultContext(useContext)
@@ -877,7 +879,11 @@ function TierMenu({ sessionKey, t }) {
           }
         )
       ] }),
-      temporary ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", role: "status", children: t("tier.menu.session", { tier: t(NAME_KEY[tier]) }) }) : null
+      temporary ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", role: "status", children: t("tier.menu.session", { tier: t(NAME_KEY[tier]) }) }) : null,
+      contextLock === void 0 && !contextIsDefault ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", role: "status", children: t("tier.menu.context.overridden", {
+        state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off"),
+        default: t(defaultContext2 ? "tier.menu.context.on" : "tier.menu.context.off")
+      }) }) : null
     ] })
   ] });
 }
@@ -1522,8 +1528,9 @@ var zh = {
   "tier.menu.context.hint": "\u5141\u8BB8\u8BFB\u53D6\u672C\u4F1A\u8BDD\u6700\u8FD1\u51E0\u6761\u6D88\u606F\u6765\u6D88\u89E3\u6307\u4EE3\u3001\u8865\u5168\u672F\u8BED\uFF1B\u5173\u95ED\u540E\u53EA\u6539\u8349\u7A3F\u672C\u8EAB\u3002",
   "tier.menu.context.locked": "\u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u300C\u4E0A\u4E0B\u6587\u611F\u77E5\u300D\u5DF2\u5173\u95ED\uFF0C\u8FD9\u91CC\u6682\u4E0D\u53EF\u7528\u3002",
   "tier.menu.context.tierlocked": "\u57FA\u7840\u6863\u53EA\u505A\u8F7B\u5EA6\u7406\u987A\u3001\u4E0D\u6269\u5199\uFF0C\u56E0\u6B64\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\u3002",
-  "tier.menu.context.pin": "\u52FE\u9009\uFF1D\u628A\u5F53\u524D\u5F00/\u5173\u72B6\u6001\u8BBE\u4E3A\u9ED8\u8BA4\uFF0C\u65B0\u4F1A\u8BDD\u7167\u6B64\u5F00\u59CB\uFF1B\u518D\u70B9\u53D6\u6D88\u56FA\u5B9A",
-  "tier.menu.context.pinned": "\u5DF2\u56FA\u5B9A\u9ED8\u8BA4\uFF1A{state}\uFF1B\u518D\u70B9\u53D6\u6D88\u56FA\u5B9A",
+  "tier.menu.context.pin": "\u70B9\u5706\u70B9\uFF1D\u628A\u5F53\u524D\u72B6\u6001\u8BBE\u4E3A\u9ED8\u8BA4\uFF0C\u4E4B\u540E\u65B0\u4F1A\u8BDD\u7167\u6B64\u5F00\u59CB",
+  "tier.menu.context.pinned": "\u5F53\u524D\u72B6\u6001\u5C31\u662F\u9ED8\u8BA4\uFF1A{state}\uFF1B\u518D\u70B9\u5706\u70B9\u53D6\u6D88\u56FA\u5B9A",
+  "tier.menu.context.overridden": "\u672C\u4F1A\u8BDD\u4E34\u65F6\u6539\u4E3A{state}\uFF0C\u9ED8\u8BA4\u4ECD\u4E3A{default}\uFF1B\u70B9\u5706\u70B9\u53EF\u628A\u5F53\u524D\u72B6\u6001\u8BBE\u4E3A\u9ED8\u8BA4",
   "tier.menu.context.default": "\u8BBE\u4E3A\u4E0A\u4E0B\u6587\u9ED8\u8BA4",
   "tier.menu.context.pinUnavailable": "\u5F53\u524D\u6863\u4F4D\u6216\u63D2\u4EF6\u8BBE\u7F6E\u4E0D\u5141\u8BB8\u7ED3\u5408\u4E0A\u4E0B\u6587\uFF0C\u65E0\u6CD5\u56FA\u5B9A\u9ED8\u8BA4\u3002",
   "tier.menu.context.lockedHint": "\u57FA\u7840\u6863\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\uFF0C\u6B64\u5904\u4E0D\u53EF\u7528\u3002",
@@ -1598,8 +1605,9 @@ var en = {
   "tier.menu.context.hint": "Lets the rewrite read the last few messages of this conversation to resolve references and fill in established terms. Off means the draft alone is rewritten.",
   "tier.menu.context.locked": "Context awareness is switched off in the plugin settings, so this toggle is unavailable.",
   "tier.menu.context.tierlocked": "The basic tier only tidies the wording and never expands, so it does not read context.",
-  "tier.menu.context.pin": "Tick to make the current on/off state the default for new conversations; tick again to unpin",
-  "tier.menu.context.pinned": "Pinned default: {state}; tick again to unpin",
+  "tier.menu.context.pin": "Click the dot to make the current state the default for new conversations",
+  "tier.menu.context.pinned": "This is already the default: {state}; click the dot again to unpin",
+  "tier.menu.context.overridden": "This conversation is temporarily {state} while the default stays {default}; click the dot to make the current state the default",
   "tier.menu.context.default": "Set context default",
   "tier.menu.context.pinUnavailable": "The current tier or plugin setting does not allow conversation context, so there is no default to pin.",
   "tier.menu.context.lockedHint": "The basic tier never reads context, so this is unavailable.",

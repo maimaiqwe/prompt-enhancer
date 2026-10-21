@@ -241,6 +241,22 @@ export function effectiveUseContext(sessionId: string): boolean {
 }
 
 /**
+ * The context state a fresh conversation would start with for this tier: the
+ * pinned default when one exists, otherwise the tier's own preset.
+ *
+ * The UI needs this separately from {@link effectiveUseContext}: that one folds
+ * in the session's temporary override, so using it to describe "the default"
+ * would report the override back as the default and mislead the user.
+ * @param tier - the tier to describe.
+ * @returns the on/off a new conversation would get.
+ */
+export function effectiveDefaultContext(tier: Tier): boolean {
+  const pinned = defaultContextOf()
+  if (pinned !== undefined) return pinned
+  return TIER_CONTEXT_PRESET[tier].useContext
+}
+
+/**
  * Whether this session carries a pick of its own, i.e. whether the capsule is
  * showing something other than the default.
  * @param sessionId - the composer's session key.
