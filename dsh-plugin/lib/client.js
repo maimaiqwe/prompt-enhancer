@@ -719,6 +719,7 @@ function TierMenu({ sessionKey, t }) {
   const defaultContext2 = effectiveDefaultContext(tier);
   const contextLock = !masterSettings.contextAware ? t("tier.menu.context.locked") : tierAllowsContext(tier) ? void 0 : t("tier.menu.context.tierlocked");
   const contextIsDefault = useContext === defaultContext2;
+  const contextPinned = defaultContextOf() !== void 0;
   const detailsRef = (0, import_react2.useRef)(null);
   const titleId = (0, import_react2.useId)();
   const groupName = `${(0, import_react2.useId)()}-default`;
@@ -860,7 +861,7 @@ function TierMenu({ sessionKey, t }) {
               // The pin radio has its own vocabulary: "there is nothing to pin
               // here" is a different sentence from the checkbox's reason, and
               // the checkbox already carries the specific one.
-              !contextIsPinnable ? t("tier.menu.context.lockedHint") : contextLock !== void 0 ? contextLock : contextIsDefault ? t("tier.menu.context.pinned", { state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off") }) : t("tier.menu.context.overridden", {
+              !contextIsPinnable ? t("tier.menu.context.lockedHint") : contextLock !== void 0 ? contextLock : contextIsDefault ? contextPinned ? t("tier.menu.context.pinned", { state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off") }) : t("tier.menu.context.follows", { state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off") }) : t("tier.menu.context.overridden", {
                 state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off"),
                 default: t(defaultContext2 ? "tier.menu.context.on" : "tier.menu.context.off")
               })
@@ -1529,6 +1530,7 @@ var zh = {
   "tier.menu.context.locked": "\u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u300C\u4E0A\u4E0B\u6587\u611F\u77E5\u300D\u5DF2\u5173\u95ED\uFF0C\u8FD9\u91CC\u6682\u4E0D\u53EF\u7528\u3002",
   "tier.menu.context.tierlocked": "\u57FA\u7840\u6863\u53EA\u505A\u8F7B\u5EA6\u7406\u987A\u3001\u4E0D\u6269\u5199\uFF0C\u56E0\u6B64\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\u3002",
   "tier.menu.context.pinned": "\u5F53\u524D\u72B6\u6001\u5C31\u662F\u9ED8\u8BA4\uFF1A{state}\uFF1B\u518D\u70B9\u5706\u70B9\u53D6\u6D88\u56FA\u5B9A",
+  "tier.menu.context.follows": "\u5F53\u524D\u6B63\u8DDF\u968F\u6863\u4F4D\u9884\u8BBE\uFF1A{state}\uFF1B\u70B9\u5706\u70B9\u53EF\u56FA\u5B9A\u4E3A\u9ED8\u8BA4",
   "tier.menu.context.overridden": "\u672C\u4F1A\u8BDD\u4E34\u65F6\u6539\u4E3A{state}\uFF0C\u9ED8\u8BA4\u4ECD\u4E3A{default}\uFF1B\u70B9\u5706\u70B9\u53EF\u628A\u5F53\u524D\u72B6\u6001\u8BBE\u4E3A\u9ED8\u8BA4",
   "tier.menu.context.default": "\u8BBE\u4E3A\u4E0A\u4E0B\u6587\u9ED8\u8BA4",
   "tier.menu.context.lockedHint": "\u57FA\u7840\u6863\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\uFF0C\u6B64\u5904\u4E0D\u53EF\u7528\u3002",
@@ -1604,6 +1606,7 @@ var en = {
   "tier.menu.context.locked": "Context awareness is switched off in the plugin settings, so this toggle is unavailable.",
   "tier.menu.context.tierlocked": "The basic tier only tidies the wording and never expands, so it does not read context.",
   "tier.menu.context.pinned": "This is already the default: {state}; click the dot again to unpin",
+  "tier.menu.context.follows": "Following the tier preset: {state}; click the dot to pin it as the default",
   "tier.menu.context.overridden": "This conversation is temporarily {state} while the default stays {default}; click the dot to make the current state the default",
   "tier.menu.context.default": "Set context default",
   "tier.menu.context.lockedHint": "The basic tier never reads context, so this is unavailable.",

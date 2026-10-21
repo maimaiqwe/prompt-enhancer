@@ -99,6 +99,10 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   // With no pin at all the tier preset decides, and that preset IS the default
   // for a fresh conversation — so the dot is on until the user flips the box.
   const contextIsDefault = useContext === defaultContext
+  // Distinguishes "already the default because the tier says so" from "already
+  // the default because it was pinned": the two need different tooltips, since
+  // clicking the dot pins in the first case and unpins in the second.
+  const contextPinned = defaultContextOf() !== undefined
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
   const titleId = useId()
   const groupName = `${useId()}-default`
@@ -274,7 +278,9 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
                 : contextLock !== undefined
                   ? contextLock
                   : contextIsDefault
-                    ? t('tier.menu.context.pinned', { state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off') })
+                    ? contextPinned
+                      ? t('tier.menu.context.pinned', { state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off') })
+                      : t('tier.menu.context.follows', { state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off') })
                     : t('tier.menu.context.overridden', {
                         state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off'),
                         default: t(defaultContext ? 'tier.menu.context.on' : 'tier.menu.context.off'),
