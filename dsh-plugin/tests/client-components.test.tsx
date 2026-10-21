@@ -402,6 +402,37 @@ describe('dock row alignment', () => {
     expect(row.style.paddingInlineEnd).toBe('0px')
   })
 
+  // endPad depends on the slot's own width, not only on the card: the seat can
+  // be resized from its right edge while the card holds still. The old dedup
+  // key carried only (width, inset), so both stayed put and the right padding
+  // froze at its first value — the row's right edge stopped tracking the card.
+  it('recomputes the right padding when the seat resizes around a still card', async () => {
+    const slot = seat(0, 170, 860)
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(
+      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
+      { container: slot },
+    )
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    expect(row.style.paddingInlineEnd).toBe('170px')
+
+    // Shrink the seat from the right: the card is untouched, so width and inset
+    // are unchanged and only endPad moves. The resize is followed through the
+    // rAF-coalesced schedule, so the frame has to flush before asserting.
+    slot.getBoundingClientRect = () => ({
+      width: 1100, height: 22, left: 0, top: 570, right: 1100, bottom: 592, x: 0, y: 570,
+      toJSON: () => ({}),
+    }) as unknown as DOMRect
+    await act(async () => {
+      window.dispatchEvent(new Event('resize'))
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    })
+
+    expect(row.style.paddingInlineStart).toBe('170px')
+    expect(row.style.paddingInlineEnd).toBe('70px')
+  })
+
   it('leaves the row full width when no card is mounted', () => {
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })

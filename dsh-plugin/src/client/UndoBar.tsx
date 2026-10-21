@@ -140,9 +140,12 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
     const maxInset = Math.max(0, Math.round(content.width) - width)
     const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset)
     const endPad = Math.max(0, Math.round(content.width) - inset - width)
-    // Sub-pixel jitter must not count as a change, or a scroll that moves the
-    // card by 0.3px would restart the write loop this hook exists to avoid.
-    const key = `${width}:${inset}`
+    // The dedup key carries every number the style depends on: width, inset
+    // AND endPad. endPad follows the slot's own width (the card can hold still
+    // while the seat is resized from the right edge), so leaving it out of the
+    // key would freeze the right padding at a stale value — the row's right
+    // edge would no longer track the card after a seat-only resize.
+    const key = `${width}:${inset}:${endPad}`
     setAlign((previous) => (previous?.key === key
       ? previous
       // maxWidth 100% also overrides the stylesheet's max-width fallback: the

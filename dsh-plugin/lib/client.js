@@ -1370,7 +1370,7 @@ function useComposerAlign(rowRef) {
     const maxInset = Math.max(0, Math.round(content.width) - width);
     const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset);
     const endPad = Math.max(0, Math.round(content.width) - inset - width);
-    const key = `${width}:${inset}`;
+    const key = `${width}:${inset}:${endPad}`;
     setAlign((previous) => previous?.key === key ? previous : { key, style: { width: "100%", maxWidth: "100%", paddingInlineStart: `${inset}px`, paddingInlineEnd: `${endPad}px` } });
   }, [rowRef]);
   const schedule = (0, import_react5.useCallback)(() => {
