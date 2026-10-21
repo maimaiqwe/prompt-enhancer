@@ -1364,21 +1364,6 @@ function useElapsedSeconds(active) {
   }, [active]);
   return seconds;
 }
-function contentBoxOf(element) {
-  const parent = element.parentElement;
-  if (parent === null) return void 0;
-  const view = element.ownerDocument.defaultView;
-  if (view === null) return void 0;
-  const style = view.getComputedStyle(parent);
-  const px = (raw) => {
-    const value = Number.parseFloat(raw);
-    return Number.isFinite(value) ? value : 0;
-  };
-  const rect = parent.getBoundingClientRect();
-  const left = px(style.borderLeftWidth) + px(style.paddingLeft);
-  const right = px(style.borderRightWidth) + px(style.paddingRight);
-  return { left: rect.left + left, width: rect.width - left - right };
-}
 function useComposerAlign(rowRef) {
   const [align, setAlign] = (0, import_react5.useState)(void 0);
   const measuredRef = (0, import_react5.useRef)(null);
@@ -1392,17 +1377,9 @@ function useComposerAlign(rowRef) {
       setAlign((previous) => previous === void 0 ? previous : void 0);
       return;
     }
-    const content = contentBoxOf(row);
-    if (content === void 0) {
-      setAlign((previous) => previous === void 0 ? previous : void 0);
-      return;
-    }
-    const width = Math.round(Math.min(box.width, content.width));
-    const maxInset = Math.max(0, Math.round(content.width) - width);
-    const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset);
-    const endPad = Math.max(0, Math.round(content.width) - inset - width);
-    const key = `${width}:${inset}:${endPad}`;
-    setAlign((previous) => previous?.key === key ? previous : { key, style: { width: "100%", maxWidth: "100%", paddingInlineStart: `${inset}px`, paddingInlineEnd: `${endPad}px` } });
+    const delta = Math.round(box.left - row.getBoundingClientRect().left);
+    const key = `${delta}`;
+    setAlign((previous) => previous?.key === key ? previous : { key, style: { transform: `translateX(${delta}px)` } });
   }, [rowRef]);
   const schedule = (0, import_react5.useCallback)(() => {
     if (frameRef.current !== 0) return;
@@ -2083,12 +2060,11 @@ var CSS = `
    working, applied and failed states, so the composer never jumps when one
    replaces another.
 
-   The row lines up with the input card, not with the dock slot. The slot spans
-   the whole seat while the card is centred and narrower, so an unaligned
-   status line starts left of the box it is talking about and reads as a
-   different control. The exact edges are measured in the UndoBar component and
-   applied as inline style; the rules below only supply the fallback used before
-   the first measurement (and on a host that renders no card at all). */
+   The row lines up with the input card. The host parks the dock rows in a
+   centred, shrink-to-fit flex row, so neither the row nor its parent is ever
+   card-wide: the measured alignment MOVES the row with an inline transform
+   instead, and these rules only supply the fallback used before the first
+   measurement (and on a host that renders no card at all). */
 .dsh-pe-undo,
 .dsh-pe-working,
 .dsh-pe-notice {
@@ -2096,12 +2072,10 @@ var CSS = `
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
-  /* Full width, no max-width and no auto margins. The slot is a flex
-     container, so a narrower fixed width plus a margin can overflow it and flex
-     would shrink the row \u2014 down to a one-character column for CJK text. The
-     measured alignment pads THIS full-width row instead, so it can never
-     overflow and nothing can shrink it. */
-  width: 100%;
+  /* Content-width, no stretch and no fixed width. Stretching to 100% makes the
+     row wider than the centred host container and its text starts left of the
+     card; a fixed width can be flexed down to a one-character column. */
+  width: fit-content;
   min-height: 22px;
   padding: 1px 2px;
   font-size: 12px;

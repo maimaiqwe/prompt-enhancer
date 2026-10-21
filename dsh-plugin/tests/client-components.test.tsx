@@ -279,25 +279,29 @@ describe('enhance → apply → undo loop', () => {
 })
 
 describe('dock row alignment', () => {
+  // Prototype patches made by `seat()`; restored after every case so a stubbed
+  // rect cannot leak into an unrelated test.
+  const restores: (() => void)[] = []
+
   afterEach(() => {
     cleanup()
     document.body.innerHTML = ''
     ui.setNotice(undefined)
+    while (restores.length > 0) restores.pop()?.()
   })
 
   /**
-   * Mount a composer seat whose card is narrower than the slot, and measure it.
-   * The row's parent is the dock slot: content-box left 0, card left 170, so the
-   * offset is 170 and the width is the card's 860.
-   * @param padLeft - left padding on the slot, to prove the offset is measured
-   * from the CONTENT box rather than the slot's border box.
+   * Mount a composer seat that mirrors the host: the `data-slot` dock wrapper
+   * and the `data-composer-card` are SIBLINGS, and the wrapper is centred and
+   * shrink-to-fit, so the row sits left of the card. The delta the transform
+   * must cover is cardLeft - rowLeft.
+   * @param padLeft - left padding on the slot (kept for parity with the host).
    * @param cardLeft - the card's measured left edge.
    * @param cardWidth - the card's measured width.
-   * @returns the slot, so the row can be rendered INTO it (the offset is
-   * measured against the row's parent, so where the row is mounted decides what
-   * the assertion means).
+   * @param rowLeft - where the centred wrapper places the row.
+   * @returns the slot, so the row can be rendered INTO it.
    */
-  function seat(padLeft = 0, cardLeft = 170, cardWidth = 860): HTMLElement {
+  function seat(padLeft = 0, cardLeft = 170, cardWidth = 860, rowLeft = 0): HTMLElement {
     const shell = document.createElement('div')
     const slot = document.createElement('div')
     slot.setAttribute('data-slot', 'conversation.input.dock')
@@ -314,6 +318,20 @@ describe('dock row alignment', () => {
       width: 1200, height: 22, left: 0, top: 570, right: 1200, bottom: 592, x: 0, y: 570,
       toJSON: () => ({}),
     }) as unknown as DOMRect
+    // jsdom reports a zero rect for every element, so the row's own position —
+    // the thing the transform is measured against — has to be stubbed. It is
+    // patched on the prototype because the row only exists after render.
+    const original = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function measured(this: HTMLElement): DOMRect {
+      if (this.classList?.contains('dsh-pe-notice') === true) {
+        return {
+          width: 300, height: 22, left: rowLeft, top: 570, right: rowLeft + 300, bottom: 592, x: rowLeft, y: 570,
+          toJSON: () => ({}),
+        } as unknown as DOMRect
+      }
+      return original.call(this)
+    }
+    restores.push(() => { HTMLElement.prototype.getBoundingClientRect = original })
     return slot
   }
 
@@ -322,7 +340,7 @@ describe('dock row alignment', () => {
   // React eventually broke by unmounting the row, so the status text vanished
   // entirely. Rendering the row with a card present is the whole assertion:
   // with the loop in place this throws "Maximum update depth exceeded".
-  it('keeps the row mounted and pads it to the card', () => {
+  it('keeps the row mounted and translates it to the card', () => {
     const slot = seat()
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
@@ -333,23 +351,17 @@ describe('dock row alignment', () => {
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
     expect(row.className).toBe('dsh-pe-notice')
-    // The row stays full width and is padded, not margined: the dock slot is a
-    // flex container, and a fixed width plus a margin could overflow it — flex
-    // then shrank the row down to a one-character CJK column (the vertical
-    // status line the user screenshotted).
-    expect(row.style.width).toBe('100%')
-    expect(row.style.maxWidth).toBe('100%')
-    expect(row.style.paddingInlineStart).toBe('170px')
-    expect(row.style.paddingInlineEnd).toBe('170px')
+    // The host centres the dock rows in a shrink-to-fit flex row, so the row
+    // cannot be stretched or padded into place — its parent is not card-wide
+    // and a fixed width gets flexed to a one-character column. The alignment is
+    // a transform: card left 170 minus row left 0.
+    expect(row.style.transform).toBe('translateX(170px)')
   })
 
-  // The offset used to be measured against the row itself. Since the offset is
-  // what moves the row, a row CSS had already centred reported 0 and the inline
-  // style then shoved it to the far left — the exact "not aligned" the user saw.
-  // Padding on the container must therefore be subtracted from the reference,
-  // not treated as part of it.
-  it('measures the offset from the container content box, not the row', () => {
-    const slot = seat(24)
+  // The row is measured where the centred host container actually put it, not
+  // at the container's own origin: a row already at 24 needs only 146.
+  it('measures the row where the host container placed it', () => {
+    const slot = seat(0, 170, 860, 24)
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
     render(
@@ -358,14 +370,13 @@ describe('dock row alignment', () => {
     )
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    expect(row.style.paddingInlineStart).toBe('146px')
+    expect(row.style.transform).toBe('translateX(146px)')
   })
 
-  // Mirror case of the clamp above: a card wider than its seat (zoomed-out
-  // layout, or a host that lets the card overflow) must not push the row past
-  // the right edge. The width is clamped to the content box, so the row stays
-  // inside the seat instead of overflowing and wrapping.
-  it('clamps the width when the card is wider than the seat', () => {
+  // A card that starts LEFT of the row needs a negative translation, not a
+  // clamp to zero: the row must follow the card, and a zero transform would
+  // leave it hanging to the card's right.
+  it('moves left when the card starts left of the row', () => {
     const slot = seat(0, -40, 1400)
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
@@ -375,39 +386,14 @@ describe('dock row alignment', () => {
     )
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    // Left is clamped at 0 (the card starts left of the seat), and the width is
-    // the content box's 1200 rather than the card's 1400.
-    expect(row.style.paddingInlineStart).toBe('0px')
-    expect(row.style.paddingInlineEnd).toBe('0px')
+    expect(row.style.transform).toBe('translateX(-40px)')
   })
 
-  // A card entirely past the seat's right edge is the case that separates the
-  // two ways of clamping. Shrinking the width by the offset would leave the row
-  // a few pixels wide and unreadable; capping the OFFSET keeps the row's width
-  // and parks it at the seat's right edge instead.
-  it('keeps the width and caps the offset when the card starts past the right edge', () => {
-    const slot = seat(0, 1150, 400)
-    const input = makeFakeInput({ draft: '草稿' })
-    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
-    render(
-      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
-      { container: slot },
-    )
-
-    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    // The start padding stops where the row's content meets the seat's right
-    // edge (1200 - 400 = 800) instead of running to 1150; the remaining 400
-    // closes the row's content box at the card's width.
-    expect(row.style.paddingInlineStart).toBe('800px')
-    expect(row.style.paddingInlineEnd).toBe('0px')
-  })
-
-  // endPad depends on the slot's own width, not only on the card: the seat can
-  // be resized from its right edge while the card holds still. The old dedup
-  // key carried only (width, inset), so both stayed put and the right padding
-  // froze at its first value — the row's right edge stopped tracking the card.
-  it('recomputes the right padding when the seat resizes around a still card', async () => {
-    const slot = seat(0, 170, 860)
+  // The dedup key must cover the whole measurement, not a subset of it: a
+  // stale key freezes the row at an old offset. Here the row itself moves (the
+  // host re-centres the wrapper), so only the transform value changes.
+  it('re-translates when the row moves under a still card', async () => {
+    const slot = seat(0, 170, 860, 0)
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
     render(
@@ -415,13 +401,13 @@ describe('dock row alignment', () => {
       { container: slot },
     )
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    expect(row.style.paddingInlineEnd).toBe('170px')
+    expect(row.style.transform).toBe('translateX(170px)')
 
-    // Shrink the seat from the right: the card is untouched, so width and inset
-    // are unchanged and only endPad moves. The resize is followed through the
-    // rAF-coalesced schedule, so the frame has to flush before asserting.
-    slot.getBoundingClientRect = () => ({
-      width: 1100, height: 22, left: 0, top: 570, right: 1100, bottom: 592, x: 0, y: 570,
+    // The row is now at 70 and the card holds still, so the remaining delta
+    // shrinks to 100. The resize is followed through the rAF-coalesced
+    // schedule, so the frame has to flush before asserting.
+    row.getBoundingClientRect = () => ({
+      width: 300, height: 22, left: 70, top: 570, right: 370, bottom: 592, x: 70, y: 570,
       toJSON: () => ({}),
     }) as unknown as DOMRect
     await act(async () => {
@@ -429,18 +415,16 @@ describe('dock row alignment', () => {
       await new Promise((resolve) => setTimeout(resolve, 30))
     })
 
-    expect(row.style.paddingInlineStart).toBe('170px')
-    expect(row.style.paddingInlineEnd).toBe('70px')
+    expect(row.style.transform).toBe('translateX(100px)')
   })
 
-  it('leaves the row full width when no card is mounted', () => {
+  it('leaves the row untranslated when no card is mounted', () => {
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
     render(<UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />)
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    expect(row.style.paddingInlineStart).toBe('')
-    expect(row.style.width).toBe('')
+    expect(row.style.transform).toBe('')
   })
 })
 

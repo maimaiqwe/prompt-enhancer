@@ -442,12 +442,11 @@ export const CSS = `
    working, applied and failed states, so the composer never jumps when one
    replaces another.
 
-   The row lines up with the input card, not with the dock slot. The slot spans
-   the whole seat while the card is centred and narrower, so an unaligned
-   status line starts left of the box it is talking about and reads as a
-   different control. The exact edges are measured in the UndoBar component and
-   applied as inline style; the rules below only supply the fallback used before
-   the first measurement (and on a host that renders no card at all). */
+   The row lines up with the input card. The host parks the dock rows in a
+   centred, shrink-to-fit flex row, so neither the row nor its parent is ever
+   card-wide: the measured alignment MOVES the row with an inline transform
+   instead, and these rules only supply the fallback used before the first
+   measurement (and on a host that renders no card at all). */
 .dsh-pe-undo,
 .dsh-pe-working,
 .dsh-pe-notice {
@@ -455,12 +454,10 @@ export const CSS = `
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
-  /* Full width, no max-width and no auto margins. The slot is a flex
-     container, so a narrower fixed width plus a margin can overflow it and flex
-     would shrink the row — down to a one-character column for CJK text. The
-     measured alignment pads THIS full-width row instead, so it can never
-     overflow and nothing can shrink it. */
-  width: 100%;
+  /* Content-width, no stretch and no fixed width. Stretching to 100% makes the
+     row wider than the centred host container and its text starts left of the
+     card; a fixed width can be flexed down to a one-character column. */
+  width: fit-content;
   min-height: 22px;
   padding: 1px 2px;
   font-size: 12px;

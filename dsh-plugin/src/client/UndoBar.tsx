@@ -59,40 +59,16 @@ function useElapsedSeconds(active: boolean): number {
 }
 
 /**
- * The content box a full-width block child would occupy inside its parent.
- *
- * Measuring the offset against the ROW is circular: the row's own left edge is
- * exactly what the offset moves, so a row that CSS has already centred reports
- * an offset of zero and the inline style then shoves it to the far left. The
- * reference has to be the container's content box, which the row does not move.
- * @param element - the row being aligned.
- * @returns the content-box left and width in viewport pixels, or undefined without a parent.
- */
-function contentBoxOf(element: HTMLElement): { readonly left: number; readonly width: number } | undefined {
-  const parent = element.parentElement
-  if (parent === null) return undefined
-  const view = element.ownerDocument.defaultView
-  if (view === null) return undefined
-  const style = view.getComputedStyle(parent)
-  const px = (raw: string): number => {
-    const value = Number.parseFloat(raw)
-    return Number.isFinite(value) ? value : 0
-  }
-  const rect = parent.getBoundingClientRect()
-  const left = px(style.borderLeftWidth) + px(style.paddingLeft)
-  const right = px(style.borderRightWidth) + px(style.paddingRight)
-  return { left: rect.left + left, width: rect.width - left - right }
-}
-
-/**
  * Align a dock row with the composer card it reports on.
  *
- * The dock slot spans the whole composer seat while the card itself is centred
- * and narrower, so a row that simply fills the slot starts to the left of the
- * box it is talking about. The offset is measured instead of guessed: the card
- * is found through the shell's stable `[data-composer-card]` marker and its
- * left edge is expressed relative to the row's container (see
- * {@link contentBoxOf} for why the row itself cannot be the reference).
+ * The host renders the dock rows inside a centred, shrink-to-fit flex row
+ * (`.dock`, marked `data-composer-dock`), so the row's own container is never
+ * the card-width box a margin or padding scheme needs — width:100% of a
+ * shrunken parent is still the wrong width, and a fixed width can be flexed
+ * down to a one-character column. The row is therefore moved with a TRANSFORM:
+ * the delta between the card's left edge and the row's current left edge is
+ * measured in viewport coordinates and applied as translateX, which no flex
+ * container can compress or stretch.
  *
  * Nothing is applied until a card is actually measured, so a host that renders
  * no card (or a layout the measurement cannot resolve) keeps the plain
@@ -123,35 +99,22 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
       setAlign((previous) => (previous === undefined ? previous : undefined))
       return
     }
-    const content = contentBoxOf(row)
-    if (content === undefined) {
-      setAlign((previous) => (previous === undefined ? previous : undefined))
-      return
-    }
-    // Alignment is expressed as PADDING on a full-width row, not as a fixed
-    // width plus margins. The dock slot is a flex container: a fixed width plus
-    // a margin can overflow it, and flex then shrinks the row — for CJK text
-    // all the way down to one character wide, which stood the status line up
-    // into a vertical column next to the composer. A full-width row with
-    // padding never overflows (box-sizing is border-box), so nothing can shrink
-    // it, and its content box still starts at the card's left edge and ends at
-    // the card's right edge.
-    const width = Math.round(Math.min(box.width, content.width))
-    const maxInset = Math.max(0, Math.round(content.width) - width)
-    const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset)
-    const endPad = Math.max(0, Math.round(content.width) - inset - width)
-    // The dedup key carries every number the style depends on: width, inset
-    // AND endPad. endPad follows the slot's own width (the card can hold still
-    // while the seat is resized from the right edge), so leaving it out of the
-    // key would freeze the right padding at a stale value — the row's right
-    // edge would no longer track the card after a seat-only resize.
-    const key = `${width}:${inset}:${endPad}`
+    // The host nests the dock rows inside a `data-composer-dock` flex row that
+    // centres its items (justify-content:center) and SHRINKS to its content
+    // width — the rows' parent is never the card-width container the padding
+    // scheme assumed. So the row cannot be stretched or padded into place: the
+    // parent simply is not that wide, and width:100% of a shrunken parent is
+    // still the wrong width. What CAN be moved is the row itself, with a
+    // transform: translate the row so its left edge lands on the card's left
+    // edge. A transform cannot be compressed by flex, does not affect layout,
+    // and the delta it needs is directly measurable in viewport coordinates.
+    const delta = Math.round(box.left - row.getBoundingClientRect().left)
+    // Sub-pixel jitter must not count as a change, or a scroll that moves the
+    // card by 0.3px would restart the write loop this hook exists to avoid.
+    const key = `${delta}`
     setAlign((previous) => (previous?.key === key
       ? previous
-      // maxWidth 100% also overrides the stylesheet's max-width fallback: the
-      // padded row has to span the whole slot for the padding to land on the
-      // card's edges.
-      : { key, style: { width: '100%', maxWidth: '100%', paddingInlineStart: `${inset}px`, paddingInlineEnd: `${endPad}px` } }))
+      : { key, style: { transform: `translateX(${delta}px)` } }))
   }, [rowRef])
   /**
    * Coalesce a burst of scroll/resize events into one measurement per frame.
