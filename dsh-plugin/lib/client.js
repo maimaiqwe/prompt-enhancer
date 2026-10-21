@@ -2081,7 +2081,15 @@ var CSS = `
      card; a fixed width can be flexed down to a one-character column. */
   width: fit-content;
   min-height: 22px;
-  padding: 1px 2px;
+  padding: 3px 9px;
+  /* The row floats over the conversation text (the seat is sticky), so it needs
+     its own surface to stay readable \u2014 transparent text over a paragraph is what
+     made it unreadable. A pill, not a plate: hairline border, small radius, the
+     quietest shadow in the scale. */
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+  border-radius: 999px;
+  background: var(--pe-surface, #ffffff);
+  box-shadow: var(--pe-shadow-float, 0 1px 2px rgba(9, 11, 15, 0.06));
   font-size: 12px;
   font-family: var(--pe-font);
   color: var(--pe-fg-2, #5f6673);
@@ -2143,6 +2151,25 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* The pill itself, re-asserted after the reset. This is not decoration: the
+   row floats over the conversation text (the composer seat is sticky), so with
+   the plate reset to transparent the line sat directly on top of the message
+   body and became hard to read. The reset above wipes background, border,
+   radius and shadow with !important, so the surface has to be claimed back in
+   the same scope, or the row renders as bare text again on a skinned host. */
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice {
+  background: var(--pe-surface, #ffffff) !important;
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1)) !important;
+  border-radius: 999px !important;
+  box-shadow: var(--pe-shadow-float, 0 1px 2px rgba(9, 11, 15, 0.06)) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
