@@ -299,9 +299,18 @@ describe('dock row alignment', () => {
    * @param cardLeft - the card's measured left edge.
    * @param cardWidth - the card's measured width.
    * @param rowLeft - where the centred wrapper places the row.
+   * @param holder - mutable layout position, so a case can MOVE the row without
+   * touching the rect stub (the stub already adds the applied transform, and
+   * overwriting it would bypass that and desynchronise the measurement).
    * @returns the slot, so the row can be rendered INTO it.
    */
-  function seat(padLeft = 0, cardLeft = 170, cardWidth = 860, rowLeft = 0): HTMLElement {
+  function seat(
+    padLeft = 0,
+    cardLeft = 170,
+    cardWidth = 860,
+    rowLeft = 0,
+    holder?: { left: number },
+  ): HTMLElement {
     const shell = document.createElement('div')
     const slot = document.createElement('div')
     slot.setAttribute('data-slot', 'conversation.input.dock')
@@ -320,12 +329,18 @@ describe('dock row alignment', () => {
     }) as unknown as DOMRect
     // jsdom reports a zero rect for every element, so the row's own position —
     // the thing the transform is measured against — has to be stubbed. It is
-    // patched on the prototype because the row only exists after render.
+    // patched on the prototype because the row only exists after render, and it
+    // must TRACK the applied transform: a real browser's getBoundingClientRect
+    // returns the transformed box, and a static stub hides the oscillation bug
+    // that follows from measuring the row you just moved.
     const original = HTMLElement.prototype.getBoundingClientRect
     HTMLElement.prototype.getBoundingClientRect = function measured(this: HTMLElement): DOMRect {
       if (this.classList?.contains('dsh-pe-notice') === true) {
+        const shift = Number.parseFloat(/translateX\((-?[\d.]+)px\)/.exec(this.style.transform)?.[1] ?? '0')
+        const base = holder === undefined ? rowLeft : holder.left
+        const left = base + (Number.isFinite(shift) ? shift : 0)
         return {
-          width: 300, height: 22, left: rowLeft, top: 570, right: rowLeft + 300, bottom: 592, x: rowLeft, y: 570,
+          width: 300, height: 22, left, top: 570, right: left + 300, bottom: 592, x: left, y: 570,
           toJSON: () => ({}),
         } as unknown as DOMRect
       }
@@ -393,6 +408,36 @@ describe('dock row alignment', () => {
   // stale key freezes the row at an old offset. Here the row itself moves (the
   // host re-centres the wrapper), so only the transform value changes.
   it('re-translates when the row moves under a still card', async () => {
+    const position = { left: 0 }
+    const slot = seat(0, 170, 860, 0, position)
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(
+      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
+      { container: slot },
+    )
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    expect(row.style.transform).toBe('translateX(170px)')
+
+    // The wrapper re-centres the row 70px to the right; the card holds still,
+    // so the remaining delta shrinks to 100. The resize is followed through the
+    // rAF-coalesced schedule, so the frame has to flush before asserting.
+    position.left = 70
+    await act(async () => {
+      window.dispatchEvent(new Event('resize'))
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    })
+
+    expect(row.style.transform).toBe('translateX(100px)')
+  })
+
+  // getBoundingClientRect reports the TRANSFORMED box, so a naive second pass
+  // sees the row already sitting on the card, computes 0, writes translateX(0)
+  // and pushes it back — then measures again and repeats: an oscillation that
+  // never settles and reads as a flickering line. Measuring twice must produce
+  // the SAME transform, which only holds if the applied offset is subtracted
+  // before the delta is computed.
+  it('does not oscillate when measured repeatedly', async () => {
     const slot = seat(0, 170, 860, 0)
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
@@ -403,19 +448,14 @@ describe('dock row alignment', () => {
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
     expect(row.style.transform).toBe('translateX(170px)')
 
-    // The row is now at 70 and the card holds still, so the remaining delta
-    // shrinks to 100. The resize is followed through the rAF-coalesced
-    // schedule, so the frame has to flush before asserting.
-    row.getBoundingClientRect = () => ({
-      width: 300, height: 22, left: 70, top: 570, right: 370, bottom: 592, x: 70, y: 570,
-      toJSON: () => ({}),
-    }) as unknown as DOMRect
-    await act(async () => {
-      window.dispatchEvent(new Event('resize'))
-      await new Promise((resolve) => setTimeout(resolve, 30))
-    })
-
-    expect(row.style.transform).toBe('translateX(100px)')
+    // Two more measurement passes (resize is the cheapest way to drive one).
+    for (let pass = 0; pass < 2; pass += 1) {
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'))
+        await new Promise((resolve) => setTimeout(resolve, 30))
+      })
+      expect(row.style.transform).toBe('translateX(170px)')
+    }
   })
 
   it('leaves the row untranslated when no card is mounted', () => {

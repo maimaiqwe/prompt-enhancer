@@ -90,12 +90,20 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
   // measurement forces a layout read.
   const measuredRef = useRef<HTMLElement | null>(null)
   const frameRef = useRef(0)
+  // The translation currently applied by this hook. getBoundingClientRect()
+  // reports the TRANSFORMED box, so a second measurement would see the row
+  // already sitting on the card, compute a delta of 0, write translateX(0) and
+  // send the row back — then measure again and push it over: an oscillation
+  // that never settles. Subtracting the applied offset recovers the row's
+  // untransformed layout position, which is the only stable reference.
+  const appliedRef = useRef(0)
   const measure = useCallback((): void => {
     const row = rowRef.current
     if (row === null) return
     measuredRef.current = row
     const box = resolveComposerBox(row)
     if (box === undefined) {
+      appliedRef.current = 0
       setAlign((previous) => (previous === undefined ? previous : undefined))
       return
     }
@@ -108,10 +116,12 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
     // transform: translate the row so its left edge lands on the card's left
     // edge. A transform cannot be compressed by flex, does not affect layout,
     // and the delta it needs is directly measurable in viewport coordinates.
-    const delta = Math.round(box.left - row.getBoundingClientRect().left)
+    const layoutLeft = row.getBoundingClientRect().left - appliedRef.current
+    const delta = Math.round(box.left - layoutLeft)
     // Sub-pixel jitter must not count as a change, or a scroll that moves the
     // card by 0.3px would restart the write loop this hook exists to avoid.
     const key = `${delta}`
+    appliedRef.current = delta
     setAlign((previous) => (previous?.key === key
       ? previous
       : { key, style: { transform: `translateX(${delta}px)` } }))

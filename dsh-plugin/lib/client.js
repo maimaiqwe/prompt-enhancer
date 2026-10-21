@@ -1368,17 +1368,21 @@ function useComposerAlign(rowRef) {
   const [align, setAlign] = (0, import_react5.useState)(void 0);
   const measuredRef = (0, import_react5.useRef)(null);
   const frameRef = (0, import_react5.useRef)(0);
+  const appliedRef = (0, import_react5.useRef)(0);
   const measure = (0, import_react5.useCallback)(() => {
     const row = rowRef.current;
     if (row === null) return;
     measuredRef.current = row;
     const box = resolveComposerBox(row);
     if (box === void 0) {
+      appliedRef.current = 0;
       setAlign((previous) => previous === void 0 ? previous : void 0);
       return;
     }
-    const delta = Math.round(box.left - row.getBoundingClientRect().left);
+    const layoutLeft = row.getBoundingClientRect().left - appliedRef.current;
+    const delta = Math.round(box.left - layoutLeft);
     const key = `${delta}`;
+    appliedRef.current = delta;
     setAlign((previous) => previous?.key === key ? previous : { key, style: { transform: `translateX(${delta}px)` } });
   }, [rowRef]);
   const schedule = (0, import_react5.useCallback)(() => {
