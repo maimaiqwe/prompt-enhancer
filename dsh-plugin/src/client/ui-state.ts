@@ -11,10 +11,24 @@
 import type { EnhanceError, EnhanceResult } from '../shared/protocol'
 import { createUndoStack, type UndoStack } from './undo-stack'
 
+/**
+ * How the result of one enhancement reaches the composer.
+ *
+ * - `panel`: the preview overlay opens and the user clicks 回填. Kept for the
+ *   structured 系统 tier, where the eight-section rewrite is long enough that
+ *   overwriting a one-line draft unannounced would be rude.
+ * - `direct`: the result replaces the draft the moment it arrives, with the
+ *   undo entry pushed first, so a single Ctrl+Z restores what was there.
+ *   Loading gets only the button's spinner; no overlay, no extra click.
+ */
+export type PanelMode = 'panel' | 'direct'
+
 /** What the preview panel shows for one enhancement. */
 export interface PanelState {
   readonly sessionId: string
   readonly phase: 'loading' | 'result' | 'error'
+  /** How the settled result reaches the composer; see `PanelMode`. */
+  readonly mode?: PanelMode
   /** The draft as it was when the request started (never mutated). */
   readonly original: string
   readonly result?: EnhanceResult
@@ -37,6 +51,11 @@ export interface SessionEntry {
   root: HTMLElement | null
   /** Start one enhancement for this session (guards + fetch + panel). */
   run: () => void
+  /**
+   * Restore this session's newest undo entry into the composer.
+   * @returns true when an entry was consumed (the caller should swallow the key).
+   */
+  undo?: () => boolean
 }
 
 const listeners = new Set<() => void>()
@@ -111,6 +130,42 @@ export function popUndo(sessionId: string): ReturnType<UndoStack['pop']> {
   return entry
 }
 
+/**
+ * One transient line for the composer dock: a rejection or transport failure
+ * from a `direct` run, where there is no overlay to show it in. Rendering it
+ * above the composer card (the slot the undo row already uses) keeps failures
+ * visible without a dialog the user has to dismiss.
+ */
+export interface NoticeState {
+  readonly sessionId: string
+  /** Severity: only `error` today, kept open for future advisory copy. */
+  readonly kind: 'error'
+  readonly text: string
+}
+
+let notice: NoticeState | undefined
+
+/**
+ * Show (or replace) the dock notice of one session.
+ * @param state - the notice to display.
+ */
+export function setNotice(state: NoticeState | undefined): void {
+  notice = state
+  notify()
+}
+
+/** Drop the dock notice when it belongs to the given session. */
+export function clearNotice(sessionId: string): void {
+  if (notice?.sessionId !== sessionId) return
+  notice = undefined
+  notify()
+}
+
+/** The current dock notice, or undefined while there is none. */
+export function getNotice(): NoticeState | undefined {
+  return notice
+}
+
 /** Session registry of mounted triggers; the last mounted session is the shortcut fallback. */
 const sessions = new Map<string, SessionEntry>()
 let lastMountedSession: string | undefined
@@ -159,10 +214,26 @@ export function openLoading(state: Omit<PanelState, 'phase' | 'result' | 'error'
   notify()
 }
 
-/** Settle the open panel with a result. Ignored when the panel moved on. */
-export function settleResult(sessionId: string, result: EnhanceResult): void {
+/**
+ * Settle the open panel with a result. Ignored when the panel moved on.
+ *
+ * `mode` overrides how the result is presented: a `direct` run that finds the
+ * draft edited mid-flight promotes itself to `panel` so the user chooses
+ * whether to overwrite their newer text, instead of having it replaced silently.
+ * @param sessionId - the session the panel belongs to.
+ * @param result - the enhanced text plus its routing metadata.
+ * @param mode - presentation override for this settle.
+ */
+export function settleResult(sessionId: string, result: EnhanceResult, mode?: PanelMode): void {
   if (panelState?.sessionId !== sessionId || panelState.phase !== 'loading') return
-  panelState = { sessionId, phase: 'result', original: panelState.original, result }
+  const settled: PanelMode | undefined = mode ?? panelState.mode
+  panelState = {
+    sessionId,
+    phase: 'result',
+    original: panelState.original,
+    result,
+    ...settled !== undefined ? { mode: settled } : {},
+  }
   notify()
 }
 
@@ -189,10 +260,24 @@ export function appendDelta(sessionId: string, text: string): void {
   scheduleDeltaFlush()
 }
 
-/** Open the panel directly in the error phase (local validation failures). */
-export function openError(sessionId: string, original: string, error: EnhanceError): void {
+/**
+ * Open the panel directly in the error phase (local validation failures).
+ * @param sessionId - the session the panel belongs to.
+ * @param original - the draft the failure was about.
+ * @param error - what went wrong.
+ * @param mode - presentation of the failure; `direct` runs still show the
+ *   overlay here, because a rejection with no visible surface reads as
+ *   "the button did nothing".
+ */
+export function openError(sessionId: string, original: string, error: EnhanceError, mode?: PanelMode): void {
   abortOf(panelState)
-  panelState = { sessionId, phase: 'error', original, error }
+  panelState = {
+    sessionId,
+    phase: 'error',
+    original,
+    error,
+    ...mode !== undefined ? { mode } : {},
+  }
   notify()
 }
 
@@ -238,12 +323,13 @@ export function registerSession(sessionId: string, entry: SessionEntry): () => v
 }
 
 /**
- * Pick the session the shortcut should act on: the composer containing the
+ * The session entry the keyboard should act on: the composer containing the
  * focused element when identifiable (the lowest ancestor of the focus that
  * also contains a registered button, within the composer card's depth),
- * otherwise the most recently mounted one. Returns the entry's run callback.
+ * otherwise the most recently mounted one.
+ * @returns the entry, or undefined when no composer is registered.
  */
-export function shortcutTarget(): (() => void) | undefined {
+function focusedEntry(): SessionEntry | undefined {
   const active = document.activeElement
   if (active !== null && active instanceof Element) {
     let node: Element | null = active
@@ -251,14 +337,32 @@ export function shortcutTarget(): (() => void) | undefined {
     // stopping here keeps a settings-page focus from matching via <body>.
     for (let depth = 0; depth < 8 && node !== null; depth++) {
       for (const entry of sessions.values()) {
-        if (entry.root !== null && (node === entry.root || node.contains(entry.root))) {
-          const found = entry
-          return () => found.run()
-        }
+        if (entry.root !== null && (node === entry.root || node.contains(entry.root))) return entry
       }
       node = node.parentElement
     }
   }
-  const fallback = lastMountedSession !== undefined ? sessions.get(lastMountedSession) : undefined
-  return fallback === undefined ? undefined : () => fallback.run()
+  return lastMountedSession !== undefined ? sessions.get(lastMountedSession) : undefined
+}
+
+/**
+ * Pick the session the enhance shortcut should act on.
+ * @returns the entry's run callback, or undefined when there is no composer.
+ */
+export function shortcutTarget(): (() => void) | undefined {
+  const entry = focusedEntry()
+  return entry === undefined ? undefined : () => entry.run()
+}
+
+/**
+ * Restore the focused composer's newest undo entry, if it still matches the
+ * live draft (the same staleness rule the undo bar applies — an entry whose
+ * applied text is no longer in the box describes a state the user already
+ * left behind).
+ * @returns true when a replacement was undone and the key must be swallowed.
+ */
+export function undoTarget(): boolean {
+  const entry = focusedEntry()
+  if (entry?.undo === undefined) return false
+  return entry.undo()
 }

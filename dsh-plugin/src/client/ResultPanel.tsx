@@ -58,8 +58,16 @@ export const UPSTREAM_ERROR_KEYS: Record<string, PromptEnhanceKey> = {
  * exists, and an over-length rejection reuses the too-long input message the
  * client-side guard shows. The server's `message` (provider raw text, config
  * errors) renders beneath as the diagnostic detail line.
+ *
+ * Exported because the `direct` apply path has no overlay to render the error
+ * in; it shows the same sentence on the composer's dock line instead, and two
+ * wording tables for one error code would drift.
+ * @param t - the namespace translator.
+ * @param code - the stable error code from the host.
+ * @param params - structured parameters (reason / counts) when present.
+ * @returns the localized primary error line.
  */
-function localizedErrorMessage(
+export function localizedErrorMessage(
   t: ResultPanelProps['t'],
   code: EnhanceError['code'],
   params: EnhanceError['params'],

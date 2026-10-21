@@ -1,9 +1,16 @@
 /**
- * The undo bar (conversation.input.dock): after an enhanced result was
- * applied, one quiet row above the composer card offers a single-click
- * restore of the original draft. It hides itself once the draft diverges
- * from the applied text (the user kept typing) — the entry is dropped, so
- * the bar can never restore stale text over newer edits.
+ * The composer dock line (conversation.input.dock): one quiet row above the
+ * input card that carries the two outcomes of a one-click enhancement.
+ *
+ * - After a result replaced the draft: a confirmation with a single-click
+ *   restore (and the Ctrl+Z hint). It hides itself once the draft diverges
+ *   from the applied text (the user kept typing) — the entry is dropped, so
+ *   the line can never restore stale text over newer edits.
+ * - After a `direct` run failed: the reason, since that mode has no overlay
+ *   to show it in. Without this the button would appear to do nothing.
+ *
+ * Both are the same row; whichever applies is rendered, the undo entry first
+ * (it is the more time-sensitive of the two).
  * @module dsh-prompt-enhance/client/UndoBar
  */
 
@@ -31,13 +38,28 @@ export function UndoBar(props: UndoBarProps): ReactNode {
   })
   useSyncExternalStore(ui.subscribe, ui.getVersion)
   const entry = ui.peekUndo(uiKey)
+  const notice = ui.getNotice()
 
   // The draft moved on (user edited after applying): drop the stale entry.
   useEffect(() => {
     if (entry !== undefined && entry.applied !== draft) ui.popUndo(uiKey)
   }, [draft, entry, uiKey])
 
-  if (entry === undefined || entry.applied !== draft) return null
+  if (entry === undefined || entry.applied !== draft) {
+    if (notice === undefined || notice.sessionId !== uiKey) return null
+    return (
+      <div className="dsh-pe-notice" role="status">
+        <span className="dsh-pe-notice-icon" aria-hidden>!</span>
+        <span className="dsh-pe-notice-text">{notice.text}</span>
+        <button
+          type="button"
+          className="dsh-pe-undo-x"
+          aria-label={t('notice.dismiss')}
+          onClick={() => ui.clearNotice(uiKey)}
+        >✕</button>
+      </div>
+    )
+  }
 
   const undo = (): void => {
     inputActions.setDraft(entry.original)
@@ -52,6 +74,7 @@ export function UndoBar(props: UndoBarProps): ReactNode {
       <span className="dsh-pe-undo-check" aria-hidden>✓</span>
       <span>{t('undo.applied')}</span>
       <button type="button" className="dsh-pe-undo-link" onClick={undo}>{t('undo.undo')}</button>
+      <span className="dsh-pe-undo-hint">{t('undo.hint')}</span>
       <button type="button" className="dsh-pe-undo-x" aria-label={t('undo.dismiss')} onClick={dismiss}>✕</button>
     </div>
   )

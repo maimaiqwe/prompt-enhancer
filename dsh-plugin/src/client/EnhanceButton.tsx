@@ -2,10 +2,20 @@
  * The composer enhance button (conversation.input.right): reads the live
  * draft through the session standard kit, applies every local guard
  * (empty / over-length / images-only / command-or-reference chips / busy),
- * then calls the host route and shows the preview panel. Applying the
- * result remembers the original on the undo stack before setDraft, so one
- * click restores it. The button never blocks the composer: on any failure
- * the draft stays exactly as the user typed it.
+ * then calls the host route.
+ *
+ * Where the result lands depends on the tier:
+ * - 基础/标准/专业 (the default) replace the draft the moment the answer
+ *   arrives. One click in, one Ctrl+Z out — no overlay, no second click. The
+ *   original draft is pushed onto the undo stack BEFORE setDraft, and a draft
+ *   edited mid-flight promotes the run to the preview overlay instead of
+ *   silently overwriting the typing.
+ * - 系统 produces an eight-section system prompt that is far longer than the
+ *   draft it came from, so it keeps the preview overlay: the user reads it and
+ *   decides. That is the only tier that opens a dialog.
+ *
+ * The button never blocks the composer: on any failure the draft stays exactly
+ * as the user typed it, and the reason lands on the composer dock line.
  * @module dsh-prompt-enhance/client/EnhanceButton
  */
 
@@ -16,7 +26,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { EnhanceError } from '../shared/protocol'
 import { checkInputText } from '../shared/validate'
 import { EnhanceClientError, requestEnhance, requestEnhanceStream } from './enhance-client'
-import { ResultPanel } from './ResultPanel'
+import { ResultPanel, localizedErrorMessage } from './ResultPanel'
 import { TierMenu } from './TierMenu'
 import * as ui from './ui-state'
 import { getClientSettings, subscribeClientSettings } from './settings'
@@ -77,7 +87,17 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
   const tier = effectiveTier(uiKey)
   const useContext = effectiveUseContext(uiKey)
   const rootRef = useRef<HTMLButtonElement | null>(null)
+  // The live draft, readable from callbacks that were created before the user
+  // typed again (the fetch settle handler, the undo entry, the Ctrl+Z target).
+  const draftRef = useRef(draft)
+  useEffect(() => {
+    draftRef.current = draft
+  })
   const busy = panel !== undefined && panel.sessionId === uiKey && panel.phase === 'loading'
+  // 系统 is the only tier that previews: its output is a full system prompt,
+  // an order of magnitude longer than the draft, so replacing the box without
+  // asking would be the wrong default.
+  const direct = tier !== 'system'
   // The preview panel is a single shared slot, so the UI admits exactly ONE
   // in-flight enhancement at a time across all sessions: `anyBusy` disables
   // every other composer's button while one request is loading. This is
@@ -90,52 +110,82 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
   // which reads as "broken" in a multi-session layout.
   const otherBusy = anyBusy && !busy
 
-  /** Guard chain + fetch + panel transition for this session. */
+  /** Guard chain + fetch + apply transition for this session. */
   const start = useCallback((): void => {
     if (anyBusy) return
+    // Refuse quietly: the notice line explains why, and an overlay for "the
+    // box is empty" is exactly the interruption this mode exists to avoid.
+    const reject = (message: string): void => {
+      if (direct) {
+        ui.setNotice({ sessionId: uiKey, kind: 'error', text: message })
+        return
+      }
+      ui.openError(uiKey, draft, { code: 'rejected', localized: message }, 'panel')
+    }
     if (!settings.enabled) {
-      const disabled = t('error.disabled')
-      ui.openError(uiKey, draft, { code: 'rejected', localized: disabled })
+      reject(t('error.disabled'))
       return
     }
     if (imageCount > 0 && draft.trim() === '') {
-      const imagesOnly = t('error.imagesOnly')
-      ui.openError(uiKey, draft, { code: 'rejected', localized: imagesOnly })
+      reject(t('error.imagesOnly'))
       return
     }
     const check = checkInputText(draft, settings.maxInputChars)
     if (!check.ok) {
-      const message = check.code === 'empty'
+      reject(check.code === 'empty'
         ? t('error.empty')
-        : t('error.tooLong', { count: check.count, max: check.max })
-      ui.openError(uiKey, draft, { code: 'rejected', localized: message })
+        : t('error.tooLong', { count: check.count, max: check.max }))
       return
     }
     if (occurrenceCount > 0) {
-      const occurrences = t('error.occurrences')
-      ui.openError(uiKey, draft, { code: 'rejected', localized: occurrences })
+      reject(t('error.occurrences'))
       return
     }
     if (phase !== 'plain') {
-      const busyPhase = t('error.phase')
-      ui.openError(uiKey, draft, { code: 'rejected', localized: busyPhase })
+      reject(t('error.phase'))
       return
     }
+    ui.clearNotice(uiKey)
+    const mode: ui.PanelMode = direct ? 'direct' : 'panel'
     const controller = new AbortController()
-    ui.openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort() })
-    const settle = (result: Parameters<typeof ui.settleResult>[1]): void => ui.settleResult(uiKey, result)
+    ui.openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode })
+    const settle = (result: Parameters<typeof ui.settleResult>[1]): void => {
+      if (!direct) {
+        ui.settleResult(uiKey, result)
+        return
+      }
+      // The draft moved while the model was writing: replacing it now would
+      // destroy typing the user did after the click. Promote the run to the
+      // preview overlay instead, so the overwrite is an explicit choice.
+      if (draftRef.current !== draft) {
+        ui.settleResult(uiKey, result, 'panel')
+        return
+      }
+      ui.pushUndo(uiKey, { original: draft, applied: result.text })
+      inputActions.setDraft(result.text)
+      ui.closePanel()
+    }
     const fail = (error: unknown): void => {
       const detail: EnhanceError = error instanceof EnhanceClientError
         ? error.detail
         : { code: 'internal', message: error instanceof Error ? error.message : String(error) }
-      ui.settleError(uiKey, detail)
+      if (!direct) {
+        ui.settleError(uiKey, detail)
+        return
+      }
+      ui.closePanel()
+      ui.setNotice({
+        sessionId: uiKey,
+        kind: 'error',
+        text: detail.localized ?? localizedErrorMessage(t, detail.code, detail.params),
+      })
     }
-    // Progressive display when enabled: the panel fills in as the model
-    // writes, and degrades to the one-shot call on its own when the host or
-    // the transport cannot stream. The tier and the context toggle travel with
-    // the request so switching either one needs no host round-trip first.
+    // The tier and the context toggle travel with the request so switching
+    // either one needs no host round-trip first. A `direct` run never streams:
+    // nothing renders the partial text, so the incremental transport would only
+    // re-render the button for prose nobody sees.
     const body = { sessionId: wireId, text: draft, tier, useContext }
-    if (settings.streaming) {
+    if (settings.streaming && !direct) {
       requestEnhanceStream(body, {
         signal: controller.signal,
         onDelta: (delta: string): void => ui.appendDelta(uiKey, delta),
@@ -143,7 +193,7 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       return
     }
     requestEnhance(body, controller.signal).then(settle, fail)
-  }, [anyBusy, draft, imageCount, occurrenceCount, phase, settings, uiKey, wireId, t, tier, useContext])
+  }, [anyBusy, draft, direct, imageCount, occurrenceCount, phase, settings, uiKey, wireId, t, tier, useContext, inputActions])
 
   // The session registry holds a stable identity; run always dispatches to
   // the latest start callback. The refresh rides an effect (never the render
@@ -156,9 +206,20 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
     const entry: ui.SessionEntry = {
       root: rootRef.current,
       run: () => runRef.current(),
+      // Ctrl+Z target: restore the pre-enhance draft, but only while the box
+      // still holds the text the enhancement put there. Once the user edits,
+      // the browser's own undo is the right handler and this returns false.
+      undo: (): boolean => {
+        const entry = ui.peekUndo(uiKey)
+        if (entry === undefined || entry.applied !== draftRef.current) return false
+        inputActions.setDraft(entry.original)
+        ui.popUndo(uiKey)
+        ui.clearNotice(uiKey)
+        return true
+      },
     }
     return ui.registerSession(uiKey, entry)
-  }, [uiKey])
+  }, [inputActions, uiKey])
 
   // Draft changed after the request started → flag (or clear) the result
   // panel's stale marker so the user knows the result is based on the
@@ -181,7 +242,7 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
 
   if (!settings.enabled) return null
 
-  const owned = panel !== undefined && panel.sessionId === uiKey ? panel : undefined
+  const owned = panel !== undefined && panel.sessionId === uiKey && panel.mode !== 'direct' ? panel : undefined
   return (
     <>
       {/* The picker sits left of ✨: pick a tier first, then enhance. Both live

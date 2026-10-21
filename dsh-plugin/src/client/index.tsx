@@ -1,8 +1,8 @@
 /**
  * Browser half of the prompt-enhance plugin: registers the composer
- * enhance button (conversation.input.right), the undo bar
+ * enhance button (conversation.input.right), the dock line
  * (conversation.input.dock), the zh/en dictionaries, the settings mirror,
- * and the configurable global shortcut. Failure policy mirrors the
+ * the configurable enhance shortcut, and the Ctrl+Z restore. Failure policy mirrors the
  * describe-image family: every optional wiring failure is caught and
  * logged-never-thrown, because the web shell fails the whole boot when a
  * plugin apply throws.
@@ -121,4 +121,22 @@ export function apply(ctx: ClientContext): void {
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
   }, 'dsh-prompt-enhance: shortcut')
+
+  // Ctrl+Z restores the pre-enhance draft, but only while the composer still
+  // holds exactly what the enhancement put there. `ui.undoTarget()` returns
+  // false in every other situation, and then the event is left alone so the
+  // browser's own undo (per-character typing history) keeps working — stealing
+  // Ctrl+Z unconditionally would break ordinary text editing.
+  ctx.effect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.isComposing) return
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+      if (event.key.toLowerCase() !== 'z') return
+      if (!ui.undoTarget()) return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, 'dsh-prompt-enhance: undo shortcut')
 }

@@ -75,9 +75,11 @@ describe('browser half boot', () => {
     const { ctx, disposers } = bareContext()
     apply(ctx)
     expect(addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function), true)
-    // One effect (the shortcut) survives even with no locale/slots/settingsScope.
-    expect(disposers).toHaveLength(1)
+    // Two effects survive even with no locale/slots/settingsScope: the
+    // configurable enhance shortcut and the Ctrl+Z restore.
+    expect(disposers).toHaveLength(2)
     expect(() => disposers[0]!()).not.toThrow()
+    expect(() => disposers[1]!()).not.toThrow()
   })
 
   it('falls back to the bundled settings mirror instead of an unset one', () => {

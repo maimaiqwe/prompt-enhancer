@@ -109,10 +109,14 @@ const enhanceButton = (): HTMLButtonElement => screen.getByRole('button', { name
 
 // The one-shot path is the baseline every existing assertion was written
 // against; the incremental path gets its own describe with streaming on.
+// Every case starts on the 系统 tier: that is the ONLY mode that still opens
+// the preview panel (the shorter tiers write straight into the draft), so the
+// assertions below keep describing the panel contract instead of being
+// rewritten around the one-click one.
 beforeEach(() => {
   vi.mocked(requestEnhance).mockReset()
   vi.mocked(requestEnhanceStream).mockReset()
-  setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false })
+  setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'system' })
 })
 
 describe('dsh 0.1.2-rc.1 dual-compat (host omits sessionId)', () => {
@@ -132,7 +136,7 @@ describe('dsh 0.1.2-rc.1 dual-compat (host omits sessionId)', () => {
     expect(await screen.findByText('增强文本')).toBeTruthy()
     // No host id → the server degrades to the harness default model route.
     expect(requestEnhance).toHaveBeenCalledWith(
-      { sessionId: undefined, text: '旧原文', tier: 'standard', useContext: true },
+      { sessionId: undefined, text: '旧原文', tier: 'system', useContext: true },
       expect.anything(),
     )
 
@@ -212,7 +216,7 @@ describe('enhance → apply → undo loop', () => {
     fireEvent.click(enhanceButton())
     expect(await screen.findByText('增强文本')).toBeTruthy()
     expect(requestEnhance).toHaveBeenCalledWith(
-      { sessionId: 's1', text: '旧原文', tier: 'standard', useContext: true },
+      { sessionId: 's1', text: '旧原文', tier: 'system', useContext: true },
       expect.anything(),
     )
 
@@ -278,7 +282,9 @@ describe('incremental streaming display', () => {
   afterEach(cleanup)
 
   it('shows partial text while the call is in flight and settles on the final body', async () => {
-    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true })
+    // Streaming is a 系统档-only path now: the shorter tiers write straight
+    // into the draft, so there is no partial text to render while loading.
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true, defaultTier: 'system' })
     const input = makeFakeInput({ draft: '旧原文' })
     renderComposer(input, { setDraft: vi.fn() } as never, 's2')
     const result = { text: '增强文本', provider: 'p', model: 'm', elapsedMs: 5 }
@@ -336,5 +342,92 @@ describe('incremental streaming display', () => {
       unsubscribe()
       ui.closePanel()
     }
+  })
+})
+
+/**
+ * The one-click contract: the shorter tiers never open the preview overlay.
+ * The model's rewrite lands in the draft directly, a dock row confirms it, and
+ * Ctrl+Z puts the previous draft back.
+ */
+describe('direct fill (基础/标准/专业)', () => {
+  afterEach(() => {
+    cleanup()
+    ui.setNotice(undefined)
+  })
+
+  it('replaces the draft without opening the panel, and Ctrl+Z restores it', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sf')
+    vi.mocked(requestEnhance).mockResolvedValue({ text: '增强文本', provider: 'p', model: 'm', elapsedMs: 5 })
+
+    fireEvent.click(enhanceButton())
+    await screen.findByText(zh['undo.applied'])
+    // The draft itself now holds the rewrite; no overlay was ever mounted.
+    expect(setDraft).toHaveBeenCalledWith('增强文本')
+    expect(screen.queryByText(zh['panel.enhanced'])).toBeNull()
+    // A direct run never streams: nothing would render the deltas.
+    expect(requestEnhanceStream).not.toHaveBeenCalled()
+    expect(requestEnhance).toHaveBeenCalledWith(
+      { sessionId: 'sf', text: '旧原文', tier: 'standard', useContext: true },
+      expect.anything(),
+    )
+
+    // Ctrl+Z is the documented way back and consumes nothing from the browser
+    // while the draft is untouched.
+    let undone = false
+    act(() => { undone = ui.undoTarget() })
+    expect(undone).toBe(true)
+    expect(setDraft).toHaveBeenLastCalledWith('旧原文')
+    expect(screen.queryByText(zh['undo.applied'])).toBeNull()
+  })
+
+  it('leaves Ctrl+Z alone once the user edits the filled draft', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sg')
+    vi.mocked(requestEnhance).mockResolvedValue({ text: '增强文本', provider: 'p', model: 'm', elapsedMs: 5 })
+
+    fireEvent.click(enhanceButton())
+    await screen.findByText(zh['undo.applied'])
+    act(() => { input.set({ draft: '增强文本，我又补了一句' }) })
+    // The entry no longer describes the live draft, so the key falls through
+    // to the browser's own per-character undo instead of clobbering typing.
+    expect(ui.undoTarget()).toBe(false)
+  })
+
+  it('reports a failure inline instead of opening an error overlay', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    renderComposer(input, { setDraft: vi.fn() } as never, 'sh')
+    vi.mocked(requestEnhance).mockRejectedValue(new Error('boom'))
+
+    fireEvent.click(enhanceButton())
+    // A non-protocol throw is reported as the generic internal failure: the
+    // notice never leaks a raw JS error string into the composer.
+    const row = await screen.findByRole('status')
+    expect(row.textContent).toContain(zh['error.internal'])
+    expect(screen.queryByText(zh['panel.title'])).toBeNull()
+  })
+
+  it('promotes to the panel when the draft moved during the request', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: false, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'si')
+    let release!: (value: { text: string; provider: string; model: string; elapsedMs: number }) => void
+    const gate = new Promise<Parameters<typeof release>[0]>((resolve) => { release = resolve })
+    vi.mocked(requestEnhance).mockReturnValue(gate)
+
+    fireEvent.click(enhanceButton())
+    act(() => { input.set({ draft: '用户新打的一段字' }) })
+    release({ text: '增强文本', provider: 'p', model: 'm', elapsedMs: 5 })
+    // Overwriting now would destroy what the user typed after the click, so
+    // the result waits in the overlay for an explicit apply.
+    expect(await screen.findByText(zh['panel.apply'])).toBeTruthy()
+    expect(setDraft).not.toHaveBeenCalled()
   })
 })

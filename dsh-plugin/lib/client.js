@@ -728,6 +728,19 @@ function popUndo(sessionId) {
   notify2();
   return entry;
 }
+var notice;
+function setNotice(state) {
+  notice = state;
+  notify2();
+}
+function clearNotice(sessionId) {
+  if (notice?.sessionId !== sessionId) return;
+  notice = void 0;
+  notify2();
+}
+function getNotice() {
+  return notice;
+}
 var sessions = /* @__PURE__ */ new Map();
 var lastMountedSession;
 function subscribe2(listener) {
@@ -753,9 +766,16 @@ function openLoading(state) {
   panelState = { ...state, phase: "loading" };
   notify2();
 }
-function settleResult(sessionId, result) {
+function settleResult(sessionId, result, mode) {
   if (panelState?.sessionId !== sessionId || panelState.phase !== "loading") return;
-  panelState = { sessionId, phase: "result", original: panelState.original, result };
+  const settled = mode ?? panelState.mode;
+  panelState = {
+    sessionId,
+    phase: "result",
+    original: panelState.original,
+    result,
+    ...settled !== void 0 ? { mode: settled } : {}
+  };
   notify2();
 }
 function settleError(sessionId, error) {
@@ -770,9 +790,15 @@ function appendDelta(sessionId, text) {
   pendingDeltaSession = sessionId;
   scheduleDeltaFlush();
 }
-function openError(sessionId, original, error) {
+function openError(sessionId, original, error, mode) {
   abortOf(panelState);
-  panelState = { sessionId, phase: "error", original, error };
+  panelState = {
+    sessionId,
+    phase: "error",
+    original,
+    error,
+    ...mode !== void 0 ? { mode } : {}
+  };
   notify2();
 }
 function setStale(sessionId, stale) {
@@ -801,22 +827,27 @@ function registerSession(sessionId, entry) {
     notify2();
   };
 }
-function shortcutTarget() {
+function focusedEntry() {
   const active = document.activeElement;
   if (active !== null && active instanceof Element) {
     let node = active;
     for (let depth = 0; depth < 8 && node !== null; depth++) {
       for (const entry of sessions.values()) {
-        if (entry.root !== null && (node === entry.root || node.contains(entry.root))) {
-          const found = entry;
-          return () => found.run();
-        }
+        if (entry.root !== null && (node === entry.root || node.contains(entry.root))) return entry;
       }
       node = node.parentElement;
     }
   }
-  const fallback = lastMountedSession !== void 0 ? sessions.get(lastMountedSession) : void 0;
-  return fallback === void 0 ? void 0 : () => fallback.run();
+  return lastMountedSession !== void 0 ? sessions.get(lastMountedSession) : void 0;
+}
+function shortcutTarget() {
+  const entry = focusedEntry();
+  return entry === void 0 ? void 0 : () => entry.run();
+}
+function undoTarget() {
+  const entry = focusedEntry();
+  if (entry?.undo === void 0) return false;
+  return entry.undo();
 }
 
 // src/client/session-key.ts
@@ -863,46 +894,76 @@ function EnhanceButton(props) {
   const tier = effectiveTier(uiKey);
   const useContext = effectiveUseContext(uiKey);
   const rootRef = (0, import_react4.useRef)(null);
+  const draftRef = (0, import_react4.useRef)(draft);
+  (0, import_react4.useEffect)(() => {
+    draftRef.current = draft;
+  });
   const busy = panel !== void 0 && panel.sessionId === uiKey && panel.phase === "loading";
+  const direct = tier !== "system";
   const anyBusy = panel !== void 0 && panel.phase === "loading";
   const otherBusy = anyBusy && !busy;
   const start = (0, import_react4.useCallback)(() => {
     if (anyBusy) return;
+    const reject = (message) => {
+      if (direct) {
+        setNotice({ sessionId: uiKey, kind: "error", text: message });
+        return;
+      }
+      openError(uiKey, draft, { code: "rejected", localized: message }, "panel");
+    };
     if (!settings.enabled) {
-      const disabled = t("error.disabled");
-      openError(uiKey, draft, { code: "rejected", localized: disabled });
+      reject(t("error.disabled"));
       return;
     }
     if (imageCount > 0 && draft.trim() === "") {
-      const imagesOnly = t("error.imagesOnly");
-      openError(uiKey, draft, { code: "rejected", localized: imagesOnly });
+      reject(t("error.imagesOnly"));
       return;
     }
     const check = checkInputText(draft, settings.maxInputChars);
     if (!check.ok) {
-      const message = check.code === "empty" ? t("error.empty") : t("error.tooLong", { count: check.count, max: check.max });
-      openError(uiKey, draft, { code: "rejected", localized: message });
+      reject(check.code === "empty" ? t("error.empty") : t("error.tooLong", { count: check.count, max: check.max }));
       return;
     }
     if (occurrenceCount > 0) {
-      const occurrences = t("error.occurrences");
-      openError(uiKey, draft, { code: "rejected", localized: occurrences });
+      reject(t("error.occurrences"));
       return;
     }
     if (phase !== "plain") {
-      const busyPhase = t("error.phase");
-      openError(uiKey, draft, { code: "rejected", localized: busyPhase });
+      reject(t("error.phase"));
       return;
     }
+    clearNotice(uiKey);
+    const mode = direct ? "direct" : "panel";
     const controller = new AbortController();
-    openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort() });
-    const settle = (result) => settleResult(uiKey, result);
+    openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode });
+    const settle = (result) => {
+      if (!direct) {
+        settleResult(uiKey, result);
+        return;
+      }
+      if (draftRef.current !== draft) {
+        settleResult(uiKey, result, "panel");
+        return;
+      }
+      pushUndo(uiKey, { original: draft, applied: result.text });
+      inputActions.setDraft(result.text);
+      closePanel();
+    };
     const fail = (error) => {
       const detail = error instanceof EnhanceClientError ? error.detail : { code: "internal", message: error instanceof Error ? error.message : String(error) };
-      settleError(uiKey, detail);
+      if (!direct) {
+        settleError(uiKey, detail);
+        return;
+      }
+      closePanel();
+      setNotice({
+        sessionId: uiKey,
+        kind: "error",
+        text: detail.localized ?? localizedErrorMessage(t, detail.code, detail.params)
+      });
     };
     const body = { sessionId: wireId, text: draft, tier, useContext };
-    if (settings.streaming) {
+    if (settings.streaming && !direct) {
       requestEnhanceStream(body, {
         signal: controller.signal,
         onDelta: (delta) => appendDelta(uiKey, delta)
@@ -910,7 +971,7 @@ function EnhanceButton(props) {
       return;
     }
     requestEnhance(body, controller.signal).then(settle, fail);
-  }, [anyBusy, draft, imageCount, occurrenceCount, phase, settings, uiKey, wireId, t, tier, useContext]);
+  }, [anyBusy, draft, direct, imageCount, occurrenceCount, phase, settings, uiKey, wireId, t, tier, useContext, inputActions]);
   const runRef = (0, import_react4.useRef)(start);
   (0, import_react4.useEffect)(() => {
     runRef.current = start;
@@ -918,10 +979,21 @@ function EnhanceButton(props) {
   (0, import_react4.useEffect)(() => {
     const entry = {
       root: rootRef.current,
-      run: () => runRef.current()
+      run: () => runRef.current(),
+      // Ctrl+Z target: restore the pre-enhance draft, but only while the box
+      // still holds the text the enhancement put there. Once the user edits,
+      // the browser's own undo is the right handler and this returns false.
+      undo: () => {
+        const entry2 = peekUndo(uiKey);
+        if (entry2 === void 0 || entry2.applied !== draftRef.current) return false;
+        inputActions.setDraft(entry2.original);
+        popUndo(uiKey);
+        clearNotice(uiKey);
+        return true;
+      }
     };
     return registerSession(uiKey, entry);
-  }, [uiKey]);
+  }, [inputActions, uiKey]);
   (0, import_react4.useEffect)(() => {
     if (panel !== void 0 && panel.sessionId === uiKey && panel.phase === "result") {
       setStale(uiKey, draft !== panel.original);
@@ -934,7 +1006,7 @@ function EnhanceButton(props) {
     closePanel();
   }, [draft, inputActions, panel, uiKey]);
   if (!settings.enabled) return null;
-  const owned = panel !== void 0 && panel.sessionId === uiKey ? panel : void 0;
+  const owned = panel !== void 0 && panel.sessionId === uiKey && panel.mode !== "direct" ? panel : void 0;
   return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
     /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-pe-cluster", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(TierMenu, { sessionKey: uiKey, t }),
@@ -980,10 +1052,27 @@ function UndoBar(props) {
   });
   (0, import_react5.useSyncExternalStore)(subscribe2, getVersion2);
   const entry = peekUndo(uiKey);
+  const notice2 = getNotice();
   (0, import_react5.useEffect)(() => {
     if (entry !== void 0 && entry.applied !== draft) popUndo(uiKey);
   }, [draft, entry, uiKey]);
-  if (entry === void 0 || entry.applied !== draft) return null;
+  if (entry === void 0 || entry.applied !== draft) {
+    if (notice2 === void 0 || notice2.sessionId !== uiKey) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-notice", role: "status", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-notice-icon", "aria-hidden": true, children: "!" }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-notice-text", children: notice2.text }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "dsh-pe-undo-x",
+          "aria-label": t("notice.dismiss"),
+          onClick: () => clearNotice(uiKey),
+          children: "\u2715"
+        }
+      )
+    ] });
+  }
   const undo = () => {
     inputActions.setDraft(entry.original);
     popUndo(uiKey);
@@ -995,6 +1084,7 @@ function UndoBar(props) {
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-undo-check", "aria-hidden": true, children: "\u2713" }),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: t("undo.applied") }),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-undo-link", onClick: undo, children: t("undo.undo") }),
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-undo-hint", children: t("undo.hint") }),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-undo-x", "aria-label": t("undo.dismiss"), onClick: dismiss, children: "\u2715" })
   ] });
 }
@@ -1023,6 +1113,8 @@ var zh = {
   "undo.applied": "\u5DF2\u7528\u589E\u5F3A\u7ED3\u679C\u66FF\u6362\u539F\u63D0\u793A\u8BCD",
   "undo.undo": "\u64A4\u9500",
   "undo.dismiss": "\u5173\u95ED\u63D0\u793A",
+  "undo.hint": "Ctrl+Z \u53EF\u64A4\u9500",
+  "notice.dismiss": "\u5173\u95ED\u63D0\u793A",
   "error.empty": "\u8F93\u5165\u6846\u4E3A\u7A7A\uFF0C\u8BF7\u5148\u8F93\u5165\u8981\u589E\u5F3A\u7684\u63D0\u793A\u8BCD\u3002",
   "error.tooLong": "\u5185\u5BB9\u5171 {count} \u4E2A\u5B57\u7B26\uFF0C\u8D85\u8FC7 {max} \u4E2A\u5B57\u7B26\u4E0A\u9650\uFF08\u6309 Unicode \u5B57\u7B26\u6570\u7EDF\u8BA1\uFF0C\u4E0D\u662F token \u6570\uFF09\u3002\u4E3A\u907F\u514D\u6539\u53D8\u539F\u610F\u4E0D\u4F1A\u81EA\u52A8\u622A\u65AD\uFF0C\u8BF7\u7CBE\u7B80\u540E\u518D\u8BD5\u3002",
   "error.imagesOnly": "\u5F53\u524D\u53EA\u9644\u52A0\u4E86\u56FE\u7247\uFF0C\u4EC5\u652F\u6301\u589E\u5F3A\u6587\u672C\u5185\u5BB9\u3002",
@@ -1084,6 +1176,8 @@ var en = {
   "undo.applied": "Original prompt replaced by the enhanced version",
   "undo.undo": "Undo",
   "undo.dismiss": "Dismiss",
+  "undo.hint": "Ctrl+Z undoes it",
+  "notice.dismiss": "Dismiss",
   "error.empty": "The input box is empty \u2014 type a prompt to enhance first.",
   "error.tooLong": "The draft is {count} characters, above the {max} cap (Unicode characters, not tokens). It is never auto-truncated (that would change your meaning) \u2014 please shorten it.",
   "error.imagesOnly": "Only images are attached; prompt enhance supports text only.",
@@ -1317,6 +1411,24 @@ var CSS = `
   cursor: pointer; padding: 0 4px; font-size: 12px;
 }
 .dsh-pe-undo-x:hover { opacity: 1; }
+.dsh-pe-undo-hint { opacity: 0.55; font-size: 11px; }
+/* Failure line for direct runs: same row as the undo confirmation, but the
+   icon carries the only colour, so a wall of red copy does not fight the
+   composer underneath. */
+.dsh-pe-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--pe-danger, #e5534b);
+}
+.dsh-pe-notice-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid currentColor; font-size: 10px; line-height: 1; flex: none;
+}
+.dsh-pe-notice-text { flex: 1; min-width: 0; }
 
 /* Tier picker + \u2728 share one row. The composer slot has no --pe-* variables of
    its own, so every color here carries a literal fallback: inside the slot
@@ -1558,6 +1670,18 @@ function apply(ctx) {
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, "dsh-prompt-enhance: shortcut");
+  ctx.effect(() => {
+    const onKeyDown = (event) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== "z") return;
+      if (!undoTarget()) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, "dsh-prompt-enhance: undo shortcut");
 }
 
 		return module.exports;

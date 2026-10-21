@@ -200,6 +200,24 @@ export const CSS = `
   cursor: pointer; padding: 0 4px; font-size: 12px;
 }
 .dsh-pe-undo-x:hover { opacity: 1; }
+.dsh-pe-undo-hint { opacity: 0.55; font-size: 11px; }
+/* Failure line for direct runs: same row as the undo confirmation, but the
+   icon carries the only colour, so a wall of red copy does not fight the
+   composer underneath. */
+.dsh-pe-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--pe-danger, #e5534b);
+}
+.dsh-pe-notice-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid currentColor; font-size: 10px; line-height: 1; flex: none;
+}
+.dsh-pe-notice-text { flex: 1; min-width: 0; }
 
 /* Tier picker + ✨ share one row. The composer slot has no --pe-* variables of
    its own, so every color here carries a literal fallback: inside the slot

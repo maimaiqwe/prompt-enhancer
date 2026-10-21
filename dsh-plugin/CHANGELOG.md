@@ -20,6 +20,8 @@ All notable changes are documented here. Versions follow [npm](https://www.npmjs
 
 **复验修复（同轮）。** ① 插件设置里的「上下文感知」恢复为真正的总开关：关掉后宿主拒绝所有按次传入的 `useContext`，胶囊上的勾选状态也随之显示为关并禁用；② 基础档的上下文行一并锁住并给出档位专属说明（该档规则禁止扩写，读取历史会让它和规则打架），不再出现「勾上却无效果」；③ 档位列表由 `role="menu"` 改为 `role="radiogroup"` + `role="radio"`——同一个弹层里还有复选框和按钮，`menu` 容器不允许这些子元素；④ 弹层改为贴右边缘展开（`right: 0`），胶囊位于输入框右端，向左展开才不会溢出视口；⑤ 没有绑定 settings 服务时不渲染「设为默认档」，避免按下即静默丢弃；⑥ `install-profile.mjs` 识别 `link:` 依赖，遇到软链不覆盖（并注明不要改成 `link:`：那会让 `@deepseek-ai/dsh-llm` 解析到本仓库 devDependencies 的另一份实例，cordis 服务身份会冲突）。
 
+**一键直填（本轮）。** 点 ✨ 不再一律弹预览：基础 / 标准 / 专业三档直接**原地替换输入框草稿**，只留 ✨ 转圈，结果落地后在输入框上方留一行「已替换 + 撤销」提示。只有**系统档**仍开对话框——八段系统提示词改的是整个 agent 人设，值得先看一眼再落。三条护栏：① 请求期间用户又改了草稿时，结果不覆盖，自动升级为预览面板等显式「回填」（否则会吃掉用户刚打的字）；② 直填失败不走弹窗，改为同一行内联提示，点 ✕ 关闭；③ **Ctrl+Z** 回退上一版——仅当输入框里仍是增强填入的那段文字时生效（`ui.undoTarget()` 返回 false 就不拦事件，普通逐字撤销照旧），提示行里的 `撤销` 链接与 Ctrl+Z 等效。直填路径不发流式请求（没有面板渲染增量，流式只会白转按钮）。
+
 ## 0.2.7 (2026-09-30)
 
 Documentation-only version bump; `src/` and `lib/` are identical to 0.2.6 and the shipped bundles are unchanged.

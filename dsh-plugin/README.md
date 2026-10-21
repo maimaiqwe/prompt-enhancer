@@ -21,8 +21,9 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ✨ **Composer button** | A small button in the input box's tool row (next to the send button), always at hand |
 | 🎚️ **Four tiers** | A capsule left of ✨ shows the active tier (base / standard / professional / system) and switches it in one click; the rules come from the same `core/rules.md` the Windows hotkey layer reads |
 | 🧷 **Context toggle** | The dropdown has its own row for "use conversation context"; switching tiers seeds that tier's preset, which you can then override |
-| 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time |
-| ↩️ **One-click undo** | After applying, a quiet bar above the composer restores the original draft |
+| ⚡ **One-click fill** | The base / standard / professional tiers write the rewrite straight into the composer — no dialog. The system tier still previews first, because an eight-section system prompt rewrites a whole persona |
+| 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time. Opens for the system tier, and whenever your draft moved while the request was in flight |
+| ↩️ **Undo / `Ctrl+Z`** | After a fill, a quiet bar above the composer restores the original draft — or just press `Ctrl+Z`. Once you edit the filled text, both stand down and the browser's own character undo takes over |
 | ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in |
 | 💬 **`/enhance` command** | Rewrite any text from the slash-command plane; the result never enters model history |
 | 🧠 **Model routing** | Settings pair → current session model → harness default model, in that order |
@@ -38,11 +39,13 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 flowchart LR
     A[Composer draft] --> B{Local guards<br/>empty / length / chips / busy}
     B -- pass --> C["POST /prompt-enhance/enhance<br/>(loopback-fenced host route)"]
-    B -- reject --> P[Preview panel:<br/>readable error, draft untouched]
+    B -- reject --> P["Inline notice above<br/>the composer, draft untouched"]
     C --> D["ctx.llm.stream<br/>rewrite with system strategy"]
     D --> E[Normalize:<br/>strip fences, trim, refuse empty]
-    E --> F[Preview panel:<br/>original / enhanced]
-    F -- Apply --> G["setDraft(enhanced)<br/>original pushed to undo stack"]
+    E --> Q{system tier, or<br/>draft changed meanwhile?}
+    Q -- no --> G["setDraft(enhanced)<br/>original pushed to undo stack"]
+    Q -- yes --> F[Preview panel:<br/>original / enhanced]
+    F -- Apply --> G
     F -- Cancel / Copy --> H[Draft untouched]
     G --> U[Undo bar: one click restores]
 ```
@@ -102,9 +105,9 @@ dsh plugin --profile web remove dsh-prompt-enhance
 **Composer button / shortcut** — type (or leave) a draft, hit ✨ or `Ctrl+Shift+Alt+A`:
 
 1. Local guards run first: empty drafts, over-length drafts (never auto-truncated — that would change your meaning), images-only drafts, and drafts containing command or file-reference chips are refused with a clear message. Chips are rejected because filling back would destroy them.
-2. The preview panel opens with a cancellable spinner. Your draft stays untouched — the hint says so.
-3. The result phase shows both texts side by side. **Apply** fills the enhanced text back and raises the undo bar; **Copy** puts it on the clipboard; **Cancel** (or `Esc`, or clicking the overlay) discards everything.
-4. The undo bar sits above the composer: one click restores the original. If you keep typing after applying, the bar quietly retires itself so stale text can never overwrite newer edits. Undo entries live **only in the current page's memory** (up to 3 per session) — a page reload, a web restart, or a session switch clears them.
+2. Base / standard / professional: the ✨ spins and the rewrite lands **directly in the composer**, with a one-line "replaced / undo" row above it. No dialog, no interruption.
+3. System tier: the preview panel opens with both texts side by side. **Apply** fills the enhanced text back and raises the undo bar; **Copy** puts it on the clipboard; **Cancel** (or `Esc`, or clicking the overlay) discards everything. A direct fill that raced with your typing promotes itself to this same panel instead of overwriting what you wrote.
+4. Undo: the **Undo** link or **`Ctrl+Z`** restores the original. Keep typing and both retire themselves so stale text can never overwrite newer edits — the composer's own character-level undo is left alone. Undo entries live **only in the current page's memory** (up to 3 per session) — a page reload, a web restart, or a session switch clears them.
 
 **`/enhance <text>`** — rewrite any text from the slash menu. The result renders in the command plane (copyable) and never enters the conversation history or the model's context. To enhance the *composer draft itself*, use the button or shortcut — the draft lives in the browser. Cancelling a running `/enhance` follows the harness command plane; if the client offers no cancel affordance, the call simply runs to completion or times out.
 
@@ -186,7 +189,7 @@ Set `systemPrompt` in the settings to use your own strategy; `strategyMode` deci
 | Browser tab closed mid-flight | The host route detects the disconnect and aborts the model call |
 | Session switch | Panel state, undo stack, and shortcut targeting are per-session; switching closes the panel and clears its undo entries |
 
-Every failure surfaces inside the plugin's own panel; the composer draft is never modified by a failed call, so manual input continues undisturbed.
+Every failure surfaces where the run would have landed — the plugin's own panel for the system tier, or the inline notice row for a direct fill. The composer draft is never modified by a failed call, so manual input continues undisturbed.
 
 ## Error codes & localization
 
