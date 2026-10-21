@@ -149,15 +149,34 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
     const mode: ui.PanelMode = direct ? 'direct' : 'panel'
     const controller = new AbortController()
     ui.openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode })
+    // A `direct` run streams too: its deltas are typed straight into the
+    // composer, so the rewrite appears while it is generated instead of after
+    // two-to-four seconds of nothing but a spinning button. `written` is the
+    // exact text THIS run last put in the box, which is how settle() and
+    // fail() tell "the user typed" apart from "we typed".
+    let written: string | undefined
+    const pushDelta = (delta: string): void => {
+      if (!direct) {
+        ui.appendDelta(uiKey, delta)
+        return
+      }
+      // The user took over mid-flight: stop writing, keep collecting, and let
+      // settle() promote the result to the preview overlay.
+      if (written !== undefined && draftRef.current !== written) return
+      written = (written ?? '') + delta
+      inputActions.setDraft(written)
+    }
     const settle = (result: Parameters<typeof ui.settleResult>[1]): void => {
       if (!direct) {
         ui.settleResult(uiKey, result)
         return
       }
-      // The draft moved while the model was writing: replacing it now would
-      // destroy typing the user did after the click. Promote the run to the
-      // preview overlay instead, so the overwrite is an explicit choice.
-      if (draftRef.current !== draft) {
+      // The box no longer holds what this run left there: replacing it now
+      // would destroy typing the user did mid-flight. Promote the run to the
+      // preview overlay instead, so the overwrite is an explicit choice. A
+      // streamed run compares against its own last write, not the original
+      // draft — otherwise every streamed run would look "diverged".
+      if (draftRef.current !== (written ?? draft)) {
         ui.settleResult(uiKey, result, 'panel')
         return
       }
@@ -173,6 +192,10 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
         ui.settleError(uiKey, detail)
         return
       }
+      // A streamed run may have already typed partial text into the box; a
+      // failure must not leave a truncated rewrite sitting there as if it were
+      // the answer.
+      if (written !== undefined && draftRef.current === written) inputActions.setDraft(draft)
       ui.closePanel()
       ui.setNotice({
         sessionId: uiKey,
@@ -181,15 +204,10 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       })
     }
     // The tier and the context toggle travel with the request so switching
-    // either one needs no host round-trip first. A `direct` run never streams:
-    // nothing renders the partial text, so the incremental transport would only
-    // re-render the button for prose nobody sees.
+    // either one needs no host round-trip first.
     const body = { sessionId: wireId, text: draft, tier, useContext }
-    if (settings.streaming && !direct) {
-      requestEnhanceStream(body, {
-        signal: controller.signal,
-        onDelta: (delta: string): void => ui.appendDelta(uiKey, delta),
-      }).then(settle, fail)
+    if (settings.streaming) {
+      requestEnhanceStream(body, { signal: controller.signal, onDelta: pushDelta }).then(settle, fail)
       return
     }
     requestEnhance(body, controller.signal).then(settle, fail)

@@ -368,7 +368,7 @@ describe('direct fill (基础/标准/专业)', () => {
     // The draft itself now holds the rewrite; no overlay was ever mounted.
     expect(setDraft).toHaveBeenCalledWith('增强文本')
     expect(screen.queryByText(zh['panel.enhanced'])).toBeNull()
-    // A direct run never streams: nothing would render the deltas.
+    // Streaming off: with it on the deltas are typed into the box instead.
     expect(requestEnhanceStream).not.toHaveBeenCalled()
     expect(requestEnhance).toHaveBeenCalledWith(
       { sessionId: 'sf', text: '旧原文', tier: 'standard', useContext: true },
@@ -429,5 +429,48 @@ describe('direct fill (基础/标准/专业)', () => {
     // the result waits in the overlay for an explicit apply.
     expect(await screen.findByText(zh['panel.apply'])).toBeTruthy()
     expect(setDraft).not.toHaveBeenCalled()
+  })
+
+  it('types the rewrite into the draft while a streamed direct run is in flight', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sj')
+    const result = { text: '增强后的完整文本', provider: 'p', model: 'm', elapsedMs: 5 }
+    let release!: (value: typeof result) => void
+    const gate = new Promise<typeof result>((resolve) => { release = resolve })
+    vi.mocked(requestEnhanceStream).mockImplementation(async (_body, options) => {
+      options.onDelta('增强')
+      return gate
+    })
+
+    fireEvent.click(enhanceButton())
+    // First chunk lands in the composer long before the call settles: the
+    // button never sits silent for the whole generation.
+    await vi.waitFor(() => { expect(setDraft).toHaveBeenCalledWith('增强') })
+    expect(requestEnhance).not.toHaveBeenCalled()
+
+    act(() => { release(result) })
+    await screen.findByText(zh['undo.applied'])
+    // The partial text is replaced by the authoritative body, not appended to.
+    expect(setDraft).toHaveBeenLastCalledWith('增强后的完整文本')
+    expect(screen.queryByText(zh['panel.enhanced'])).toBeNull()
+  })
+
+  it('restores the original draft when a streamed direct run fails midway', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sk')
+    vi.mocked(requestEnhanceStream).mockImplementation(async (_body, options) => {
+      options.onDelta('半截')
+      throw new Error('boom')
+    })
+
+    fireEvent.click(enhanceButton())
+    const row = await screen.findByRole('status')
+    expect(row.textContent).toContain(zh['error.internal'])
+    // A truncated rewrite must not survive as if it were the answer.
+    expect(setDraft).toHaveBeenLastCalledWith('旧原文')
   })
 })

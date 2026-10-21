@@ -936,12 +936,22 @@ function EnhanceButton(props) {
     const mode = direct ? "direct" : "panel";
     const controller = new AbortController();
     openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode });
+    let written;
+    const pushDelta = (delta) => {
+      if (!direct) {
+        appendDelta(uiKey, delta);
+        return;
+      }
+      if (written !== void 0 && draftRef.current !== written) return;
+      written = (written ?? "") + delta;
+      inputActions.setDraft(written);
+    };
     const settle = (result) => {
       if (!direct) {
         settleResult(uiKey, result);
         return;
       }
-      if (draftRef.current !== draft) {
+      if (draftRef.current !== (written ?? draft)) {
         settleResult(uiKey, result, "panel");
         return;
       }
@@ -955,6 +965,7 @@ function EnhanceButton(props) {
         settleError(uiKey, detail);
         return;
       }
+      if (written !== void 0 && draftRef.current === written) inputActions.setDraft(draft);
       closePanel();
       setNotice({
         sessionId: uiKey,
@@ -963,11 +974,8 @@ function EnhanceButton(props) {
       });
     };
     const body = { sessionId: wireId, text: draft, tier, useContext };
-    if (settings.streaming && !direct) {
-      requestEnhanceStream(body, {
-        signal: controller.signal,
-        onDelta: (delta) => appendDelta(uiKey, delta)
-      }).then(settle, fail);
+    if (settings.streaming) {
+      requestEnhanceStream(body, { signal: controller.signal, onDelta: pushDelta }).then(settle, fail);
       return;
     }
     requestEnhance(body, controller.signal).then(settle, fail);
