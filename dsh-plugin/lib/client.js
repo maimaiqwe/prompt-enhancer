@@ -251,6 +251,21 @@ function resolveComposerBox(from) {
     }
     node = node.parentElement;
   }
+  const doc = from.ownerDocument;
+  const editable = doc.querySelector(EDITABLE);
+  if (editable !== null) {
+    let fallback = editable;
+    let best;
+    for (let depth = 0; fallback !== null && depth < MAX_DEPTH; depth++) {
+      const rect = fallback.getBoundingClientRect();
+      if (rect.width > MAX_WIDTH) break;
+      if (rect.width >= MIN_WIDTH && (radiusOf(fallback) ?? 0) > 0) {
+        best = { left: rect.left, width: rect.width, top: rect.top };
+      }
+      fallback = fallback.parentElement;
+    }
+    return best;
+  }
   return void 0;
 }
 function resolveAttachBox(anchor) {

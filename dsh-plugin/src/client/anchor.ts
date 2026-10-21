@@ -85,6 +85,29 @@ export function resolveComposerBox(from: HTMLElement | null): AttachBox | undefi
     }
     node = node.parentElement
   }
+  // The `[data-composer-card]` marker came from the skin layer's comments, and
+  // the running host does not render it (the dock row stayed unaligned in the
+  // real UI even though the resolver was in place). Fall back to the same
+  // signals the panel anchor uses: the editable field's nearest wide, rounded
+  // ancestor. The dock row is NOT inside the card, so this has to start from
+  // the editable itself rather than from `from`.
+  const doc = from.ownerDocument
+  const editable = doc.querySelector<HTMLElement>(EDITABLE)
+  if (editable !== null) {
+    let fallback: HTMLElement | null = editable
+    let best: AttachBox | undefined
+    for (let depth = 0; fallback !== null && depth < MAX_DEPTH; depth++) {
+      const rect = fallback.getBoundingClientRect()
+      if (rect.width > MAX_WIDTH) break
+      if (rect.width >= MIN_WIDTH && (radiusOf(fallback) ?? 0) > 0) {
+        best = { left: rect.left, width: rect.width, top: rect.top }
+      }
+      fallback = fallback.parentElement
+    }
+    // The outermost qualifying ancestor is the card (the loop keeps the last
+    // one before the width cap stops it).
+    return best
+  }
   return undefined
 }
 

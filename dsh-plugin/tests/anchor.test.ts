@@ -137,4 +137,43 @@ describe('resolveComposerBox', () => {
     expect(resolveComposerBox(row)).toBeUndefined()
     expect(resolveComposerBox(null)).toBeUndefined()
   })
+
+  // The marker attribute came from the skin layer's comments; the real host
+  // does not render it, and the dock row stayed unaligned in the actual UI.
+  // Without the marker the resolver must fall back to the editable field's
+  // nearest wide, rounded ancestor — the same signals the panel anchor uses.
+  it('falls back to the editable field when the card marker is absent', () => {
+    const shell = document.createElement('div')
+    const region = document.createElement('div')
+    const row = document.createElement('div')
+    const card = measure(document.createElement('div'), 860, 120, 700)
+    const textarea = document.createElement('textarea')
+    card.append(textarea)
+    region.append(row, card)
+    shell.append(region)
+    document.body.append(shell)
+
+    expect(resolveComposerBox(row)).toEqual({ left: 120, width: 860, top: 700 })
+  })
+
+  // The fallback must still prefer the outermost qualifying ancestor: an inner
+  // rounded wrapper inside the card (a toolbar, a pill) is not the card.
+  it('fallback picks the outermost rounded ancestor of the editable', () => {
+    const shell = document.createElement('div')
+    const region = document.createElement('div')
+    const row = document.createElement('div')
+    const page = measure(document.createElement('div'), 1600, 0, 0)
+    const card = measure(document.createElement('div'), 860, 120, 700)
+    const inner = measure(document.createElement('div'), 500, 200, 710)
+    const textarea = document.createElement('textarea')
+    inner.append(textarea)
+    card.append(inner)
+    page.append(card)
+    region.append(row)
+    page.append(region)
+    shell.append(page)
+    document.body.append(shell)
+
+    expect(resolveComposerBox(row)).toEqual({ left: 120, width: 860, top: 700 })
+  })
 })
