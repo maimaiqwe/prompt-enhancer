@@ -222,7 +222,7 @@ export const CSS = `
 }
 
 .dsh-pe-tier-title {
-  padding: 6px 8px;
+  padding: 6px 8px 2px;
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -295,7 +295,13 @@ export const CSS = `
 
 /* Native radio / checkbox restyled rather than replaced: the tests and the
    keyboard both address them by role, and appearance:none keeps that working
-   while letting the control share the palette. */
+   while letting the control share the palette.
+
+   The default radios are BUTTONS carrying role="radio", not inputs. A real
+   radio swallows a repeat click on the already-checked option (no change event
+   fires), which would make "tick again to unpin" unreachable, so the control is
+   a button whose state lives in aria-checked. Both spellings are styled below:
+   the button for the default/pin radios, the input for the context checkbox. */
 .dsh-pe-tier-default {
   display: flex;
   align-items: center;
@@ -310,10 +316,12 @@ export const CSS = `
 .dsh-pe-tier-default.is-locked:hover { background: transparent; }
 
 .dsh-pe-tier-default input,
+.dsh-pe-tier-default button,
 .dsh-pe-tier-context input {
   appearance: none;
   -webkit-appearance: none;
   margin: 0;
+  padding: 0;
   width: 15px;
   height: 15px;
   flex: none;
@@ -323,8 +331,10 @@ export const CSS = `
   transition: border-color var(--pe-ease, 140ms ease),
     background var(--pe-ease, 140ms ease);
 }
-.dsh-pe-tier-default input { border-radius: 50%; }
-.dsh-pe-tier-default input:checked {
+.dsh-pe-tier-default input,
+.dsh-pe-tier-default button { border-radius: 50%; }
+.dsh-pe-tier-default input:checked,
+.dsh-pe-tier-default button[aria-checked='true'] {
   border-color: var(--pe-accent, #4a5bd6);
   background: radial-gradient(
     circle,
@@ -333,6 +343,7 @@ export const CSS = `
   );
 }
 .dsh-pe-tier-default input:disabled,
+.dsh-pe-tier-default button:disabled,
 .dsh-pe-tier-context input:disabled { cursor: not-allowed; }
 
 .dsh-pe-tier-context-row {
@@ -374,6 +385,16 @@ export const CSS = `
 }
 .dsh-pe-tier-context.is-locked { opacity: 0.5; cursor: not-allowed; }
 .dsh-pe-tier-context.is-locked:hover { background: transparent; }
+
+/* The tick is a data-URI SVG, so its stroke cannot read a custom property. In
+   the light palette the box is near-black and a white tick reads; in the dark
+   palette the ink flips to near-white, and a white tick on it disappears. The
+   dark block re-declares the same glyph with a dark stroke. */
+@media (prefers-color-scheme: dark) {
+  .dsh-pe-tier-context input:checked {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.2 2.2 4.8-5' fill='none' stroke='%2314161a' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+}
 
 .dsh-pe-tier-foot {
   margin-top: 4px;

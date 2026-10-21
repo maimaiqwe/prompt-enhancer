@@ -1496,7 +1496,7 @@ var zh = {
   "error.upstream.toolCall": "\u6A21\u578B\u8BF7\u6C42\u4E86\u5DE5\u5177\u8C03\u7528\uFF0C\u63D0\u793A\u8BCD\u589E\u5F3A\u53EA\u9700\u8981\u7EAF\u6587\u672C\uFF1B\u8BF7\u66F4\u6362\u6A21\u578B\u540E\u91CD\u8BD5\u3002",
   "error.upstream.maxTokens": "\u91CD\u5199\u7ED3\u679C\u8FBE\u5230\u8F93\u51FA\u4E0A\u9650\uFF08maxOutputTokens\uFF09\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u8C03\u5927\u4E0A\u9650\u6216\u7CBE\u7B80\u539F\u6587\u540E\u91CD\u8BD5\u3002",
   "tier.menu.title": "\u589E\u5F3A\u6863\u4F4D",
-  "tier.menu.legend": "\u70B9\u6863\u4F4D\uFF1D\u53EA\u5728\u672C\u4F1A\u8BDD\u4E34\u65F6\u7528\uFF1B\u52FE\u53F3\u4FA7\u5706\u70B9\uFF1D\u8BBE\u4E3A\u9ED8\u8BA4\u6863\u3002\u300C\u7ED3\u5408\u4E0A\u4E0B\u6587\u300D\u540C\u7406\uFF1A\u52FE\u5706\u70B9\u56FA\u5B9A\u9ED8\u8BA4\u5F00/\u5173\u3002",
+  "tier.menu.legend": "\u70B9\u6863\u4F4D\uFF1D\u672C\u4F1A\u8BDD\u4E34\u65F6\u7528\uFF1B\u52FE\u53F3\u4FA7\u5706\u70B9\uFF1D\u8BBE\u4E3A\u9ED8\u8BA4\u3002",
   "tier.menu.session": "\u672C\u4F1A\u8BDD\u4E34\u65F6\u4F7F\u7528\u300C{tier}\u300D\uFF0C\u5173\u95ED DSH \u540E\u56DE\u5230\u9ED8\u8BA4\u6863\u3002",
   "tier.menu.context": "\u7ED3\u5408\u4E0A\u4E0B\u6587",
   "tier.menu.context.hint": "\u5141\u8BB8\u8BFB\u53D6\u672C\u4F1A\u8BDD\u6700\u8FD1\u51E0\u6761\u6D88\u606F\u6765\u6D88\u89E3\u6307\u4EE3\u3001\u8865\u5168\u672F\u8BED\uFF1B\u5173\u95ED\u540E\u53EA\u6539\u8349\u7A3F\u672C\u8EAB\u3002",
@@ -1572,7 +1572,7 @@ var en = {
   "error.upstream.toolCall": "The model requested tool calls, but prompt enhance needs plain text \u2014 switch models and retry.",
   "error.upstream.maxTokens": "The rewrite hit the output cap (maxOutputTokens) \u2014 raise it in settings or shorten the draft.",
   "tier.menu.title": "Enhancement tier",
-  "tier.menu.legend": "Click a tier to use it in this conversation only; tick the dot to make it the default. Same for the context toggle: tick the dot to pin its default on/off state.",
+  "tier.menu.legend": "Click a tier to use it here; tick the dot to make it the default.",
   "tier.menu.session": "Using \u201C{tier}\u201D in this conversation only \u2014 the default returns when DSH closes.",
   "tier.menu.context": "Use conversation context",
   "tier.menu.context.hint": "Lets the rewrite read the last few messages of this conversation to resolve references and fill in established terms. Off means the draft alone is rewritten.",
@@ -1804,7 +1804,7 @@ var CSS = `
 }
 
 .dsh-pe-tier-title {
-  padding: 6px 8px;
+  padding: 6px 8px 2px;
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1877,7 +1877,13 @@ var CSS = `
 
 /* Native radio / checkbox restyled rather than replaced: the tests and the
    keyboard both address them by role, and appearance:none keeps that working
-   while letting the control share the palette. */
+   while letting the control share the palette.
+
+   The default radios are BUTTONS carrying role="radio", not inputs. A real
+   radio swallows a repeat click on the already-checked option (no change event
+   fires), which would make "tick again to unpin" unreachable, so the control is
+   a button whose state lives in aria-checked. Both spellings are styled below:
+   the button for the default/pin radios, the input for the context checkbox. */
 .dsh-pe-tier-default {
   display: flex;
   align-items: center;
@@ -1892,10 +1898,12 @@ var CSS = `
 .dsh-pe-tier-default.is-locked:hover { background: transparent; }
 
 .dsh-pe-tier-default input,
+.dsh-pe-tier-default button,
 .dsh-pe-tier-context input {
   appearance: none;
   -webkit-appearance: none;
   margin: 0;
+  padding: 0;
   width: 15px;
   height: 15px;
   flex: none;
@@ -1905,8 +1913,10 @@ var CSS = `
   transition: border-color var(--pe-ease, 140ms ease),
     background var(--pe-ease, 140ms ease);
 }
-.dsh-pe-tier-default input { border-radius: 50%; }
-.dsh-pe-tier-default input:checked {
+.dsh-pe-tier-default input,
+.dsh-pe-tier-default button { border-radius: 50%; }
+.dsh-pe-tier-default input:checked,
+.dsh-pe-tier-default button[aria-checked='true'] {
   border-color: var(--pe-accent, #4a5bd6);
   background: radial-gradient(
     circle,
@@ -1915,6 +1925,7 @@ var CSS = `
   );
 }
 .dsh-pe-tier-default input:disabled,
+.dsh-pe-tier-default button:disabled,
 .dsh-pe-tier-context input:disabled { cursor: not-allowed; }
 
 .dsh-pe-tier-context-row {
@@ -1956,6 +1967,16 @@ var CSS = `
 }
 .dsh-pe-tier-context.is-locked { opacity: 0.5; cursor: not-allowed; }
 .dsh-pe-tier-context.is-locked:hover { background: transparent; }
+
+/* The tick is a data-URI SVG, so its stroke cannot read a custom property. In
+   the light palette the box is near-black and a white tick reads; in the dark
+   palette the ink flips to near-white, and a white tick on it disappears. The
+   dark block re-declares the same glyph with a dark stroke. */
+@media (prefers-color-scheme: dark) {
+  .dsh-pe-tier-context input:checked {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.2 2.2 4.8-5' fill='none' stroke='%2314161a' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+}
 
 .dsh-pe-tier-foot {
   margin-top: 4px;
