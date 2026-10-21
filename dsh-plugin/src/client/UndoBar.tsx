@@ -92,7 +92,7 @@ function contentBoxOf(element: HTMLElement): { readonly left: number; readonly w
  * box it is talking about. The offset is measured instead of guessed: the card
  * is found through the shell's stable `[data-composer-card]` marker and its
  * left edge is expressed relative to the row's container (see
- * {@link contentLeftOf} for why the row itself cannot be the reference).
+ * {@link contentBoxOf} for why the row itself cannot be the reference).
  *
  * Nothing is applied until a card is actually measured, so a host that renders
  * no card (or a layout the measurement cannot resolve) keeps the plain
@@ -128,12 +128,16 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
       setAlign((previous) => (previous === undefined ? previous : undefined))
       return
     }
-    // Clamped at zero: a card wider than the slot (a zoomed-out layout) must not
-    // push the text off-screen to the left. The width is clamped to the content
-    // box for the mirror case: when the card is wider than the seat, an
-    // unclamped width would overflow it and the row would wrap.
-    const inset = Math.max(0, Math.round(box.left - content.left))
+    // Both edges are kept inside the container's content box, not just the left
+    // one. The card is normally narrower than the seat, and then this is a plain
+    // passthrough. It matters in two odd layouts: a card WIDER than the seat
+    // (zoomed out) would overflow on the right and the row would wrap, and a
+    // card that starts PAST the seat's right edge would leave the row hanging
+    // outside it. Capping the offset at (content width - row width) keeps the
+    // row's own width intact instead of shrinking it to nothing.
     const width = Math.round(Math.min(box.width, content.width))
+    const maxInset = Math.max(0, Math.round(content.width) - width)
+    const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset)
     // Sub-pixel jitter must not count as a change, or a scroll that moves the
     // card by 0.3px would restart the write loop this hook exists to avoid.
     const key = `${width}:${inset}`

@@ -291,11 +291,13 @@ describe('dock row alignment', () => {
    * offset is 170 and the width is the card's 860.
    * @param padLeft - left padding on the slot, to prove the offset is measured
    * from the CONTENT box rather than the slot's border box.
+   * @param cardLeft - the card's measured left edge.
+   * @param cardWidth - the card's measured width.
    * @returns the slot, so the row can be rendered INTO it (the offset is
    * measured against the row's parent, so where the row is mounted decides what
    * the assertion means).
    */
-  function seat(padLeft = 0): HTMLElement {
+  function seat(padLeft = 0, cardLeft = 170, cardWidth = 860): HTMLElement {
     const shell = document.createElement('div')
     const slot = document.createElement('div')
     slot.setAttribute('data-slot', 'conversation.input.dock')
@@ -303,8 +305,8 @@ describe('dock row alignment', () => {
     const card = document.createElement('div')
     card.setAttribute('data-composer-card', '')
     card.getBoundingClientRect = () => ({
-      width: 860, height: 120, left: 170, top: 600, right: 1030, bottom: 720, x: 170, y: 600,
-      toJSON: () => ({}),
+      width: cardWidth, height: 120, left: cardLeft, top: 600, right: cardLeft + cardWidth, bottom: 720,
+      x: cardLeft, y: 600, toJSON: () => ({}),
     }) as unknown as DOMRect
     shell.append(slot, card)
     document.body.append(shell)
@@ -352,6 +354,46 @@ describe('dock row alignment', () => {
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
     expect(row.style.marginInlineStart).toBe('146px')
+  })
+
+  // Mirror case of the clamp above: a card wider than its seat (zoomed-out
+  // layout, or a host that lets the card overflow) must not push the row past
+  // the right edge. The width is clamped to the content box, so the row stays
+  // inside the seat instead of overflowing and wrapping.
+  it('clamps the width when the card is wider than the seat', () => {
+    const slot = seat(0, -40, 1400)
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(
+      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
+      { container: slot },
+    )
+
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    // Left is clamped at 0 (the card starts left of the seat), and the width is
+    // the content box's 1200 rather than the card's 1400.
+    expect(row.style.marginInlineStart).toBe('0px')
+    expect(row.style.width).toBe('1200px')
+  })
+
+  // A card entirely past the seat's right edge is the case that separates the
+  // two ways of clamping. Shrinking the width by the offset would leave the row
+  // a few pixels wide and unreadable; capping the OFFSET keeps the row's width
+  // and parks it at the seat's right edge instead.
+  it('keeps the width and caps the offset when the card starts past the right edge', () => {
+    const slot = seat(0, 1150, 400)
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(
+      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
+      { container: slot },
+    )
+
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    // The card's own width survives, and the offset stops where the row's right
+    // edge meets the seat's (1200 - 400 = 800) instead of running to 1150.
+    expect(row.style.width).toBe('400px')
+    expect(row.style.marginInlineStart).toBe('800px')
   })
 
   it('leaves the row full width when no card is mounted', () => {

@@ -1359,8 +1359,9 @@ function useComposerAlign(rowRef) {
       setAlign((previous) => previous === void 0 ? previous : void 0);
       return;
     }
-    const inset = Math.max(0, Math.round(box.left - content.left));
     const width = Math.round(Math.min(box.width, content.width));
+    const maxInset = Math.max(0, Math.round(content.width) - width);
+    const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset);
     const key = `${width}:${inset}`;
     setAlign((previous) => previous?.key === key ? previous : { key, style: { width: `${width}px`, maxWidth: "100%", marginInlineStart: `${inset}px`, marginInlineEnd: "auto" } });
   }, [rowRef]);
