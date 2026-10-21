@@ -960,25 +960,12 @@ function EnhanceButton(props) {
     const mode = direct ? "direct" : "panel";
     const controller = new AbortController();
     openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode });
-    let written;
-    const ours = /* @__PURE__ */ new Set([draft]);
-    const stillOurs = () => ours.has(draftRef.current);
-    const pushDelta = (delta) => {
-      if (!direct) {
-        appendDelta(uiKey, delta);
-        return;
-      }
-      if (written !== void 0 && !stillOurs()) return;
-      written = (written ?? "") + delta;
-      ours.add(written);
-      inputActions.setDraft(written);
-    };
     const settle = (result) => {
       if (!direct) {
         settleResult(uiKey, result);
         return;
       }
-      if (!stillOurs()) {
+      if (draftRef.current !== draft) {
         settleResult(uiKey, result, "panel");
         return;
       }
@@ -988,7 +975,6 @@ function EnhanceButton(props) {
     };
     const fail = (error) => {
       if (controller.signal.aborted) {
-        if (written !== void 0 && stillOurs()) inputActions.setDraft(draft);
         closePanel();
         return;
       }
@@ -997,7 +983,6 @@ function EnhanceButton(props) {
         settleError(uiKey, detail);
         return;
       }
-      if (written !== void 0 && stillOurs()) inputActions.setDraft(draft);
       closePanel();
       setNotice({
         sessionId: uiKey,
@@ -1006,8 +991,11 @@ function EnhanceButton(props) {
       });
     };
     const body = { sessionId: wireId, text: draft, tier, useContext };
-    if (settings.streaming) {
-      requestEnhanceStream(body, { signal: controller.signal, onDelta: pushDelta }).then(settle, fail);
+    if (settings.streaming && !direct) {
+      requestEnhanceStream(body, {
+        signal: controller.signal,
+        onDelta: (delta) => appendDelta(uiKey, delta)
+      }).then(settle, fail);
       return;
     }
     requestEnhance(body, controller.signal).then(settle, fail);

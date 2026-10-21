@@ -156,44 +156,22 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
     const mode: ui.PanelMode = direct ? 'direct' : 'panel'
     const controller = new AbortController()
     ui.openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode })
-    // A `direct` run streams too: its deltas are typed straight into the
-    // composer, so the rewrite appears while it is generated instead of after
-    // two-to-four seconds of nothing but a spinning button. `written` is the
-    // exact text THIS run last put in the box, which is how settle() and
-    // fail() tell "the user typed" apart from "we typed".
-    let written: string | undefined
-    // Every value this run is allowed to find in the composer: the draft it
-    // started from plus each text it has written. `draftRef` only catches up
-    // after React commits the render, and one socket read can carry several
-    // SSE frames, so it may lag behind by more than one write — comparing it
-    // against the newest write alone would mistake our own second chunk for
-    // user typing and drop the rest of the stream.
-    const ours = new Set<string>([draft])
-    /** True while the composer still holds a value this run is responsible for. */
-    const stillOurs = (): boolean => ours.has(draftRef.current)
-    const pushDelta = (delta: string): void => {
-      if (!direct) {
-        ui.appendDelta(uiKey, delta)
-        return
-      }
-      // The user took over mid-flight: stop writing, keep collecting, and let
-      // settle() promote the result to the preview overlay.
-      if (written !== undefined && !stillOurs()) return
-      written = (written ?? '') + delta
-      ours.add(written)
-      inputActions.setDraft(written)
-    }
+    // Direct fills arrive as ONE whole-text replacement, never as an incremental
+    // write. Typing deltas into the composer used to look responsive, but every
+    // delta is a full `setDraft` — a composer re-render, a height recompute and
+    // a caret pushed to the end — so a long rewrite spent seconds stuttering and
+    // fought the user for the box they were about to keep typing in. The dock
+    // row (elapsed seconds + cancel) already proves the call is alive, so the
+    // wait needs no typing effect to be legible.
     const settle = (result: Parameters<typeof ui.settleResult>[1]): void => {
       if (!direct) {
         ui.settleResult(uiKey, result)
         return
       }
-      // The box no longer holds what this run left there: replacing it now
-      // would destroy typing the user did mid-flight. Promote the run to the
-      // preview overlay instead, so the overwrite is an explicit choice. A
-      // streamed run compares against its own last write, not the original
-      // draft — otherwise every streamed run would look "diverged".
-      if (!stillOurs()) {
+      // The box no longer holds the draft this run started from: replacing it
+      // now would destroy typing the user did mid-flight. Promote the run to
+      // the preview overlay instead, so the overwrite stays an explicit choice.
+      if (draftRef.current !== draft) {
         ui.settleResult(uiKey, result, 'panel')
         return
       }
@@ -207,7 +185,6 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       // AbortError. Reporting that as an internal error would blame the user
       // for the one outcome they asked for.
       if (controller.signal.aborted) {
-        if (written !== undefined && stillOurs()) inputActions.setDraft(draft)
         ui.closePanel()
         return
       }
@@ -218,10 +195,8 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
         ui.settleError(uiKey, detail)
         return
       }
-      // A streamed run may have already typed partial text into the box; a
-      // failure must not leave a truncated rewrite sitting there as if it were
-      // the answer.
-      if (written !== undefined && stillOurs()) inputActions.setDraft(draft)
+      // Nothing was written to the box before the result arrived, so there is
+      // no half-written text to roll back — the draft is exactly as it was.
       ui.closePanel()
       ui.setNotice({
         sessionId: uiKey,
@@ -232,8 +207,14 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
     // The tier and the context toggle travel with the request so switching
     // either one needs no host round-trip first.
     const body = { sessionId: wireId, text: draft, tier, useContext }
-    if (settings.streaming) {
-      requestEnhanceStream(body, { signal: controller.signal, onDelta: pushDelta }).then(settle, fail)
+    // Streaming stays a panel-mode feature: there the deltas land in an overlay
+    // built for them, never in the composer. A direct run always takes the
+    // one-shot path so the box is touched exactly once.
+    if (settings.streaming && !direct) {
+      requestEnhanceStream(body, {
+        signal: controller.signal,
+        onDelta: (delta) => ui.appendDelta(uiKey, delta),
+      }).then(settle, fail)
       return
     }
     requestEnhance(body, controller.signal).then(settle, fail)
