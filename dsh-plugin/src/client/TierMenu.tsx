@@ -21,6 +21,7 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { TIERS, type Tier } from '../tiers'
 import { getClientSettings, subscribeClientSettings } from './settings'
 import {
+  defaultContextOf,
   defaultTierOf,
   effectiveTier,
   effectiveUseContext,
@@ -28,6 +29,8 @@ import {
   hasSessionPick,
   selectTier,
   selectUseContext,
+  sessionContextPick,
+  setDefaultContext,
   setDefaultTier,
   subscribe,
   tierAllowsContext,
@@ -79,7 +82,14 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   const tier = effectiveTier(sessionKey)
   const useContext = effectiveUseContext(sessionKey)
   const pinnedDefault = defaultTierOf()
+  const pinnedContext = defaultContextOf()
+  const sessionContext = sessionContextPick(sessionKey)
   const temporary = hasSessionPick(sessionKey) && tier !== pinnedDefault
+  // The radio reads "pinned" when a default exists at all; when the session
+  // also carries its own pick that differs, it is temporarily overriding even
+  // the default — which the footer language already covers for tiers.
+  const contextIsPinned = pinnedContext !== undefined
+  const contextIsOverridden = sessionContext !== undefined && sessionContext !== pinnedContext
   // Two independent reasons the row can be inert: the plugin-level master
   // switch, and the tier itself (基础 never takes history). Both are reported,
   // because a disabled checkbox with the wrong explanation is worse than none.
@@ -92,6 +102,9 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
   const titleId = useId()
   const groupName = `${useId()}-default`
   const menuRef = useRef<HTMLDivElement | null>(null)
+  // 基础 has no context at all, so pinning a default there would promise a
+  // state the next call ignores. Pinnable follows the row, not the session.
+  const contextIsPinnable = tierAllowsContext(tier)
 
   /** Close the popover (the native `details` element owns the open state). */
   const close = useCallback((): void => {
@@ -163,6 +176,20 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
     selectUseContext(sessionKey, event.target.checked === true)
   }, [sessionKey])
 
+  /**
+   * Pin the context toggle as the default for every new conversation (or unpin
+   * it when the same state is ticked again — the radio mirrors the tier rows).
+   * @param next - the default on/off to persist.
+   */
+  const makeDefaultContext = useCallback((next: boolean): void => {
+    if (defaultContextOf() === next) {
+      setDefaultContext(undefined)
+      return
+    }
+    setDefaultContext(next)
+    selectUseContext(sessionKey, next)
+  }, [sessionKey])
+
   return (
     <details className="dsh-pe-tier" ref={detailsRef}>
       <summary
@@ -218,18 +245,48 @@ export function TierMenu({ sessionKey, t }: TierMenuProps): ReactNode {
             )
           })}
         </div>
-        <label
-          className={`dsh-pe-tier-context${contextLock === undefined ? '' : ' is-locked'}`}
-          title={contextLock ?? t('tier.menu.context.hint')}
-        >
-          <input
-            type="checkbox"
-            checked={useContext}
-            disabled={contextLock !== undefined}
-            onChange={toggleContext}
-          />
-          <span>{t('tier.menu.context')}</span>
-        </label>
+        <div className={`dsh-pe-tier-context-row${contextLock === undefined ? '' : ' is-locked'}`}>
+          <label
+            className={`dsh-pe-tier-context${contextLock === undefined ? '' : ' is-locked'}`}
+            title={contextLock ?? t('tier.menu.context.hint')}
+          >
+            <input
+              type="checkbox"
+              checked={useContext}
+              disabled={contextLock !== undefined}
+              onChange={toggleContext}
+            />
+            <span>{t('tier.menu.context')}</span>
+          </label>
+          <span
+            className={`dsh-pe-tier-default${contextLock !== undefined || !contextIsPinnable ? ' is-locked' : ''}`}
+            title={
+              // The pin radio has its own vocabulary: "there is nothing to pin
+              // here" is a different sentence from the checkbox's reason, and
+              // the checkbox already carries the specific one.
+              !contextIsPinnable
+                ? t('tier.menu.context.lockedHint')
+                : contextLock !== undefined
+                  ? contextLock
+                  : contextIsPinned
+                    ? t('tier.menu.context.pinned', { state: t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off') })
+                    : t('tier.menu.context.pin')
+            }
+          >
+            {/* A button with role="radio", not a real radio: a checked radio
+                swallows repeat clicks (no change event fires), which would make
+                "tick again to unpin" unreachable. The tier rows use the same
+                button pattern. */}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={contextIsPinned}
+              disabled={contextLock !== undefined || !contextIsPinnable}
+              aria-label={`${t('tier.menu.context.default')}：${t(useContext ? 'tier.menu.context.on' : 'tier.menu.context.off')}`}
+              onClick={() => makeDefaultContext(useContext)}
+            />
+          </span>
+        </div>
         {temporary ? (
           <div className="dsh-pe-tier-foot" role="status">
             {t('tier.menu.session', { tier: t(NAME_KEY[tier]) })}

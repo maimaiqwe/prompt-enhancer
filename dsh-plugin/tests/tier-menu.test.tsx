@@ -19,12 +19,14 @@ import { zh } from '../src/client/locales'
 import { DEFAULT_CLIENT_SETTINGS, setClientSettings } from '../src/client/settings'
 import {
   clearOverrides,
+  defaultContextOf,
   defaultTierOf,
   effectiveTier,
   effectiveUseContext,
   hasSessionPick,
   registerTierPersist,
   selectUseContext,
+  setDefaultContext,
   setDefaultTier,
 } from '../src/client/tier-store'
 
@@ -49,15 +51,32 @@ function defaultRadio(tier: string): HTMLInputElement {
   return screen.getByRole('radio', { name: `${zh['tier.menu.default']}：${name}` }) as HTMLInputElement
 }
 
+/**
+ * The context row's default radio ("pin the current on/off state").
+ *
+ * Matched by its label prefix rather than the full name: the name ends in the
+ * CURRENT on/off state, so an exact match would break the moment the checkbox
+ * is toggled — the button is the same control either way.
+ */
+function contextDefaultRadio(): HTMLButtonElement {
+  const prefix = `${zh['tier.menu.context.default']}：`
+  const found = screen
+    .getAllByRole('radio')
+    .find((node) => (node.getAttribute('aria-label') ?? '').startsWith(prefix))
+  if (found === undefined) throw new Error(`no context default radio (${prefix}…)`)
+  return found as HTMLButtonElement
+}
+
 function writer(): ReturnType<typeof vi.fn> {
   return vi.fn(async () => {})
 }
 
 beforeEach(() => {
   registerTierPersist(undefined)
-  // The local default outlives a test (module state + localStorage), so reset it
-  // explicitly instead of trusting the previous test to leave it alone.
+  // The local defaults outlive a test (module state + localStorage), so reset
+  // them explicitly instead of trusting the previous test to leave them alone.
   setDefaultTier('standard')
+  setDefaultContext(undefined)
   clearOverrides()
   setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, defaultTier: 'standard' })
 })
@@ -127,7 +146,12 @@ describe('TierMenu', () => {
     const box = screen.getByRole('checkbox') as HTMLInputElement
     expect(box.checked).toBe(false)
     expect(box.disabled).toBe(true)
-    expect(screen.getByTitle(t('tier.menu.context.tierlocked'))).toBeTruthy()
+    // Both the checkbox and the pin radio are disabled and carry the lock hint.
+    expect(screen.getByTitle(t('tier.menu.context.lockedHint'))).toBeTruthy()
+    const pin = screen.getByRole('radio', { name: `${zh['tier.menu.context.default']}：${zh['tier.menu.context.off']}` }) as HTMLButtonElement
+    expect(pin.disabled).toBe(true)
+    fireEvent.click(pin)
+    expect(defaultContextOf()).toBe(undefined)
   })
 
   it('locks the context row while the plugin-level switch is off', () => {
@@ -198,5 +222,47 @@ describe('TierMenu', () => {
     vi.resetModules()
     const fresh = await import('../src/client/tier-store')
     expect(fresh.defaultTierOf()).toBe('professional')
+  })
+
+  it('pins the context default from the row radio and applies it here', () => {
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    fireEvent.click(contextDefaultRadio())
+    expect(defaultContextOf()).toBe(true)
+    // Pinning applies the state here too, and a fresh conversation inherits it.
+    expect(effectiveUseContext(SESSION)).toBe(true)
+    expect(effectiveUseContext('session-b')).toBe(true)
+    // The radio now reads pinned. A button, not a real radio: `aria-checked`
+    // is the state, and `.checked` does not exist on a button element.
+    expect(contextDefaultRadio().getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('pins context off and survives a reload', async () => {
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    fireEvent.click(tierRow('professional'))
+    fireEvent.click(contextDefaultRadio()) // currently on → pins on
+    expect(defaultContextOf()).toBe(true)
+    // Tick again on the already-pinned state → unpins (button click, always
+    // reachable — unlike a real radio, which swallows repeat clicks).
+    fireEvent.click(contextDefaultRadio())
+    expect(defaultContextOf()).toBe(undefined)
+    // Pin off via a session override of the checkbox first.
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(effectiveUseContext(SESSION)).toBe(false)
+    fireEvent.click(contextDefaultRadio()) // current off → pins off
+    expect(defaultContextOf()).toBe(false)
+    vi.resetModules()
+    const fresh = await import('../src/client/tier-store')
+    expect(fresh.defaultContextOf()).toBe(false)
+  })
+
+  it('lets the pinned context default outrank the tier presets', () => {
+    setDefaultContext(false)
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    // 标准's preset would admit history; the pin says otherwise.
+    expect(effectiveUseContext(SESSION)).toBe(false)
+    // A per-session pick still wins over the pin.
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(effectiveUseContext(SESSION)).toBe(true)
+    expect(effectiveUseContext('session-b')).toBe(false)
   })
 })

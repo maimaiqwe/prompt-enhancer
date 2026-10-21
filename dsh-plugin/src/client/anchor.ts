@@ -54,6 +54,41 @@ function radiusOf(element: HTMLElement): number | undefined {
 }
 
 /**
+ * The shell's stable marker for the input card. Documented by the skin layer as
+ * "the official shell's stable card anchor" (unlike its hashed class names,
+ * which are the host's private business).
+ */
+const CARD_SELECTOR = '[data-composer-card]'
+
+/**
+ * Find the composer card that owns a dock element.
+ *
+ * The dock slot sits ABOVE the card rather than inside it, so this cannot reuse
+ * {@link resolveAttachBox}: there is no anchor button to walk up from. It walks
+ * up from the dock row instead and, at each level, looks for a card among that
+ * level's descendants. The first level that has one is the nearest seat shared
+ * by the row and the card, which keeps the right card in a multi-session
+ * layout where several composers are mounted at once.
+ * @param from - the dock row (or any node in the same composer seat).
+ * @returns the card's box, or undefined when no card is mounted nearby.
+ */
+export function resolveComposerBox(from: HTMLElement | null): AttachBox | undefined {
+  if (from === null || !from.isConnected) return undefined
+  let node: HTMLElement | null = from.parentElement
+  for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
+    const card = node.querySelector<HTMLElement>(CARD_SELECTOR)
+    if (card !== null) {
+      const rect = card.getBoundingClientRect()
+      if (rect.width >= MIN_WIDTH) {
+        return { left: rect.left, width: rect.width, top: rect.top }
+      }
+    }
+    node = node.parentElement
+  }
+  return undefined
+}
+
+/**
  * Find the composer card that should anchor the panel.
  *
  * Returns the outermost rounded ancestor (within the width window) that

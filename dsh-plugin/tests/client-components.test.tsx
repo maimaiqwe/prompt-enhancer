@@ -278,6 +278,67 @@ describe('enhance → apply → undo loop', () => {
   })
 })
 
+describe('dock row alignment', () => {
+  afterEach(() => {
+    cleanup()
+    document.body.innerHTML = ''
+    ui.setNotice(undefined)
+  })
+
+  /**
+   * Mount a composer seat whose card is narrower than the slot, and measure it.
+   * The row is the dock slot's only child, so the slot's own rect is the row's
+   * rect: width 1200 at x=0, card 860 at x=170.
+   */
+  function seat(): void {
+    const shell = document.createElement('div')
+    const slot = document.createElement('div')
+    slot.setAttribute('data-slot', 'conversation.input.dock')
+    const card = document.createElement('div')
+    card.setAttribute('data-composer-card', '')
+    card.getBoundingClientRect = () => ({
+      width: 860, height: 120, left: 170, top: 600, right: 1030, bottom: 720, x: 170, y: 600,
+      toJSON: () => ({}),
+    }) as unknown as DOMRect
+    shell.append(slot, card)
+    document.body.append(shell)
+    // The row itself must measure as the full slot for the inset to be the
+    // card's real offset; jsdom reports zeros otherwise.
+    slot.getBoundingClientRect = () => ({
+      width: 1200, height: 22, left: 0, top: 570, right: 1200, bottom: 592, x: 0, y: 570,
+      toJSON: () => ({}),
+    }) as unknown as DOMRect
+  }
+
+  // Regression: the alignment effect used to write a fresh style object on
+  // every pass, which re-rendered, which measured again — an endless loop that
+  // React eventually broke by unmounting the row, so the status text vanished
+  // entirely. Rendering the row with a card present is the whole assertion:
+  // with the loop in place this throws "Maximum update depth exceeded".
+  it('keeps the row mounted and offsets it to the card', () => {
+    seat()
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(<UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />)
+
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    expect(row.className).toBe('dsh-pe-notice')
+    expect(row.style.marginInlineStart).toBe('170px')
+    expect(row.style.width).toBe('860px')
+    expect(row.style.maxWidth).toBe('100%')
+  })
+
+  it('leaves the row full width when no card is mounted', () => {
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(<UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />)
+
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    expect(row.style.marginInlineStart).toBe('')
+    expect(row.style.width).toBe('')
+  })
+})
+
 describe('incremental streaming display', () => {
   afterEach(cleanup)
 

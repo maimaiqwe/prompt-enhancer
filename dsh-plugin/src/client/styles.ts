@@ -335,6 +335,22 @@ export const CSS = `
 .dsh-pe-tier-default input:disabled,
 .dsh-pe-tier-context input:disabled { cursor: not-allowed; }
 
+.dsh-pe-tier-context-row {
+  display: flex;
+  align-items: stretch;
+  margin-top: 4px;
+  border-top: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+}
+.dsh-pe-tier-context-row .dsh-pe-tier-context {
+  margin-top: 0;
+  border-top: none;
+  flex: 1;
+  min-width: 0;
+}
+.dsh-pe-tier-context-row .dsh-pe-tier-default {
+  border-left: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+}
+
 .dsh-pe-tier-context {
   display: flex;
   align-items: center;
@@ -403,18 +419,125 @@ export const CSS = `
 /* ---- dock rows ------------------------------------------------------------
    One quiet line above the composer. Same height and same icon column for the
    working, applied and failed states, so the composer never jumps when one
-   replaces another. */
+   replaces another.
+
+   The row lines up with the input card, not with the dock slot. The slot spans
+   the whole seat while the card is centred and narrower, so an unaligned
+   status line starts left of the box it is talking about and reads as a
+   different control. The exact edges are measured in the UndoBar component and
+   applied as inline style; the rules below only supply the fallback used before
+   the first measurement (and on a host that renders no card at all). */
 .dsh-pe-undo,
 .dsh-pe-working,
 .dsh-pe-notice {
   display: flex;
   align-items: center;
   gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--dsh-composer-card-max-width, 860px);
+  margin-inline: auto;
   min-height: 22px;
   padding: 1px 2px;
   font-size: 12px;
   font-family: var(--pe-font);
   color: var(--pe-fg-2, #5f6673);
+}
+
+/* The skin adapter (@linxin666/dsh-client-ui-skin-center) paints every
+   DESCENDANT of the input dock as an accessory plate — background, text colour,
+   border, radius, shadow and a backdrop blur — all with !important, because it
+   has to beat catalog skins. This row is a status line, not a card, so the plate
+   is reset to nothing and the text sits on the composer's own surface.
+
+   Beating it takes more than length. Its head is
+   html[data-dsh-skin] [data-phase="active"] [data-slot="conversation.input.dock"] *
+   — three attribute selectors plus the html element, i.e. (0,3,1) — and its
+   sheet loads after this one, so an equal-specificity rule would still lose on
+   source order. The heads below therefore mirror the adapter's own scope
+   verbatim and then add the row's class on top, which lands one class higher
+   (0,4,1) without racing it. Both active-visual heads are listed because the
+   adapter accepts either a skin or a custom theme; when neither is present the
+   adapter is inert too, so no rule is needed.
+
+   The text colour is reset as well: the adapter forces it to the theme's
+   tertiary label, which on a light surface is what made the line fade into the
+   page.
+
+   The second block repeats the whole thing for DESCENDANTS, and it is not
+   optional: the adapter head ends in a universal selector, so every span and
+   button inside the row also gets its own white plate with a 12px radius. A
+   computed-style probe in Chromium showed the row itself already clean while
+   the text inside it still sat on white pills — that is the half-fixed state
+   the first version of this reset shipped.
+
+   Because those two blocks force the plate off with !important, the few looks
+   this row does want (the green check, the dimmed hint, the danger icon, the
+   undo pill and the spinner ring) are re-asserted below with !important too.
+   Without that, the reset would flatten them along with the plate. */
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice {
+  background: transparent !important;
+  color: var(--pe-fg-2, #5f6673) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo *,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working *,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice *,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo *,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working *,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice * {
+  background: transparent !important;
+  color: inherit !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* Re-asserted looks, in the same scope so they beat the reset above. */
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-check,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-check {
+  color: var(--pe-ok, #1c7a52) !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-hint,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-elapsed,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-hint,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-elapsed {
+  color: var(--pe-fg-3, #8b919c) !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice-icon,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice-icon {
+  background: var(--pe-danger-soft, rgba(180, 35, 24, 0.08)) !important;
+  color: var(--pe-danger, #b42318) !important;
+  border-radius: 50% !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-link,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-link {
+  background: var(--pe-surface, #ffffff) !important;
+  color: var(--pe-fg, #0f1115) !important;
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1)) !important;
+  border-radius: 6px !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-x,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-x,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-x,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-x {
+  border-radius: 5px !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-ring,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-ring {
+  border: 1.5px solid currentColor !important;
+  border-top-color: transparent !important;
+  border-radius: 50% !important;
 }
 .dsh-pe-undo .dsh-pe-undo-check { color: var(--pe-ok, #1c7a52); font-size: 11px; }
 .dsh-pe-undo-link {

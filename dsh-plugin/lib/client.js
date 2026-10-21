@@ -237,6 +237,22 @@ function radiusOf(element) {
   const value = Number.parseFloat(raw);
   return Number.isFinite(value) ? value : void 0;
 }
+var CARD_SELECTOR = "[data-composer-card]";
+function resolveComposerBox(from) {
+  if (from === null || !from.isConnected) return void 0;
+  let node = from.parentElement;
+  for (let depth = 0; node !== null && depth < MAX_DEPTH; depth++) {
+    const card = node.querySelector(CARD_SELECTOR);
+    if (card !== null) {
+      const rect = card.getBoundingClientRect();
+      if (rect.width >= MIN_WIDTH) {
+        return { left: rect.left, width: rect.width, top: rect.top };
+      }
+    }
+    node = node.parentElement;
+  }
+  return void 0;
+}
 function resolveAttachBox(anchor) {
   if (anchor === null || !anchor.isConnected) return void 0;
   const doc = anchor.ownerDocument;
@@ -525,11 +541,13 @@ function decodeClientSettings(section) {
 
 // src/client/tier-store.ts
 var DEFAULT_KEY = "dsh-prompt-enhance:default-tier:v1";
+var DEFAULT_CONTEXT_KEY = "dsh-prompt-enhance:default-context:v1";
 var SESSION_KEY = "dsh-prompt-enhance:session-picks:v1";
 var LEGACY_KEY = "dsh-prompt-enhance:overrides:v1";
 var MAX_ENTRIES = 64;
 var picks = /* @__PURE__ */ new Map();
 var defaultTier;
+var defaultContext;
 function storageOf(kind) {
   try {
     const store = kind === "local" ? globalThis.localStorage : globalThis.sessionStorage;
@@ -559,6 +577,8 @@ function hydrate() {
   const local = storageOf("local");
   const stored = readJson(local, DEFAULT_KEY);
   defaultTier = typeof stored === "string" ? normalizeTier(stored, DEFAULT_TIER) : void 0;
+  const storedContext = readJson(local, DEFAULT_CONTEXT_KEY);
+  defaultContext = typeof storedContext === "boolean" ? storedContext : void 0;
   try {
     local?.removeItem(LEGACY_KEY);
   } catch {
@@ -597,14 +617,36 @@ function defaultTierOf() {
 function tierCanBeDefault(tier) {
   return tier !== "system";
 }
+function defaultContextOf() {
+  return defaultContext;
+}
+function setDefaultContext(value) {
+  defaultContext = value;
+  if (value === void 0) {
+    try {
+      storageOf("local")?.removeItem(DEFAULT_CONTEXT_KEY);
+    } catch {
+    }
+  } else {
+    writeJson(storageOf("local"), DEFAULT_CONTEXT_KEY, value);
+  }
+  notify();
+}
 function effectiveTier(sessionId) {
   return picks.get(sessionId)?.tier ?? defaultTierOf();
+}
+function sessionContextPick(sessionId) {
+  return picks.get(sessionId)?.context;
 }
 function effectiveUseContext(sessionId) {
   if (!getClientSettings().contextAware) return false;
   const tier = effectiveTier(sessionId);
   if (!tierAllowsContext(tier)) return false;
-  return picks.get(sessionId)?.context ?? TIER_CONTEXT_PRESET[tier].useContext;
+  const pick = picks.get(sessionId)?.context;
+  if (pick !== void 0) return pick;
+  const pinned = defaultContextOf();
+  if (pinned !== void 0) return pinned;
+  return TIER_CONTEXT_PRESET[tier].useContext;
 }
 function hasSessionPick(sessionId) {
   return picks.get(sessionId) !== void 0;
@@ -613,7 +655,7 @@ function tierAllowsContext(tier) {
   return TIER_CONTEXT_PRESET[tier].useContext;
 }
 function selectTier(sessionId, tier) {
-  touch(sessionId, { ...picks.get(sessionId), tier });
+  touch(sessionId, { ...picks.get(sessionId), tier, context: void 0 });
 }
 function selectUseContext(sessionId, value) {
   touch(sessionId, { ...picks.get(sessionId), context: value });
@@ -671,12 +713,17 @@ function TierMenu({ sessionKey, t }) {
   const tier = effectiveTier(sessionKey);
   const useContext = effectiveUseContext(sessionKey);
   const pinnedDefault = defaultTierOf();
+  const pinnedContext = defaultContextOf();
+  const sessionContext = sessionContextPick(sessionKey);
   const temporary = hasSessionPick(sessionKey) && tier !== pinnedDefault;
+  const contextIsPinned = pinnedContext !== void 0;
+  const contextIsOverridden = sessionContext !== void 0 && sessionContext !== pinnedContext;
   const contextLock = !masterSettings.contextAware ? t("tier.menu.context.locked") : tierAllowsContext(tier) ? void 0 : t("tier.menu.context.tierlocked");
   const detailsRef = (0, import_react2.useRef)(null);
   const titleId = (0, import_react2.useId)();
   const groupName = `${(0, import_react2.useId)()}-default`;
   const menuRef = (0, import_react2.useRef)(null);
+  const contextIsPinnable = tierAllowsContext(tier);
   const close = (0, import_react2.useCallback)(() => {
     if (detailsRef.current !== null) detailsRef.current.open = false;
   }, []);
@@ -719,6 +766,14 @@ function TierMenu({ sessionKey, t }) {
   }, [sessionKey]);
   const toggleContext = (0, import_react2.useCallback)((event) => {
     selectUseContext(sessionKey, event.target.checked === true);
+  }, [sessionKey]);
+  const makeDefaultContext = (0, import_react2.useCallback)((next) => {
+    if (defaultContextOf() === next) {
+      setDefaultContext(void 0);
+      return;
+    }
+    setDefaultContext(next);
+    selectUseContext(sessionKey, next);
   }, [sessionKey]);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("details", { className: "dsh-pe-tier", ref: detailsRef, children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
@@ -778,25 +833,50 @@ function TierMenu({ sessionKey, t }) {
           )
         ] }, option);
       }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-        "label",
-        {
-          className: `dsh-pe-tier-context${contextLock === void 0 ? "" : " is-locked"}`,
-          title: contextLock ?? t("tier.menu.context.hint"),
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                type: "checkbox",
-                checked: useContext,
-                disabled: contextLock !== void 0,
-                onChange: toggleContext
-              }
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `dsh-pe-tier-context-row${contextLock === void 0 ? "" : " is-locked"}`, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+          "label",
+          {
+            className: `dsh-pe-tier-context${contextLock === void 0 ? "" : " is-locked"}`,
+            title: contextLock ?? t("tier.menu.context.hint"),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: useContext,
+                  disabled: contextLock !== void 0,
+                  onChange: toggleContext
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("tier.menu.context") })
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "span",
+          {
+            className: `dsh-pe-tier-default${contextLock !== void 0 || !contextIsPinnable ? " is-locked" : ""}`,
+            title: (
+              // The pin radio has its own vocabulary: "there is nothing to pin
+              // here" is a different sentence from the checkbox's reason, and
+              // the checkbox already carries the specific one.
+              !contextIsPinnable ? t("tier.menu.context.lockedHint") : contextLock !== void 0 ? contextLock : contextIsPinned ? t("tier.menu.context.pinned", { state: t(useContext ? "tier.menu.context.on" : "tier.menu.context.off") }) : t("tier.menu.context.pin")
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("tier.menu.context") })
-          ]
-        }
-      ),
+            children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                type: "button",
+                role: "radio",
+                "aria-checked": contextIsPinned,
+                disabled: contextLock !== void 0 || !contextIsPinnable,
+                "aria-label": `${t("tier.menu.context.default")}\uFF1A${t(useContext ? "tier.menu.context.on" : "tier.menu.context.off")}`,
+                onClick: () => makeDefaultContext(useContext)
+              }
+            )
+          }
+        )
+      ] }),
       temporary ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", role: "status", children: t("tier.menu.session", { tier: t(NAME_KEY[tier]) }) }) : null
     ] })
   ] });
@@ -1246,6 +1326,55 @@ function useElapsedSeconds(active) {
   }, [active]);
   return seconds;
 }
+function useComposerAlign(rowRef) {
+  const [align, setAlign] = (0, import_react5.useState)(void 0);
+  const measuredRef = (0, import_react5.useRef)(null);
+  const frameRef = (0, import_react5.useRef)(0);
+  const measure = (0, import_react5.useCallback)(() => {
+    const row = rowRef.current;
+    if (row === null) return;
+    measuredRef.current = row;
+    const box = resolveComposerBox(row);
+    if (box === void 0) {
+      setAlign((previous) => previous === void 0 ? previous : void 0);
+      return;
+    }
+    const rowRect = row.getBoundingClientRect();
+    const inset = Math.max(0, Math.round(box.left - rowRect.left));
+    const width = Math.round(box.width);
+    const key = `${width}:${inset}`;
+    setAlign((previous) => previous?.key === key ? previous : { key, style: { width: `${width}px`, maxWidth: "100%", marginInlineStart: `${inset}px`, marginInlineEnd: "auto" } });
+  }, [rowRef]);
+  const schedule = (0, import_react5.useCallback)(() => {
+    if (frameRef.current !== 0) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = 0;
+      measure();
+    });
+  }, [measure]);
+  (0, import_react5.useLayoutEffect)(() => {
+    if (measuredRef.current === rowRef.current && align !== void 0) return;
+    measure();
+  });
+  (0, import_react5.useEffect)(() => {
+    const row = rowRef.current;
+    if (row === null) return;
+    window.addEventListener("resize", schedule);
+    document.addEventListener("scroll", schedule, true);
+    const observer = typeof ResizeObserver === "undefined" ? void 0 : new ResizeObserver(schedule);
+    observer?.observe(row);
+    return () => {
+      window.removeEventListener("resize", schedule);
+      document.removeEventListener("scroll", schedule, true);
+      observer?.disconnect();
+      if (frameRef.current !== 0) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = 0;
+      }
+    };
+  }, [schedule, rowRef]);
+  return align?.style;
+}
 function UndoBar(props) {
   const { t, sessionId, session, useInput, inputActions } = props;
   const uiKey = useSessionKey({ sessionId, session }, inputActions);
@@ -1259,11 +1388,13 @@ function UndoBar(props) {
   const panel = getPanel();
   const running = panel !== void 0 && panel.sessionId === uiKey && panel.phase === "loading" && panel.mode === "direct";
   const seconds = useElapsedSeconds(running);
+  const rowRef = (0, import_react5.useRef)(null);
+  const alignStyle = useComposerAlign(rowRef);
   (0, import_react5.useEffect)(() => {
     if (entry !== void 0 && entry.applied !== draft) popUndo(uiKey);
   }, [draft, entry, uiKey]);
   if (running) {
-    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-working", role: "status", "aria-live": "polite", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-working", role: "status", "aria-live": "polite", ref: rowRef, style: alignStyle, children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-ring", "aria-hidden": true }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-working-label", children: t("working.label") }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-working-elapsed", children: t("working.elapsed", { seconds }) }),
@@ -1282,7 +1413,7 @@ function UndoBar(props) {
   }
   if (entry === void 0 || entry.applied !== draft) {
     if (notice2 === void 0 || notice2.sessionId !== uiKey) return null;
-    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-notice", role: "status", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-notice", role: "status", ref: rowRef, style: alignStyle, children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-notice-icon", "aria-hidden": true, children: "!" }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-notice-text", children: notice2.text }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
@@ -1304,7 +1435,7 @@ function UndoBar(props) {
   const dismiss = () => {
     popUndo(uiKey);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-undo", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-undo", ref: rowRef, style: alignStyle, children: [
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-undo-check", "aria-hidden": true, children: "\u2713" }),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: t("undo.applied") }),
     /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-undo-link", onClick: undo, children: t("undo.undo") }),
@@ -1365,12 +1496,19 @@ var zh = {
   "error.upstream.toolCall": "\u6A21\u578B\u8BF7\u6C42\u4E86\u5DE5\u5177\u8C03\u7528\uFF0C\u63D0\u793A\u8BCD\u589E\u5F3A\u53EA\u9700\u8981\u7EAF\u6587\u672C\uFF1B\u8BF7\u66F4\u6362\u6A21\u578B\u540E\u91CD\u8BD5\u3002",
   "error.upstream.maxTokens": "\u91CD\u5199\u7ED3\u679C\u8FBE\u5230\u8F93\u51FA\u4E0A\u9650\uFF08maxOutputTokens\uFF09\uFF0C\u8BF7\u5728\u8BBE\u7F6E\u4E2D\u8C03\u5927\u4E0A\u9650\u6216\u7CBE\u7B80\u539F\u6587\u540E\u91CD\u8BD5\u3002",
   "tier.menu.title": "\u589E\u5F3A\u6863\u4F4D",
-  "tier.menu.legend": "\u70B9\u6863\u4F4D\uFF1D\u53EA\u5728\u672C\u4F1A\u8BDD\u4E34\u65F6\u7528\uFF1B\u52FE\u53F3\u4FA7\u5706\u70B9\uFF1D\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
+  "tier.menu.legend": "\u70B9\u6863\u4F4D\uFF1D\u53EA\u5728\u672C\u4F1A\u8BDD\u4E34\u65F6\u7528\uFF1B\u52FE\u53F3\u4FA7\u5706\u70B9\uFF1D\u8BBE\u4E3A\u9ED8\u8BA4\u6863\u3002\u300C\u7ED3\u5408\u4E0A\u4E0B\u6587\u300D\u540C\u7406\uFF1A\u52FE\u5706\u70B9\u56FA\u5B9A\u9ED8\u8BA4\u5F00/\u5173\u3002",
   "tier.menu.session": "\u672C\u4F1A\u8BDD\u4E34\u65F6\u4F7F\u7528\u300C{tier}\u300D\uFF0C\u5173\u95ED DSH \u540E\u56DE\u5230\u9ED8\u8BA4\u6863\u3002",
   "tier.menu.context": "\u7ED3\u5408\u4E0A\u4E0B\u6587",
   "tier.menu.context.hint": "\u5141\u8BB8\u8BFB\u53D6\u672C\u4F1A\u8BDD\u6700\u8FD1\u51E0\u6761\u6D88\u606F\u6765\u6D88\u89E3\u6307\u4EE3\u3001\u8865\u5168\u672F\u8BED\uFF1B\u5173\u95ED\u540E\u53EA\u6539\u8349\u7A3F\u672C\u8EAB\u3002",
   "tier.menu.context.locked": "\u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u300C\u4E0A\u4E0B\u6587\u611F\u77E5\u300D\u5DF2\u5173\u95ED\uFF0C\u8FD9\u91CC\u6682\u4E0D\u53EF\u7528\u3002",
   "tier.menu.context.tierlocked": "\u57FA\u7840\u6863\u53EA\u505A\u8F7B\u5EA6\u7406\u987A\u3001\u4E0D\u6269\u5199\uFF0C\u56E0\u6B64\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\u3002",
+  "tier.menu.context.pin": "\u52FE\u9009\uFF1D\u628A\u5F53\u524D\u5F00/\u5173\u72B6\u6001\u8BBE\u4E3A\u9ED8\u8BA4\uFF0C\u65B0\u4F1A\u8BDD\u7167\u6B64\u5F00\u59CB\uFF1B\u518D\u70B9\u53D6\u6D88\u56FA\u5B9A",
+  "tier.menu.context.pinned": "\u5DF2\u56FA\u5B9A\u9ED8\u8BA4\uFF1A{state}\uFF1B\u518D\u70B9\u53D6\u6D88\u56FA\u5B9A",
+  "tier.menu.context.default": "\u8BBE\u4E3A\u4E0A\u4E0B\u6587\u9ED8\u8BA4",
+  "tier.menu.context.pinUnavailable": "\u5F53\u524D\u6863\u4F4D\u6216\u63D2\u4EF6\u8BBE\u7F6E\u4E0D\u5141\u8BB8\u7ED3\u5408\u4E0A\u4E0B\u6587\uFF0C\u65E0\u6CD5\u56FA\u5B9A\u9ED8\u8BA4\u3002",
+  "tier.menu.context.lockedHint": "\u57FA\u7840\u6863\u4E0D\u8BFB\u53D6\u4E0A\u4E0B\u6587\uFF0C\u6B64\u5904\u4E0D\u53EF\u7528\u3002",
+  "tier.menu.context.on": "\u5F00",
+  "tier.menu.context.off": "\u5173",
   "tier.menu.default": "\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.menu.default.systemBlocked": "\u7CFB\u7EDF\u6863\u4E0D\u80FD\u8BBE\u4E3A\u9ED8\u8BA4\uFF08\u4F1A\u6539\u6389\u6BCF\u6B21\u589E\u5F3A\u7684\u4EBA\u8BBE\uFF09",
   "tier.base": "\u57FA\u7840",
@@ -1434,12 +1572,19 @@ var en = {
   "error.upstream.toolCall": "The model requested tool calls, but prompt enhance needs plain text \u2014 switch models and retry.",
   "error.upstream.maxTokens": "The rewrite hit the output cap (maxOutputTokens) \u2014 raise it in settings or shorten the draft.",
   "tier.menu.title": "Enhancement tier",
-  "tier.menu.legend": "Click a tier to use it in this conversation only; tick the dot to make it the default.",
+  "tier.menu.legend": "Click a tier to use it in this conversation only; tick the dot to make it the default. Same for the context toggle: tick the dot to pin its default on/off state.",
   "tier.menu.session": "Using \u201C{tier}\u201D in this conversation only \u2014 the default returns when DSH closes.",
   "tier.menu.context": "Use conversation context",
   "tier.menu.context.hint": "Lets the rewrite read the last few messages of this conversation to resolve references and fill in established terms. Off means the draft alone is rewritten.",
   "tier.menu.context.locked": "Context awareness is switched off in the plugin settings, so this toggle is unavailable.",
   "tier.menu.context.tierlocked": "The basic tier only tidies the wording and never expands, so it does not read context.",
+  "tier.menu.context.pin": "Tick to make the current on/off state the default for new conversations; tick again to unpin",
+  "tier.menu.context.pinned": "Pinned default: {state}; tick again to unpin",
+  "tier.menu.context.default": "Set context default",
+  "tier.menu.context.pinUnavailable": "The current tier or plugin setting does not allow conversation context, so there is no default to pin.",
+  "tier.menu.context.lockedHint": "The basic tier never reads context, so this is unavailable.",
+  "tier.menu.context.on": "on",
+  "tier.menu.context.off": "off",
   "tier.menu.default": "Set as default tier",
   "tier.menu.default.systemBlocked": "System cannot be the default \u2014 it would reset the persona on every enhancement",
   "tier.base": "Basic",
@@ -1772,6 +1917,22 @@ var CSS = `
 .dsh-pe-tier-default input:disabled,
 .dsh-pe-tier-context input:disabled { cursor: not-allowed; }
 
+.dsh-pe-tier-context-row {
+  display: flex;
+  align-items: stretch;
+  margin-top: 4px;
+  border-top: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+}
+.dsh-pe-tier-context-row .dsh-pe-tier-context {
+  margin-top: 0;
+  border-top: none;
+  flex: 1;
+  min-width: 0;
+}
+.dsh-pe-tier-context-row .dsh-pe-tier-default {
+  border-left: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1));
+}
+
 .dsh-pe-tier-context {
   display: flex;
   align-items: center;
@@ -1840,18 +2001,125 @@ var CSS = `
 /* ---- dock rows ------------------------------------------------------------
    One quiet line above the composer. Same height and same icon column for the
    working, applied and failed states, so the composer never jumps when one
-   replaces another. */
+   replaces another.
+
+   The row lines up with the input card, not with the dock slot. The slot spans
+   the whole seat while the card is centred and narrower, so an unaligned
+   status line starts left of the box it is talking about and reads as a
+   different control. The exact edges are measured in the UndoBar component and
+   applied as inline style; the rules below only supply the fallback used before
+   the first measurement (and on a host that renders no card at all). */
 .dsh-pe-undo,
 .dsh-pe-working,
 .dsh-pe-notice {
   display: flex;
   align-items: center;
   gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--dsh-composer-card-max-width, 860px);
+  margin-inline: auto;
   min-height: 22px;
   padding: 1px 2px;
   font-size: 12px;
   font-family: var(--pe-font);
   color: var(--pe-fg-2, #5f6673);
+}
+
+/* The skin adapter (@linxin666/dsh-client-ui-skin-center) paints every
+   DESCENDANT of the input dock as an accessory plate \u2014 background, text colour,
+   border, radius, shadow and a backdrop blur \u2014 all with !important, because it
+   has to beat catalog skins. This row is a status line, not a card, so the plate
+   is reset to nothing and the text sits on the composer's own surface.
+
+   Beating it takes more than length. Its head is
+   html[data-dsh-skin] [data-phase="active"] [data-slot="conversation.input.dock"] *
+   \u2014 three attribute selectors plus the html element, i.e. (0,3,1) \u2014 and its
+   sheet loads after this one, so an equal-specificity rule would still lose on
+   source order. The heads below therefore mirror the adapter's own scope
+   verbatim and then add the row's class on top, which lands one class higher
+   (0,4,1) without racing it. Both active-visual heads are listed because the
+   adapter accepts either a skin or a custom theme; when neither is present the
+   adapter is inert too, so no rule is needed.
+
+   The text colour is reset as well: the adapter forces it to the theme's
+   tertiary label, which on a light surface is what made the line fade into the
+   page.
+
+   The second block repeats the whole thing for DESCENDANTS, and it is not
+   optional: the adapter head ends in a universal selector, so every span and
+   button inside the row also gets its own white plate with a 12px radius. A
+   computed-style probe in Chromium showed the row itself already clean while
+   the text inside it still sat on white pills \u2014 that is the half-fixed state
+   the first version of this reset shipped.
+
+   Because those two blocks force the plate off with !important, the few looks
+   this row does want (the green check, the dimmed hint, the danger icon, the
+   undo pill and the spinner ring) are re-asserted below with !important too.
+   Without that, the reset would flatten them along with the plate. */
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice {
+  background: transparent !important;
+  color: var(--pe-fg-2, #5f6673) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo *,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working *,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice *,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo *,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working *,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice * {
+  background: transparent !important;
+  color: inherit !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* Re-asserted looks, in the same scope so they beat the reset above. */
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-check,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-check {
+  color: var(--pe-ok, #1c7a52) !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-hint,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-elapsed,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-hint,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-elapsed {
+  color: var(--pe-fg-3, #8b919c) !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice-icon,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-notice-icon {
+  background: var(--pe-danger-soft, rgba(180, 35, 24, 0.08)) !important;
+  color: var(--pe-danger, #b42318) !important;
+  border-radius: 50% !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-link,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-link {
+  background: var(--pe-surface, #ffffff) !important;
+  color: var(--pe-fg, #0f1115) !important;
+  border: 1px solid var(--pe-line, rgba(9, 11, 15, 0.1)) !important;
+  border-radius: 6px !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-x,
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-x,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-undo-x,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-working-x {
+  border-radius: 5px !important;
+}
+html[data-dsh-skin] [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-ring,
+html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slot='conversation.input.dock'] .dsh-pe-ring {
+  border: 1.5px solid currentColor !important;
+  border-top-color: transparent !important;
+  border-radius: 50% !important;
 }
 .dsh-pe-undo .dsh-pe-undo-check { color: var(--pe-ok, #1c7a52); font-size: 11px; }
 .dsh-pe-undo-link {

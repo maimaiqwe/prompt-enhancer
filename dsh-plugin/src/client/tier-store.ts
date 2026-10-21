@@ -26,6 +26,9 @@ import { getClientSettings } from './settings'
 /** Persisted default tier (survives closing DSH). */
 const DEFAULT_KEY = 'dsh-prompt-enhance:default-tier:v1'
 
+/** Persisted default context toggle (survives closing DSH). */
+const DEFAULT_CONTEXT_KEY = 'dsh-prompt-enhance:default-context:v1'
+
 /** Per-session picks (survive a refresh, drop when DSH closes). */
 const SESSION_KEY = 'dsh-prompt-enhance:session-picks:v1'
 
@@ -44,6 +47,9 @@ interface SessionPick {
 const picks = new Map<string, SessionPick>()
 
 let defaultTier: Tier | undefined
+
+/** Persisted default context toggle; absent means "follow the tier presets". */
+let defaultContext: boolean | undefined
 
 function storageOf(kind: 'local' | 'session'): Storage | undefined {
   try {
@@ -81,6 +87,8 @@ function hydrate(): void {
   const local = storageOf('local')
   const stored = readJson<unknown>(local, DEFAULT_KEY)
   defaultTier = typeof stored === 'string' ? normalizeTier(stored, DEFAULT_TIER) : undefined
+  const storedContext = readJson<unknown>(local, DEFAULT_CONTEXT_KEY)
+  defaultContext = typeof storedContext === 'boolean' ? storedContext : undefined
   // The old blob was keyed by mount ids that change on every reload, so its
   // entries could never be matched again. Drop it rather than carry garbage.
   try {
@@ -161,9 +169,51 @@ export function tierCanBeDefault(tier: Tier): boolean {
   return tier !== 'system'
 }
 
+/**
+ * The persisted default context toggle.
+ *
+ * A pinned default wins over the tier presets: the user has said "start every
+ * conversation with history on/off" and per-tier seeding must not quietly
+ * undo that. When nothing is pinned the presets decide, which keeps the
+ * 基础-never-sees-history rule and the richer windows of 专业/系统 intact.
+ * @returns the pinned default, or undefined to follow the tier presets.
+ */
+export function defaultContextOf(): boolean | undefined {
+  return defaultContext
+}
+
+/**
+ * Pin the context toggle as the default for every new conversation, or unpin
+ * it so the tier presets decide again.
+ * @param value - the default on/off state, or undefined to unpin.
+ */
+export function setDefaultContext(value: boolean | undefined): void {
+  defaultContext = value
+  if (value === undefined) {
+    try {
+      storageOf('local')?.removeItem(DEFAULT_CONTEXT_KEY)
+    } catch {
+      // A store that refuses removal is not one we can clean; the in-memory
+      // unpin still holds for this page.
+    }
+  } else {
+    writeJson(storageOf('local'), DEFAULT_CONTEXT_KEY, value)
+  }
+  notify()
+}
+
 /** The tier currently displayed and used for the next call in this session. */
 export function effectiveTier(sessionId: string): Tier {
   return picks.get(sessionId)?.tier ?? defaultTierOf()
+}
+
+/**
+ * This session's explicit context choice, when it made one.
+ * @param sessionId - the composer's session key.
+ * @returns the per-session on/off, or undefined when following the default.
+ */
+export function sessionContextPick(sessionId: string): boolean | undefined {
+  return picks.get(sessionId)?.context
 }
 
 /**
@@ -182,7 +232,12 @@ export function effectiveUseContext(sessionId: string): boolean {
   // main source of expansion. The host refuses context for it regardless, so
   // reporting an override here would show a toggle the next call ignores.
   if (!tierAllowsContext(tier)) return false
-  return picks.get(sessionId)?.context ?? TIER_CONTEXT_PRESET[tier].useContext
+  const pick = picks.get(sessionId)?.context
+  if (pick !== undefined) return pick
+  // A pinned default (the context row's radio) outranks the tier presets.
+  const pinned = defaultContextOf()
+  if (pinned !== undefined) return pinned
+  return TIER_CONTEXT_PRESET[tier].useContext
 }
 
 /**
@@ -206,13 +261,13 @@ export function tierAllowsContext(tier: Tier): boolean {
 
 /**
  * Pick a tier for this session only. Clears the session's explicit context
- * choice so the new tier's preset takes over (the toggle stays directly
- * overridable afterwards).
+ * choice so the new tier's preset — or the pinned context default when one
+ * exists — takes over (the toggle stays directly overridable afterwards).
  * @param sessionId - the composer's session key.
  * @param tier - the tier to use from now on in this conversation.
  */
 export function selectTier(sessionId: string, tier: Tier): void {
-  touch(sessionId, { ...picks.get(sessionId), tier })
+  touch(sessionId, { ...picks.get(sessionId), tier, context: undefined })
 }
 
 /**
