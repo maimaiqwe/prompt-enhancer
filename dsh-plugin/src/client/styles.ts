@@ -303,7 +303,16 @@ export const CSS = `
   cursor: pointer;
 }
 .dsh-pe-tier-context input { accent-color: currentColor; }
-.dsh-pe-tier-foot { display: flex; justify-content: flex-end; padding: 2px 4px 2px; }
+.dsh-pe-tier-context.is-locked { opacity: 0.45; cursor: not-allowed; }
+.dsh-pe-tier-context.is-locked input { cursor: not-allowed; }
+.dsh-pe-tier-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 26px;
+  padding: 2px 4px 2px;
+}
+.dsh-pe-tier-pinned { font-size: 11px; opacity: 0.65; }
 .dsh-pe-tier-pin {
   border: none;
   border-radius: 6px;

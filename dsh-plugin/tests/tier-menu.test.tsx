@@ -24,6 +24,10 @@ const t = ((key: string, params?: Record<string, unknown>): string => {
 
 const SESSION = 'session-a'
 
+function writer(): ReturnType<typeof vi.fn> {
+  return vi.fn(async () => {})
+}
+
 beforeEach(() => {
   clearOverrides()
   setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, defaultTier: 'standard' })
@@ -31,7 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  registerTierPersist(undefined as unknown as (tier: never) => Promise<void>)
+  registerTierPersist(undefined)
 })
 
 describe('TierMenu', () => {
@@ -82,6 +86,39 @@ describe('TierMenu', () => {
     fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.professional')) }))
     fireEvent.click(screen.getByText(t('tier.menu.default')))
     expect(writer).toHaveBeenCalledWith('professional')
+  })
+
+  it('confirms a persisted default in place and keeps the popover open', () => {
+    registerTierPersist(writer())
+    const { container } = render(<TierMenu sessionKey={SESSION} t={t} />)
+    const details = container.querySelector('details') as HTMLDetailsElement
+    details.open = true
+    fireEvent.click(screen.getByText(t('tier.menu.default')))
+    // The confirmation replaces the button, so a second click cannot fire a
+    // second write, and the popover stays open long enough to read it.
+    expect(screen.getByRole('status').textContent).toBe(t('tier.menu.default.done'))
+    expect(screen.queryByText(t('tier.menu.default'))).toBeNull()
+    expect(details.open).toBe(true)
+  })
+
+  it('locks the context row while the plugin-level switch is off', () => {
+    // The host treats `contextAware` as a master switch: a tier preset can
+    // never re-enable history, so the row must not pretend otherwise.
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, contextAware: false })
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    const box = screen.getByRole('checkbox') as HTMLInputElement
+    expect(box.disabled).toBe(true)
+    expect(box.checked).toBe(false)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: new RegExp(t('tier.professional')) }))
+    expect(effectiveUseContext(SESSION)).toBe(false)
+  })
+
+  it('hides the pin action when no settings writer is bound', () => {
+    // A profile without the settings service keeps the picker session-scoped;
+    // offering a button that silently drops the write would be worse than none.
+    registerTierPersist(undefined)
+    render(<TierMenu sessionKey={SESSION} t={t} />)
+    expect(screen.queryByText(t('tier.menu.default'))).toBeNull()
   })
 
   it('closes the popover after a pick', () => {

@@ -35,10 +35,15 @@ export function effectiveTier(sessionId: string): Tier {
 
 /**
  * The context toggle state for this session.
+ *
+ * The plugin-level 上下文感知 switch is a master switch: while it is off the
+ * host ignores every per-call value, so the toggle reports off instead of
+ * showing a state the next request will not honour.
  * @param sessionId - the composer's session key.
  * @returns true when the next call may ground itself in recent history.
  */
 export function effectiveUseContext(sessionId: string): boolean {
+  if (!getClientSettings().contextAware) return false
   const override = contextOverrides.get(sessionId)
   if (override !== undefined) return override
   return TIER_CONTEXT_PRESET[effectiveTier(sessionId)].useContext
@@ -68,8 +73,13 @@ export function selectUseContext(sessionId: string, value: boolean): void {
 }
 
 /**
- * Drop every per-session choice (called when the persisted default changes, so
- * the picker follows it immediately instead of keeping stale overrides).
+ * Drop every per-session choice so all composers fall back to the persisted
+ * default and its context presets.
+ *
+ * This is a reset primitive, not a reaction to the default changing: an
+ * explicit per-session pick stays valid when the operator edits `defaultTier`
+ * elsewhere, and silently discarding it would undo a choice the user can still
+ * see on screen.
  */
 export function clearOverrides(): void {
   tierOverrides.clear()
@@ -83,11 +93,24 @@ export function clearOverrides(): void {
  * picker still works per session, the choice just does not persist.
  * @param writer - writes one field into the plugin settings section.
  */
-export function registerTierPersist(writer: (tier: Tier) => Promise<void>): void {
+export function registerTierPersist(writer: TierWriter | undefined): void {
   persistWriter = writer
+  notify()
 }
 
-let persistWriter: ((tier: Tier) => Promise<void>) | undefined
+/** Writes one tier into the plugin settings section (the host owns the store). */
+export type TierWriter = (tier: Tier) => Promise<void> | undefined
+
+let persistWriter: TierWriter | undefined
+
+/**
+ * Whether a settings writer is bound, i.e. whether "设为默认档" can do anything.
+ * The picker hides the action when it cannot persist, so the button never
+ * promises a write that would silently be dropped.
+ */
+export function canPersistTier(): boolean {
+  return persistWriter !== undefined
+}
 
 /**
  * Persist a tier as the plugin default.

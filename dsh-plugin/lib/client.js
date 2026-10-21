@@ -468,6 +468,7 @@ function effectiveTier(sessionId) {
   return normalizeTier(getClientSettings().defaultTier, DEFAULT_TIER);
 }
 function effectiveUseContext(sessionId) {
+  if (!getClientSettings().contextAware) return false;
   const override = contextOverrides.get(sessionId);
   if (override !== void 0) return override;
   return TIER_CONTEXT_PRESET[effectiveTier(sessionId)].useContext;
@@ -483,8 +484,12 @@ function selectUseContext(sessionId, value) {
 }
 function registerTierPersist(writer) {
   persistWriter = writer;
+  notify();
 }
 var persistWriter;
+function canPersistTier() {
+  return persistWriter !== void 0;
+}
 function persistDefaultTier(tier) {
   return persistWriter?.(tier);
 }
@@ -524,18 +529,23 @@ var HINT_KEY = {
 };
 function TierMenu({ sessionKey, t }) {
   (0, import_react2.useSyncExternalStore)(subscribe, getVersion);
+  const masterContext = (0, import_react2.useSyncExternalStore)(subscribeClientSettings, getClientSettings).contextAware;
+  const canPin = canPersistTier();
   const tier = effectiveTier(sessionKey);
   const useContext = effectiveUseContext(sessionKey);
   const detailsRef = (0, import_react2.useRef)(null);
+  const menuRef = (0, import_react2.useRef)(null);
+  const [pinned, setPinned] = (0, import_react2.useState)(false);
   const close = (0, import_react2.useCallback)(() => {
     if (detailsRef.current !== null) detailsRef.current.open = false;
+    setPinned(false);
   }, []);
   (0, import_react2.useEffect)(() => {
     const onPointerDown = (event) => {
       const root = detailsRef.current;
       if (root === null || !root.open) return;
       if (event.target instanceof Node && root.contains(event.target)) return;
-      root.open = false;
+      close();
     };
     const onKeyDown = (event) => {
       if (event.key === "Escape") close();
@@ -547,6 +557,22 @@ function TierMenu({ sessionKey, t }) {
       document.removeEventListener("keydown", onKeyDown, true);
     };
   }, [close]);
+  (0, import_react2.useEffect)(() => {
+    const root = detailsRef.current;
+    if (root === null) return;
+    const onToggle = () => {
+      if (!root.open) {
+        setPinned(false);
+        return;
+      }
+      const first = menuRef.current?.querySelector("button");
+      if (first instanceof HTMLElement) first.focus();
+    };
+    root.addEventListener("toggle", onToggle);
+    return () => {
+      root.removeEventListener("toggle", onToggle);
+    };
+  }, []);
   const pick = (0, import_react2.useCallback)((next) => {
     selectTier(sessionKey, next);
     close();
@@ -556,8 +582,8 @@ function TierMenu({ sessionKey, t }) {
   }, [sessionKey]);
   const pinDefault = (0, import_react2.useCallback)(() => {
     void persistDefaultTier(tier);
-    close();
-  }, [tier, close]);
+    setPinned(true);
+  }, [tier]);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("details", { className: "dsh-pe-tier", ref: detailsRef, children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       "summary",
@@ -571,7 +597,7 @@ function TierMenu({ sessionKey, t }) {
         ]
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-pe-tier-menu", role: "menu", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "dsh-pe-tier-menu", role: "menu", ref: menuRef, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-title", children: t("tier.menu.title") }),
       TIERS.map((option) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
         "button",
@@ -591,11 +617,26 @@ function TierMenu({ sessionKey, t }) {
         },
         option
       )),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "dsh-pe-tier-context", title: t("tier.menu.context.hint"), children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: useContext, onChange: toggleContext }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("tier.menu.context") })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dsh-pe-tier-pin", onClick: pinDefault, children: t("tier.menu.default") }) })
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+        "label",
+        {
+          className: `dsh-pe-tier-context${masterContext ? "" : " is-locked"}`,
+          title: masterContext ? t("tier.menu.context.hint") : t("tier.menu.context.locked"),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "input",
+              {
+                type: "checkbox",
+                checked: useContext,
+                disabled: !masterContext,
+                onChange: toggleContext
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("tier.menu.context") })
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "dsh-pe-tier-foot", children: pinned ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dsh-pe-tier-pinned", role: "status", children: t("tier.menu.default.done") }) : canPin ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "dsh-pe-tier-pin", onClick: pinDefault, children: t("tier.menu.default") }) : null })
     ] })
   ] });
 }
@@ -999,6 +1040,7 @@ var zh = {
   "tier.menu.title": "\u589E\u5F3A\u6863\u4F4D",
   "tier.menu.context": "\u7ED3\u5408\u4E0A\u4E0B\u6587",
   "tier.menu.context.hint": "\u5141\u8BB8\u8BFB\u53D6\u672C\u4F1A\u8BDD\u6700\u8FD1\u51E0\u6761\u6D88\u606F\u6765\u6D88\u89E3\u6307\u4EE3\u3001\u8865\u5168\u672F\u8BED\uFF1B\u5173\u95ED\u540E\u53EA\u6539\u8349\u7A3F\u672C\u8EAB\u3002",
+  "tier.menu.context.locked": "\u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u300C\u4E0A\u4E0B\u6587\u611F\u77E5\u300D\u5DF2\u5173\u95ED\uFF0C\u8FD9\u91CC\u6682\u4E0D\u53EF\u7528\u3002",
   "tier.menu.default": "\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.menu.default.done": "\u5DF2\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.base": "\u57FA\u7840",
@@ -1058,6 +1100,7 @@ var en = {
   "tier.menu.title": "Enhancement tier",
   "tier.menu.context": "Use conversation context",
   "tier.menu.context.hint": "Lets the rewrite read the last few messages of this conversation to resolve references and fill in established terms. Off means the draft alone is rewritten.",
+  "tier.menu.context.locked": "Context awareness is switched off in the plugin settings, so this toggle is unavailable.",
   "tier.menu.default": "Set as default tier",
   "tier.menu.default.done": "Set as the default tier",
   "tier.base": "Basic",
@@ -1368,7 +1411,16 @@ var CSS = `
   cursor: pointer;
 }
 .dsh-pe-tier-context input { accent-color: currentColor; }
-.dsh-pe-tier-foot { display: flex; justify-content: flex-end; padding: 2px 4px 2px; }
+.dsh-pe-tier-context.is-locked { opacity: 0.45; cursor: not-allowed; }
+.dsh-pe-tier-context.is-locked input { cursor: not-allowed; }
+.dsh-pe-tier-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 26px;
+  padding: 2px 4px 2px;
+}
+.dsh-pe-tier-pinned { font-size: 11px; opacity: 0.65; }
 .dsh-pe-tier-pin {
   border: none;
   border-radius: 6px;

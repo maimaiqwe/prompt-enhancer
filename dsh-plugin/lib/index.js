@@ -158,7 +158,7 @@ function normalizeTier(value, fallback = DEFAULT_TIER) {
   return TIERS.includes(token) ? token : fallback;
 }
 function contextWindowFor(tier, config, useContext = config.contextAware) {
-  if (!useContext) return void 0;
+  if (!config.contextAware || !useContext) return void 0;
   const preset = TIER_CONTEXT_PRESET[tier];
   if (!preset.useContext) return void 0;
   const maxMessages = Math.min(config.contextMaxMessages, preset.maxMessages);

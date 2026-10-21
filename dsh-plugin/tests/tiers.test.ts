@@ -90,8 +90,11 @@ describe('tierSystemPrompt', () => {
 })
 
 describe('contextWindowFor', () => {
-  it('honours the per-call toggle over the config switch', () => {
-    expect(contextWindowFor('standard', { ...CONFIG, contextAware: false }, true)).toEqual({ maxMessages: 4, maxChars: 3000 })
+  it('lets the per-call toggle narrow the window but never override the master switch', () => {
+    // The composer always sends its own toggle, so the config value has to act
+    // as a master switch: a tier preset must not resurrect history after the
+    // operator switched 上下文感知 off.
+    expect(contextWindowFor('standard', { ...CONFIG, contextAware: false }, true)).toBeUndefined()
     expect(contextWindowFor('standard', CONFIG, false)).toBeUndefined()
   })
 

@@ -89,6 +89,12 @@ export function normalizeTier(value: unknown, fallback: Tier = DEFAULT_TIER): Ti
 /**
  * The effective context window of one call: the tier preset, narrowed by the
  * configured caps, or nothing at all when context is switched off.
+ *
+ * The config switch is a MASTER switch, not a merely-defaulted one: the
+ * composer always sends its own `useContext` (seeded from the tier preset), so
+ * treating the config value as a fallback would let a tier preset re-enable
+ * history after the operator turned 上下文感知 off. Off means off, whatever the
+ * client asks for.
  * @param tier - the tier of this call.
  * @param config - the resolved plugin config.
  * @param useContext - the per-call toggle (defaults to the config switch).
@@ -99,7 +105,7 @@ export function contextWindowFor(
   config: { contextAware: boolean; contextMaxMessages: number; contextMaxChars: number },
   useContext: boolean = config.contextAware,
 ): { maxMessages: number; maxChars: number } | undefined {
-  if (!useContext) return undefined
+  if (!config.contextAware || !useContext) return undefined
   const preset = TIER_CONTEXT_PRESET[tier]
   if (!preset.useContext) return undefined
   const maxMessages = Math.min(config.contextMaxMessages, preset.maxMessages)
