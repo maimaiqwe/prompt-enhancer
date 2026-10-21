@@ -10,6 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { CommandDefinition, CommandInvocation } from '@deepseek-ai/dsh-commands'
 import { checkInputText, formatInputCheckZh } from './shared/validate'
+import { onlySkillTokens } from './shared/skill-tokens'
 import { type Config } from './config'
 import { formatEnhanceError, toEnhanceError } from './enhancer'
 import { runEnhance, sessionRouteOf } from './orchestrate'
@@ -45,6 +46,9 @@ export function registerEnhanceCommand(ctx: Context, readConfig: () => Config): 
       const check = checkInputText(raw, config.maxInputChars)
       if (!check.ok) {
         return { kind: 'error', text: formatInputCheckZh(check) }
+      }
+      if (onlySkillTokens(raw)) {
+        return { kind: 'error', text: '这段内容里只有 Skill 调用，没有要增强的需求描述；请补充你的要求后再试。' }
       }
       try {
         const value = await runEnhance(ctx, config, {

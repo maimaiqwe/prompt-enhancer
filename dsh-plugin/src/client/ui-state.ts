@@ -346,6 +346,29 @@ function focusedEntry(): SessionEntry | undefined {
 }
 
 /**
+ * The composer that actually contains the focused element.
+ *
+ * Unlike {@link focusedEntry} this never falls back to "the most recently
+ * mounted composer": Ctrl+Z must be claimed ONLY when the user's caret is in a
+ * composer. Otherwise pressing Ctrl+Z in a settings field, the search box or
+ * any other text input would silently rewrite the composer draft behind them —
+ * the shortcut tolerates a loose target, a text-editing key does not.
+ * @returns the entry under the focus, or undefined when focus is elsewhere.
+ */
+function composerUnderFocus(): SessionEntry | undefined {
+  const active = document.activeElement
+  if (active === null || !(active instanceof Element)) return undefined
+  let node: Element | null = active
+  for (let depth = 0; depth < 8 && node !== null; depth++) {
+    for (const entry of sessions.values()) {
+      if (entry.root !== null && (node === entry.root || node.contains(entry.root))) return entry
+    }
+    node = node.parentElement
+  }
+  return undefined
+}
+
+/**
  * Pick the session the enhance shortcut should act on.
  * @returns the entry's run callback, or undefined when there is no composer.
  */
@@ -359,10 +382,14 @@ export function shortcutTarget(): (() => void) | undefined {
  * live draft (the same staleness rule the undo bar applies — an entry whose
  * applied text is no longer in the box describes a state the user already
  * left behind).
+ *
+ * Requires the focus to be inside a composer: this key is shared with ordinary
+ * text editing, so an unconditional "most recent composer" fallback would let
+ * Ctrl+Z typed anywhere fight the field the user is actually in.
  * @returns true when a replacement was undone and the key must be swallowed.
  */
 export function undoTarget(): boolean {
-  const entry = focusedEntry()
+  const entry = composerUnderFocus()
   if (entry?.undo === undefined) return false
   return entry.undo()
 }

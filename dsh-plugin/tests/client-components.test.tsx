@@ -473,4 +473,54 @@ describe('direct fill (基础/标准/专业)', () => {
     // A truncated rewrite must not survive as if it were the answer.
     expect(setDraft).toHaveBeenLastCalledWith('旧原文')
   })
+
+  it('keeps streaming when several deltas land in the same task', async () => {
+    // Regression lock: `draftRef` only refreshes after React commits, so a
+    // batch of frames read in one socket tick used to look like the user had
+    // typed over our own write — the run then stopped typing after the first
+    // chunk and bounced the result to the overlay.
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sl')
+    vi.mocked(requestEnhanceStream).mockImplementation(async (_body, options) => {
+      // Three frames before React has any chance to re-render.
+      options.onDelta('增')
+      options.onDelta('强')
+      options.onDelta('后')
+      return { text: '增强后的完整文本', provider: 'p', model: 'm', elapsedMs: 5 }
+    })
+
+    fireEvent.click(enhanceButton())
+    await screen.findByText(zh['undo.applied'])
+    expect(setDraft).toHaveBeenLastCalledWith('增强后的完整文本')
+    // Our own writes must never be mistaken for user typing.
+    expect(screen.queryByText(zh['panel.enhanced'])).toBeNull()
+  })
+
+  it('stops typing as soon as the user types over the stream', async () => {
+    setClientSettings({ ...DEFAULT_CLIENT_SETTINGS, streaming: true, defaultTier: 'standard' })
+    const input = makeFakeInput({ draft: '旧原文' })
+    const setDraft = vi.fn((text: string) => input.set({ draft: text }))
+    renderComposer(input, { setDraft } as never, 'sm')
+    const result = { text: '增强后的完整文本', provider: 'p', model: 'm', elapsedMs: 5 }
+    let release!: (value: typeof result) => void
+    const gate = new Promise<typeof result>((resolve) => { release = resolve })
+    let push!: (delta: string) => void
+    vi.mocked(requestEnhanceStream).mockImplementation(async (_body, options) => {
+      push = options.onDelta
+      options.onDelta('增')
+      return gate
+    })
+
+    fireEvent.click(enhanceButton())
+    await vi.waitFor(() => { expect(setDraft).toHaveBeenCalledWith('增') })
+    // The user takes over: from here the plugin must not write again.
+    act(() => { input.set({ draft: '增，我自己补的' }) })
+    act(() => { push('强') })
+    expect(setDraft).not.toHaveBeenCalledWith('增强')
+    // …and the result waits for an explicit apply instead of overwriting.
+    act(() => { release(result) })
+    expect(await screen.findByText(zh['panel.apply'])).toBeTruthy()
+  })
 })

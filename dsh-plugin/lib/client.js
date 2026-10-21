@@ -62,6 +62,14 @@ function checkInputText(text, maxChars) {
   return { ok: true };
 }
 
+// src/shared/skill-tokens.ts
+var SKILL_TOKEN_ONE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/;
+var SKILL_TOKEN = /(?<![\w$])\$([A-Za-z][A-Za-z0-9_-]*)/g;
+function onlySkillTokens(text) {
+  if (!SKILL_TOKEN_ONE.test(text)) return false;
+  return text.replace(SKILL_TOKEN, "").trim() === "";
+}
+
 // src/shared/protocol.ts
 var ENHANCE_ENDPOINT = "/prompt-enhance/enhance";
 var ENHANCE_STREAM_ENDPOINT = "/prompt-enhance/enhance-stream";
@@ -840,12 +848,24 @@ function focusedEntry() {
   }
   return lastMountedSession !== void 0 ? sessions.get(lastMountedSession) : void 0;
 }
+function composerUnderFocus() {
+  const active = document.activeElement;
+  if (active === null || !(active instanceof Element)) return void 0;
+  let node = active;
+  for (let depth = 0; depth < 8 && node !== null; depth++) {
+    for (const entry of sessions.values()) {
+      if (entry.root !== null && (node === entry.root || node.contains(entry.root))) return entry;
+    }
+    node = node.parentElement;
+  }
+  return void 0;
+}
 function shortcutTarget() {
   const entry = focusedEntry();
   return entry === void 0 ? void 0 : () => entry.run();
 }
 function undoTarget() {
-  const entry = focusedEntry();
+  const entry = composerUnderFocus();
   if (entry?.undo === void 0) return false;
   return entry.undo();
 }
@@ -919,6 +939,10 @@ function EnhanceButton(props) {
       reject(t("error.imagesOnly"));
       return;
     }
+    if (onlySkillTokens(draft)) {
+      reject(t("error.tokensOnly"));
+      return;
+    }
     const check = checkInputText(draft, settings.maxInputChars);
     if (!check.ok) {
       reject(check.code === "empty" ? t("error.empty") : t("error.tooLong", { count: check.count, max: check.max }));
@@ -937,13 +961,16 @@ function EnhanceButton(props) {
     const controller = new AbortController();
     openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode });
     let written;
+    const ours = /* @__PURE__ */ new Set([draft]);
+    const stillOurs = () => ours.has(draftRef.current);
     const pushDelta = (delta) => {
       if (!direct) {
         appendDelta(uiKey, delta);
         return;
       }
-      if (written !== void 0 && draftRef.current !== written) return;
+      if (written !== void 0 && !stillOurs()) return;
       written = (written ?? "") + delta;
+      ours.add(written);
       inputActions.setDraft(written);
     };
     const settle = (result) => {
@@ -951,7 +978,7 @@ function EnhanceButton(props) {
         settleResult(uiKey, result);
         return;
       }
-      if (draftRef.current !== (written ?? draft)) {
+      if (!stillOurs()) {
         settleResult(uiKey, result, "panel");
         return;
       }
@@ -965,7 +992,7 @@ function EnhanceButton(props) {
         settleError(uiKey, detail);
         return;
       }
-      if (written !== void 0 && draftRef.current === written) inputActions.setDraft(draft);
+      if (written !== void 0 && stillOurs()) inputActions.setDraft(draft);
       closePanel();
       setNotice({
         sessionId: uiKey,
@@ -1126,6 +1153,7 @@ var zh = {
   "error.empty": "\u8F93\u5165\u6846\u4E3A\u7A7A\uFF0C\u8BF7\u5148\u8F93\u5165\u8981\u589E\u5F3A\u7684\u63D0\u793A\u8BCD\u3002",
   "error.tooLong": "\u5185\u5BB9\u5171 {count} \u4E2A\u5B57\u7B26\uFF0C\u8D85\u8FC7 {max} \u4E2A\u5B57\u7B26\u4E0A\u9650\uFF08\u6309 Unicode \u5B57\u7B26\u6570\u7EDF\u8BA1\uFF0C\u4E0D\u662F token \u6570\uFF09\u3002\u4E3A\u907F\u514D\u6539\u53D8\u539F\u610F\u4E0D\u4F1A\u81EA\u52A8\u622A\u65AD\uFF0C\u8BF7\u7CBE\u7B80\u540E\u518D\u8BD5\u3002",
   "error.imagesOnly": "\u5F53\u524D\u53EA\u9644\u52A0\u4E86\u56FE\u7247\uFF0C\u4EC5\u652F\u6301\u589E\u5F3A\u6587\u672C\u5185\u5BB9\u3002",
+  "error.tokensOnly": "\u8349\u7A3F\u91CC\u53EA\u6709 Skill \u8C03\u7528\uFF0C\u6CA1\u6709\u8981\u589E\u5F3A\u7684\u9700\u6C42\u63CF\u8FF0\uFF1B\u8BF7\u8865\u5145\u4F60\u7684\u8981\u6C42\u540E\u518D\u8BD5\u3002",
   "error.occurrences": "\u8F93\u5165\u5185\u5BB9\u5305\u542B\u547D\u4EE4\u6216\u6587\u4EF6\u5F15\u7528\uFF0C\u6682\u4E0D\u652F\u6301\u589E\u5F3A\uFF1B\u8BF7\u5148\u79FB\u9664\u540E\u518D\u8BD5\u3002",
   "error.phase": "\u5F53\u524D\u8F93\u5165\u6B63\u88AB\u5360\u7528\uFF08\u63D0\u4EA4\u4E2D\uFF09\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5\u3002",
   "error.disabled": "\u63D0\u793A\u8BCD\u589E\u5F3A\u5DF2\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u5173\u95ED\u3002",
@@ -1152,7 +1180,7 @@ var zh = {
   "tier.menu.default": "\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.menu.default.done": "\u5DF2\u8BBE\u4E3A\u9ED8\u8BA4\u6863",
   "tier.base": "\u57FA\u7840",
-  "tier.base.hint": "\u53EA\u8F7B\u5EA6\u7406\u987A\u6587\u5B57\uFF0C\u4E0D\u6269\u5199\u3001\u4E0D\u91CD\u6392\u7ED3\u6784\u3002",
+  "tier.base.hint": "\u672C\u5730\u6574\u7406\uFF0C\u4E0D\u8C03\u7528\u6A21\u578B\uFF1A\u53EA\u7406\u987A\u7A7A\u683C\u3001\u6807\u70B9\u4E0E\u53E3\u5934\u7985\uFF0C\u4E0D\u6269\u5199\u3001\u4E0D\u91CD\u6392\u7ED3\u6784\u3002",
   "tier.standard": "\u6807\u51C6",
   "tier.standard.hint": "\u8F93\u51FA\u4E00\u4E2A\u8FDE\u7EED\u81EA\u7136\u6BB5\uFF0880\uFF5E220 \u5B57\uFF09\uFF0C\u4E0D\u5E26\u6807\u9898\u548C\u5217\u8868\u3002",
   "tier.professional": "\u4E13\u4E1A",
@@ -1189,6 +1217,7 @@ var en = {
   "error.empty": "The input box is empty \u2014 type a prompt to enhance first.",
   "error.tooLong": "The draft is {count} characters, above the {max} cap (Unicode characters, not tokens). It is never auto-truncated (that would change your meaning) \u2014 please shorten it.",
   "error.imagesOnly": "Only images are attached; prompt enhance supports text only.",
+  "error.tokensOnly": "The draft holds Skill invocations but no request to rewrite \u2014 add what you want done and try again.",
   "error.occurrences": "The draft contains commands or file references, which are not supported yet \u2014 remove them first.",
   "error.phase": "The input box is busy (submitting) \u2014 try again in a moment.",
   "error.disabled": "Prompt enhance is disabled in the plugin settings.",
@@ -1215,7 +1244,7 @@ var en = {
   "tier.menu.default": "Set as default tier",
   "tier.menu.default.done": "Set as the default tier",
   "tier.base": "Basic",
-  "tier.base.hint": "Light tidy-up only: no expansion, no restructuring.",
+  "tier.base.hint": "Local tidy-up, no model call: spaces, punctuation and verbal tics only \u2014 no expansion, no restructuring.",
   "tier.standard": "Standard",
   "tier.standard.hint": "One continuous paragraph (80\u2013220 characters), no headings or lists.",
   "tier.professional": "Professional",

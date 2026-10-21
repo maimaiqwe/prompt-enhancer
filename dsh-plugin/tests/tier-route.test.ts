@@ -154,10 +154,10 @@ describe('request body tier → composed system prompt', () => {
   })
 
   it('follows the configured defaultTier when the body names no tier', async () => {
-    const { server, calls, close } = await mount({ ...CONFIG, defaultTier: 'base' })
+    const { server, calls, close } = await mount({ ...CONFIG, defaultTier: 'professional' })
     try {
       await call(server, { text: '写个爬虫' })
-      expect(calls[0]?.system).toContain(RULE_SECTIONS.BASE)
+      expect(calls[0]?.system).toContain(RULE_SECTIONS.PROFESSIONAL)
       expect(calls[0]?.system).not.toContain(RULE_SECTIONS.STANDARD)
     } finally {
       await close()
@@ -211,11 +211,11 @@ describe('per-call context toggle', () => {
     }
   })
 
-  it('never grounds the base tier, whose rules forbid expansion', async () => {
+  it('never grounds the base tier, which never reaches a model at all', async () => {
     const { server, calls, close } = await mount(CONFIG, HISTORY)
     try {
       await call(server, { text: '继续', sessionId: 's1', tier: 'base', useContext: true })
-      expect(userMessageText(calls[0])).not.toContain('<conversation_context>')
+      expect(calls).toHaveLength(0)
     } finally {
       await close()
     }

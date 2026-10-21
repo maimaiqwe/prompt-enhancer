@@ -25,6 +25,7 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { EnhanceError } from '../shared/protocol'
 import { checkInputText } from '../shared/validate'
+import { onlySkillTokens } from '../shared/skill-tokens'
 import { EnhanceClientError, requestEnhance, requestEnhanceStream } from './enhance-client'
 import { ResultPanel, localizedErrorMessage } from './ResultPanel'
 import { TierMenu } from './TierMenu'
@@ -130,6 +131,12 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       reject(t('error.imagesOnly'))
       return
     }
+    // A draft of nothing but `$skill` invocations names a Skill but states no
+    // request. Refuse before spending a call — the rules forbid inventing one.
+    if (onlySkillTokens(draft)) {
+      reject(t('error.tokensOnly'))
+      return
+    }
     const check = checkInputText(draft, settings.maxInputChars)
     if (!check.ok) {
       reject(check.code === 'empty'
@@ -155,6 +162,15 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
     // exact text THIS run last put in the box, which is how settle() and
     // fail() tell "the user typed" apart from "we typed".
     let written: string | undefined
+    // Every value this run is allowed to find in the composer: the draft it
+    // started from plus each text it has written. `draftRef` only catches up
+    // after React commits the render, and one socket read can carry several
+    // SSE frames, so it may lag behind by more than one write — comparing it
+    // against the newest write alone would mistake our own second chunk for
+    // user typing and drop the rest of the stream.
+    const ours = new Set<string>([draft])
+    /** True while the composer still holds a value this run is responsible for. */
+    const stillOurs = (): boolean => ours.has(draftRef.current)
     const pushDelta = (delta: string): void => {
       if (!direct) {
         ui.appendDelta(uiKey, delta)
@@ -162,8 +178,9 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       }
       // The user took over mid-flight: stop writing, keep collecting, and let
       // settle() promote the result to the preview overlay.
-      if (written !== undefined && draftRef.current !== written) return
+      if (written !== undefined && !stillOurs()) return
       written = (written ?? '') + delta
+      ours.add(written)
       inputActions.setDraft(written)
     }
     const settle = (result: Parameters<typeof ui.settleResult>[1]): void => {
@@ -176,7 +193,7 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       // preview overlay instead, so the overwrite is an explicit choice. A
       // streamed run compares against its own last write, not the original
       // draft — otherwise every streamed run would look "diverged".
-      if (draftRef.current !== (written ?? draft)) {
+      if (!stillOurs()) {
         ui.settleResult(uiKey, result, 'panel')
         return
       }
@@ -195,7 +212,7 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
       // A streamed run may have already typed partial text into the box; a
       // failure must not leave a truncated rewrite sitting there as if it were
       // the answer.
-      if (written !== undefined && draftRef.current === written) inputActions.setDraft(draft)
+      if (written !== undefined && stillOurs()) inputActions.setDraft(draft)
       ui.closePanel()
       ui.setNotice({
         sessionId: uiKey,

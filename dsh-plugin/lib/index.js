@@ -688,6 +688,155 @@ function toEnhanceError(error) {
 // src/orchestrate.ts
 import { randomUUID } from "node:crypto";
 
+// src/shared/skill-tokens.ts
+var SKILL_TOKEN_ONE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/;
+var SKILL_TOKEN = /(?<![\w$])\$([A-Za-z][A-Za-z0-9_-]*)/g;
+function onlySkillTokens(text) {
+  if (!SKILL_TOKEN_ONE.test(text)) return false;
+  return text.replace(SKILL_TOKEN, "").trim() === "";
+}
+
+// src/local-rewrite.ts
+var SKILL_PLACEHOLDER = /__PO_SKILL_(\d{4})_[A-Za-z0-9_]+__/g;
+var CODE_PLACEHOLDER = /__PO_BASE_CODE_(\d{4})__/g;
+var STRUCTURAL_LINE = /^[ \t]*(?:#{1,6}[ \t]+|[-+*][ \t]+|\d+[.)][ \t]+|>|\||[-*_]{3,}[ \t]*$|_{3,}[ \t]*$)/;
+var TIC_REPLACEMENTS = [
+  ["\u548B", "\u600E\u4E48"],
+  ["\u5565", "\u4EC0\u4E48"]
+];
+var LEADING_ASK = /^( *)帮我/;
+function protectSkillTokens(text) {
+  const tokens = [];
+  const masked = text.replace(SKILL_TOKEN, (whole, name2) => {
+    tokens.push(whole);
+    const safe = name2.replace(/[^A-Za-z0-9]/g, "_");
+    return `__PO_SKILL_${String(tokens.length).padStart(4, "0")}_${safe}__`;
+  });
+  return { text: masked, tokens };
+}
+function restoreSkillTokens(text, tokens) {
+  return text.replace(SKILL_PLACEHOLDER, (whole, index) => {
+    const slot = Number.parseInt(index, 10) - 1;
+    return slot >= 0 && slot < tokens.length ? tokens[slot] : whole;
+  });
+}
+function protectFences(text, tokens) {
+  const lines = text.split(/(?<=\n)/);
+  const out = [];
+  let plain = [];
+  let index = 0;
+  const flush = () => {
+    if (plain.length > 0) {
+      out.push(protectInline(plain.join(""), tokens));
+      plain = [];
+    }
+  };
+  while (index < lines.length) {
+    const line = lines[index];
+    const stripped = line.replace(/^[ \t]+/, "");
+    const marker = stripped.charAt(0);
+    let run = 0;
+    while (run < stripped.length && stripped.charAt(run) === marker && (marker === "`" || marker === "~")) {
+      run += 1;
+    }
+    if (run < 3) {
+      plain.push(line);
+      index += 1;
+      continue;
+    }
+    flush();
+    const fence = marker.repeat(run);
+    const start = index;
+    index += 1;
+    while (index < lines.length) {
+      const closeText = lines[index].trim();
+      if (closeText.length >= run && closeText === fence.repeat(closeText.length / run)) {
+        index += 1;
+        break;
+      }
+      index += 1;
+    }
+    let block = lines.slice(start, index).join("");
+    let suffix = "";
+    if (block.endsWith("\r\n")) {
+      block = block.slice(0, -2);
+      suffix = "\r\n";
+    } else if (block.endsWith("\n")) {
+      block = block.slice(0, -1);
+      suffix = "\n";
+    }
+    tokens.push(block);
+    out.push(`__PO_BASE_CODE_${String(tokens.length).padStart(4, "0")}__${suffix}`);
+  }
+  flush();
+  return out.join("");
+}
+function protectInline(text, tokens) {
+  let out = "";
+  let index = 0;
+  while (index < text.length) {
+    if (text.charAt(index) !== "`") {
+      out += text.charAt(index);
+      index += 1;
+      continue;
+    }
+    let runEnd = index;
+    while (runEnd < text.length && text.charAt(runEnd) === "`") runEnd += 1;
+    const ticks = text.slice(index, runEnd);
+    const closing = text.indexOf(ticks, runEnd);
+    const newline = text.indexOf("\n", runEnd);
+    if (closing < 0 || newline >= 0 && closing > newline) {
+      out += ticks;
+      index = runEnd;
+      continue;
+    }
+    tokens.push(text.slice(index, closing + ticks.length));
+    out += `__PO_BASE_CODE_${String(tokens.length).padStart(4, "0")}__`;
+    index = closing + ticks.length;
+  }
+  return out;
+}
+function finalizePunctuation(text) {
+  const lines = text.split("\n");
+  const marks = "\u3002\uFF01\uFF1F!?\uFF1B;\uFF1A:";
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    const stripped = line.trim();
+    if (stripped === "") {
+      if (index === lines.length - 1) return lines.join("\n");
+      continue;
+    }
+    if (STRUCTURAL_LINE.test(line) || stripped.startsWith("__PO_BASE_CODE_")) return lines.join("\n");
+    if (!marks.includes(stripped.charAt(stripped.length - 1))) lines[index] = `${line}\u3002`;
+    return lines.join("\n");
+  }
+  return lines.join("\n");
+}
+function tidyMasked(text) {
+  const lines = text.trim().split("\n");
+  const cleaned = lines.map((line) => {
+    if (line.trim() === "") return "";
+    if (/^[ \t]*\|/.test(line)) return line.replace(/[ \t]+$/, "");
+    if (STRUCTURAL_LINE.test(line)) return line.replace(/[ \t]+$/, "");
+    return line.trim().replace(/[ \t]+/g, " ");
+  });
+  let out = cleaned.join("\n").trim();
+  out = out.replace(LEADING_ASK, "$1\u8BF7\u5E2E\u6211");
+  for (const [from, to] of TIC_REPLACEMENTS) out = out.split(from).join(to);
+  return finalizePunctuation(out);
+}
+function rewriteLocally(text) {
+  const skills = protectSkillTokens(text);
+  const codeTokens = [];
+  const masked = protectFences(skills.text, codeTokens);
+  const tidied = tidyMasked(masked);
+  const withCode = tidied.replace(CODE_PLACEHOLDER, (whole, index) => {
+    const slot = Number.parseInt(index, 10) - 1;
+    return slot >= 0 && slot < codeTokens.length ? codeTokens[slot] : whole;
+  });
+  return restoreSkillTokens(withCode, skills.tokens);
+}
+
 // src/context.ts
 var TRUNCATION_MARK = "\u2026\uFF08\u5DF2\u622A\u65AD\uFF09";
 function cutToCodePoints(text, max) {
@@ -853,6 +1002,12 @@ async function runEnhance(ctx, config, options) {
   const tier = normalizeTier(options.tier, normalizeTier(config.defaultTier));
   const window = contextWindowFor(tier, config, options.useContext ?? config.contextAware);
   try {
+    if (tier === "base" && options.context === void 0) {
+      const text = rewriteLocally(options.text);
+      const local = { text, provider: "local", model: "deterministic", elapsedMs: Date.now() - started };
+      console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(text)} ctx=0 local ${local.elapsedMs}ms ok`);
+      return local;
+    }
     const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx));
     if (route === void 0) {
       throw new EnhanceFailure({ code: "unconfigured" });
@@ -998,6 +1153,7 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
   const sessionId = typeof record.sessionId === "string" && record.sessionId !== "" ? record.sessionId : void 0;
   const tier = typeof record.tier === "string" ? record.tier.trim().toLowerCase() : void 0;
   const useContext = typeof record.useContext === "boolean" ? record.useContext : void 0;
+  const localOnly = tier === "base";
   const check = checkInputText(record.text, config.maxInputChars);
   if (!check.ok) {
     writeJson(res, 422, {
@@ -1012,7 +1168,7 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
   let validFrom = 0;
   while (validFrom < stamps.length && (stamps[validFrom] ?? cut) < cut) validFrom++;
   if (validFrom > 0) stamps.splice(0, validFrom);
-  if (stamps.length >= config.rateLimitPerMinute) {
+  if (!localOnly && stamps.length >= config.rateLimitPerMinute) {
     const oldest = stamps[0] ?? now;
     const retryAfterSeconds = Math.max(1, Math.ceil((6e4 - (now - oldest)) / 1e3));
     res.setHeader("Retry-After", String(retryAfterSeconds));
@@ -1022,14 +1178,15 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
     });
     return;
   }
-  if (gate.active >= config.maxConcurrent) {
+  if (!localOnly && gate.active >= config.maxConcurrent) {
     writeJson(res, 429, {
       ok: false,
       error: { code: "concurrency-limit", params: { max: config.maxConcurrent } }
     });
     return;
   }
-  gate.active += 1;
+  const charged = !localOnly;
+  if (charged) gate.active += 1;
   const callerAbort = new AbortController();
   const onConnectionClosed = () => {
     if (!res.writableEnded) callerAbort.abort();
@@ -1084,7 +1241,7 @@ data: ${JSON.stringify({ type: "done", value })}
       const value = await runEnhance(ctx, config, runOptions);
       writeJson(res, 200, { ok: true, value });
     }
-    stamps.push(Date.now());
+    if (charged) stamps.push(Date.now());
   } catch (error) {
     const wire = toEnhanceError(error);
     if (stream && res.headersSent) {
@@ -1097,7 +1254,7 @@ data: ${JSON.stringify({ type: "error", error: wire })}
     }
   } finally {
     res.off("close", onConnectionClosed);
-    gate.active -= 1;
+    if (charged) gate.active -= 1;
   }
 }
 var mountedContexts = /* @__PURE__ */ new WeakSet();
@@ -1138,6 +1295,9 @@ function registerEnhanceCommand(ctx, readConfig) {
       const check = checkInputText(raw, config.maxInputChars);
       if (!check.ok) {
         return { kind: "error", text: formatInputCheckZh(check) };
+      }
+      if (onlySkillTokens(raw)) {
+        return { kind: "error", text: "\u8FD9\u6BB5\u5185\u5BB9\u91CC\u53EA\u6709 Skill \u8C03\u7528\uFF0C\u6CA1\u6709\u8981\u589E\u5F3A\u7684\u9700\u6C42\u63CF\u8FF0\uFF1B\u8BF7\u8865\u5145\u4F60\u7684\u8981\u6C42\u540E\u518D\u8BD5\u3002" };
       }
       try {
         const value = await runEnhance(ctx, config, {
@@ -1215,8 +1375,10 @@ export {
   name,
   normalizeOutput,
   normalizeTier,
+  onlySkillTokens,
   resolveConfig,
   resolveRoute,
+  rewriteLocally,
   tierSystemPrompt,
   toEnhanceError
 };

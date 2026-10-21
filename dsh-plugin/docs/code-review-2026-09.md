@@ -39,9 +39,11 @@ src/
   shared/               protocol / validate / normalize / stream-text（两端共用）
   client/
     index.tsx           词典注册、设置镜像、两个 slot 注册、快捷键
-    EnhanceButton.tsx   守卫链 + fetch + 面板 + 回填/undo
-    ResultPanel.tsx     预览面板（loading/stream/result/error、焦点陷阱、复制兜底）
-    UndoBar.tsx         撤销条
+    EnhanceButton.tsx   守卫链 + fetch + 直填/面板分流 + undo 注册
+    ResultPanel.tsx     预览面板（仅系统档；loading/stream/result/error、焦点陷阱、复制兜底）
+    UndoBar.tsx         dock 一行：撤销条 + 直填失败的内联错误行
+    TierMenu.tsx        档位胶囊 + 四档下拉 + 上下文开关 + 设为默认档
+    tier-store.ts       会话级档位/上下文覆盖 + 默认档持久化写手
     enhance-client.ts   同源 fetch + SSE 读取 + 类型化错误
     settings.ts         客户端设置镜像（不 import host config）
     shortcut.ts         快捷键解析/匹配（event.code 优先，布局无关）
@@ -148,9 +150,9 @@ src/
 仍建议按需逐条确认的细项（均已有自动化覆盖，此处仅列人工回归点）：
 
 1. Settings → 插件配置出现 `prompt-enhance` 分区（目标 profile 未打包设置面板时，此项**预期不出现**，功能自动使用内置默认值）。
-2. ✨ 按钮与 `Ctrl+Alt+E` 走同一流程；空输入/超长/含引用块各自给出可读拒绝文案。
-3. 预览面板：回填 → 撤销条出现 → 撤销恢复原文；复制可用（含非安全上下文回退）。
-4. 流式增强：文字边写边显示，结束后面板**平滑切到规范化结果**（`display.finish()` 冲刷确保末尾字符不丢）。
+2. ✨ 按钮与 `Ctrl+Shift+Alt+A` 走同一流程；空输入/超长/含引用块各自给出可读拒绝文案。
+3. 直填（基础/标准/专业）：点 ✨ 后草稿被逐字改写，结束即停在最终文本；撤销条出现，`Ctrl+Z` 或撤销按钮恢复原文。
+4. 系统档：结果进预览面板，回填 → 撤销条出现 → 撤销恢复原文；复制可用（含非安全上下文回退）。
 5. `/enhance <文本>` 在命令面板可复制、不进入模型历史。
 6. 多会话布局：另一会话增强中时，本会话按钮给出"另一个会话正在增强中"提示而非静默变灰。
 7. 上游错误（如错误 API Key）能否显示**具体**修复提示（对应 P0-1 的修复面）。
