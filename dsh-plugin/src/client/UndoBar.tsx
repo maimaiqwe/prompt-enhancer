@@ -59,13 +59,40 @@ function useElapsedSeconds(active: boolean): number {
 }
 
 /**
+ * The content box a full-width block child would occupy inside its parent.
+ *
+ * Measuring the offset against the ROW is circular: the row's own left edge is
+ * exactly what the offset moves, so a row that CSS has already centred reports
+ * an offset of zero and the inline style then shoves it to the far left. The
+ * reference has to be the container's content box, which the row does not move.
+ * @param element - the row being aligned.
+ * @returns the content-box left and width in viewport pixels, or undefined without a parent.
+ */
+function contentBoxOf(element: HTMLElement): { readonly left: number; readonly width: number } | undefined {
+  const parent = element.parentElement
+  if (parent === null) return undefined
+  const view = element.ownerDocument.defaultView
+  if (view === null) return undefined
+  const style = view.getComputedStyle(parent)
+  const px = (raw: string): number => {
+    const value = Number.parseFloat(raw)
+    return Number.isFinite(value) ? value : 0
+  }
+  const rect = parent.getBoundingClientRect()
+  const left = px(style.borderLeftWidth) + px(style.paddingLeft)
+  const right = px(style.borderRightWidth) + px(style.paddingRight)
+  return { left: rect.left + left, width: rect.width - left - right }
+}
+
+/**
  * Align a dock row with the composer card it reports on.
  *
  * The dock slot spans the whole composer seat while the card itself is centred
  * and narrower, so a row that simply fills the slot starts to the left of the
  * box it is talking about. The offset is measured instead of guessed: the card
  * is found through the shell's stable `[data-composer-card]` marker and its
- * edges are expressed relative to this row.
+ * left edge is expressed relative to the row's container (see
+ * {@link contentLeftOf} for why the row itself cannot be the reference).
  *
  * Nothing is applied until a card is actually measured, so a host that renders
  * no card (or a layout the measurement cannot resolve) keeps the plain
@@ -96,12 +123,17 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
       setAlign((previous) => (previous === undefined ? previous : undefined))
       return
     }
-    const rowRect = row.getBoundingClientRect()
-    // The row fills its slot, so the card's left edge is a positive inset from
-    // the row's own left edge. Clamped at zero: a card wider than the slot (a
-    // zoomed-out layout) must not push the text off-screen to the left.
-    const inset = Math.max(0, Math.round(box.left - rowRect.left))
-    const width = Math.round(box.width)
+    const content = contentBoxOf(row)
+    if (content === undefined) {
+      setAlign((previous) => (previous === undefined ? previous : undefined))
+      return
+    }
+    // Clamped at zero: a card wider than the slot (a zoomed-out layout) must not
+    // push the text off-screen to the left. The width is clamped to the content
+    // box for the mirror case: when the card is wider than the seat, an
+    // unclamped width would overflow it and the row would wrap.
+    const inset = Math.max(0, Math.round(box.left - content.left))
+    const width = Math.round(Math.min(box.width, content.width))
     // Sub-pixel jitter must not count as a change, or a scroll that moves the
     // card by 0.3px would restart the write loop this hook exists to avoid.
     const key = `${width}:${inset}`

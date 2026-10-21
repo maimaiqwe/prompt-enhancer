@@ -1326,6 +1326,21 @@ function useElapsedSeconds(active) {
   }, [active]);
   return seconds;
 }
+function contentBoxOf(element) {
+  const parent = element.parentElement;
+  if (parent === null) return void 0;
+  const view = element.ownerDocument.defaultView;
+  if (view === null) return void 0;
+  const style = view.getComputedStyle(parent);
+  const px = (raw) => {
+    const value = Number.parseFloat(raw);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const rect = parent.getBoundingClientRect();
+  const left = px(style.borderLeftWidth) + px(style.paddingLeft);
+  const right = px(style.borderRightWidth) + px(style.paddingRight);
+  return { left: rect.left + left, width: rect.width - left - right };
+}
 function useComposerAlign(rowRef) {
   const [align, setAlign] = (0, import_react5.useState)(void 0);
   const measuredRef = (0, import_react5.useRef)(null);
@@ -1339,9 +1354,13 @@ function useComposerAlign(rowRef) {
       setAlign((previous) => previous === void 0 ? previous : void 0);
       return;
     }
-    const rowRect = row.getBoundingClientRect();
-    const inset = Math.max(0, Math.round(box.left - rowRect.left));
-    const width = Math.round(box.width);
+    const content = contentBoxOf(row);
+    if (content === void 0) {
+      setAlign((previous) => previous === void 0 ? previous : void 0);
+      return;
+    }
+    const inset = Math.max(0, Math.round(box.left - content.left));
+    const width = Math.round(Math.min(box.width, content.width));
     const key = `${width}:${inset}`;
     setAlign((previous) => previous?.key === key ? previous : { key, style: { width: `${width}px`, maxWidth: "100%", marginInlineStart: `${inset}px`, marginInlineEnd: "auto" } });
   }, [rowRef]);

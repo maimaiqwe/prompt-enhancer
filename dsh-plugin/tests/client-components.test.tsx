@@ -287,13 +287,19 @@ describe('dock row alignment', () => {
 
   /**
    * Mount a composer seat whose card is narrower than the slot, and measure it.
-   * The row is the dock slot's only child, so the slot's own rect is the row's
-   * rect: width 1200 at x=0, card 860 at x=170.
+   * The row's parent is the dock slot: content-box left 0, card left 170, so the
+   * offset is 170 and the width is the card's 860.
+   * @param padLeft - left padding on the slot, to prove the offset is measured
+   * from the CONTENT box rather than the slot's border box.
+   * @returns the slot, so the row can be rendered INTO it (the offset is
+   * measured against the row's parent, so where the row is mounted decides what
+   * the assertion means).
    */
-  function seat(): void {
+  function seat(padLeft = 0): HTMLElement {
     const shell = document.createElement('div')
     const slot = document.createElement('div')
     slot.setAttribute('data-slot', 'conversation.input.dock')
+    slot.style.paddingLeft = `${padLeft}px`
     const card = document.createElement('div')
     card.setAttribute('data-composer-card', '')
     card.getBoundingClientRect = () => ({
@@ -302,12 +308,11 @@ describe('dock row alignment', () => {
     }) as unknown as DOMRect
     shell.append(slot, card)
     document.body.append(shell)
-    // The row itself must measure as the full slot for the inset to be the
-    // card's real offset; jsdom reports zeros otherwise.
     slot.getBoundingClientRect = () => ({
       width: 1200, height: 22, left: 0, top: 570, right: 1200, bottom: 592, x: 0, y: 570,
       toJSON: () => ({}),
     }) as unknown as DOMRect
+    return slot
   }
 
   // Regression: the alignment effect used to write a fresh style object on
@@ -316,16 +321,37 @@ describe('dock row alignment', () => {
   // entirely. Rendering the row with a card present is the whole assertion:
   // with the loop in place this throws "Maximum update depth exceeded".
   it('keeps the row mounted and offsets it to the card', () => {
-    seat()
+    const slot = seat()
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
-    render(<UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />)
+    render(
+      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
+      { container: slot },
+    )
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
     expect(row.className).toBe('dsh-pe-notice')
     expect(row.style.marginInlineStart).toBe('170px')
     expect(row.style.width).toBe('860px')
     expect(row.style.maxWidth).toBe('100%')
+  })
+
+  // The offset used to be measured against the row itself. Since the offset is
+  // what moves the row, a row CSS had already centred reported 0 and the inline
+  // style then shoved it to the far left — the exact "not aligned" the user saw.
+  // Padding on the container must therefore be subtracted from the reference,
+  // not treated as part of it.
+  it('measures the offset from the container content box, not the row', () => {
+    const slot = seat(24)
+    const input = makeFakeInput({ draft: '草稿' })
+    ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
+    render(
+      <UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />,
+      { container: slot },
+    )
+
+    const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
+    expect(row.style.marginInlineStart).toBe('146px')
   })
 
   it('leaves the row full width when no card is mounted', () => {
