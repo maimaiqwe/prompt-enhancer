@@ -128,25 +128,27 @@ function useComposerAlign(rowRef: { readonly current: HTMLElement | null }): CSS
       setAlign((previous) => (previous === undefined ? previous : undefined))
       return
     }
-    // Both edges are kept inside the container's content box, not just the left
-    // one. The card is normally narrower than the seat, and then this is a plain
-    // passthrough. It matters in two odd layouts: a card WIDER than the seat
-    // (zoomed out) would overflow on the right and the row would wrap, and a
-    // card that starts PAST the seat's right edge would leave the row hanging
-    // outside it. Capping the offset at (content width - row width) keeps the
-    // row's own width intact instead of shrinking it to nothing.
+    // Alignment is expressed as PADDING on a full-width row, not as a fixed
+    // width plus margins. The dock slot is a flex container: a fixed width plus
+    // a margin can overflow it, and flex then shrinks the row — for CJK text
+    // all the way down to one character wide, which stood the status line up
+    // into a vertical column next to the composer. A full-width row with
+    // padding never overflows (box-sizing is border-box), so nothing can shrink
+    // it, and its content box still starts at the card's left edge and ends at
+    // the card's right edge.
     const width = Math.round(Math.min(box.width, content.width))
     const maxInset = Math.max(0, Math.round(content.width) - width)
     const inset = Math.min(Math.max(0, Math.round(box.left - content.left)), maxInset)
+    const endPad = Math.max(0, Math.round(content.width) - inset - width)
     // Sub-pixel jitter must not count as a change, or a scroll that moves the
     // card by 0.3px would restart the write loop this hook exists to avoid.
     const key = `${width}:${inset}`
     setAlign((previous) => (previous?.key === key
       ? previous
-      // A plain px width plus max-width, not min(100%, Npx): the clamp is the
-      // same, and it survives DOM implementations that drop unsupported CSS
-      // functions from an inline style.
-      : { key, style: { width: `${width}px`, maxWidth: '100%', marginInlineStart: `${inset}px`, marginInlineEnd: 'auto' } }))
+      // maxWidth 100% also overrides the stylesheet's max-width fallback: the
+      // padded row has to span the whole slot for the padding to land on the
+      // card's edges.
+      : { key, style: { width: '100%', maxWidth: '100%', paddingInlineStart: `${inset}px`, paddingInlineEnd: `${endPad}px` } }))
   }, [rowRef])
   /**
    * Coalesce a burst of scroll/resize events into one measurement per frame.

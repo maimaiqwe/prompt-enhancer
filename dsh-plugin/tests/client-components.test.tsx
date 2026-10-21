@@ -322,7 +322,7 @@ describe('dock row alignment', () => {
   // React eventually broke by unmounting the row, so the status text vanished
   // entirely. Rendering the row with a card present is the whole assertion:
   // with the loop in place this throws "Maximum update depth exceeded".
-  it('keeps the row mounted and offsets it to the card', () => {
+  it('keeps the row mounted and pads it to the card', () => {
     const slot = seat()
     const input = makeFakeInput({ draft: '草稿' })
     ui.setNotice({ sessionId: 's1', kind: 'error', text: '模型服务返回错误' })
@@ -333,9 +333,14 @@ describe('dock row alignment', () => {
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
     expect(row.className).toBe('dsh-pe-notice')
-    expect(row.style.marginInlineStart).toBe('170px')
-    expect(row.style.width).toBe('860px')
+    // The row stays full width and is padded, not margined: the dock slot is a
+    // flex container, and a fixed width plus a margin could overflow it — flex
+    // then shrank the row down to a one-character CJK column (the vertical
+    // status line the user screenshotted).
+    expect(row.style.width).toBe('100%')
     expect(row.style.maxWidth).toBe('100%')
+    expect(row.style.paddingInlineStart).toBe('170px')
+    expect(row.style.paddingInlineEnd).toBe('170px')
   })
 
   // The offset used to be measured against the row itself. Since the offset is
@@ -353,7 +358,7 @@ describe('dock row alignment', () => {
     )
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    expect(row.style.marginInlineStart).toBe('146px')
+    expect(row.style.paddingInlineStart).toBe('146px')
   })
 
   // Mirror case of the clamp above: a card wider than its seat (zoomed-out
@@ -372,8 +377,8 @@ describe('dock row alignment', () => {
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
     // Left is clamped at 0 (the card starts left of the seat), and the width is
     // the content box's 1200 rather than the card's 1400.
-    expect(row.style.marginInlineStart).toBe('0px')
-    expect(row.style.width).toBe('1200px')
+    expect(row.style.paddingInlineStart).toBe('0px')
+    expect(row.style.paddingInlineEnd).toBe('0px')
   })
 
   // A card entirely past the seat's right edge is the case that separates the
@@ -390,10 +395,11 @@ describe('dock row alignment', () => {
     )
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    // The card's own width survives, and the offset stops where the row's right
-    // edge meets the seat's (1200 - 400 = 800) instead of running to 1150.
-    expect(row.style.width).toBe('400px')
-    expect(row.style.marginInlineStart).toBe('800px')
+    // The start padding stops where the row's content meets the seat's right
+    // edge (1200 - 400 = 800) instead of running to 1150; the remaining 400
+    // closes the row's content box at the card's width.
+    expect(row.style.paddingInlineStart).toBe('800px')
+    expect(row.style.paddingInlineEnd).toBe('0px')
   })
 
   it('leaves the row full width when no card is mounted', () => {
@@ -402,7 +408,7 @@ describe('dock row alignment', () => {
     render(<UndoBar {...({ t, sessionId: 's1', useInput: input.useInput, inputActions: { setDraft: vi.fn() } } as never)} />)
 
     const row = screen.getByText('模型服务返回错误').parentElement as HTMLElement
-    expect(row.style.marginInlineStart).toBe('')
+    expect(row.style.paddingInlineStart).toBe('')
     expect(row.style.width).toBe('')
   })
 })

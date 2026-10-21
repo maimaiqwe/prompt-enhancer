@@ -455,9 +455,12 @@ export const CSS = `
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
+  /* Full width, no max-width and no auto margins. The slot is a flex
+     container, so a narrower fixed width plus a margin can overflow it and flex
+     would shrink the row — down to a one-character column for CJK text. The
+     measured alignment pads THIS full-width row instead, so it can never
+     overflow and nothing can shrink it. */
   width: 100%;
-  max-width: var(--dsh-composer-card-max-width, 860px);
-  margin-inline: auto;
   min-height: 22px;
   padding: 1px 2px;
   font-size: 12px;
