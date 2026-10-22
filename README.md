@@ -64,6 +64,18 @@ dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/re
 
 `skills/prompt-enhancer` 与 `skills/p` 是对话内提示词增强 Skill 与快捷别名。热键程序和 Skill 共用 `core/rules.md`。输入框中的 `$p 切换默认` 是热键程序支持的本地命令；对话中的 `$p` 则来自 `skills/p`，两者不要混用。
 
+### 用技能管理器安装 Skill（最省事）
+
+如果你用 DeepSeek Harness，装了 [`@michengai/dsh-skills-manager`](https://github.com/MichengAI/dsh-skills-manager)，可以不走安装器：
+
+1. 打开技能管理器的 **Repositories → Add repository**。
+2. 填仓库地址 `https://github.com/qwe3120695033/prompt-enhancer`，扫描。
+3. 勾选 `prompt-enhancer` 和 `p`，安装。
+
+管理器会递归扫描仓库里所有 `SKILL.md`，两个技能都会被找到，装进 `~/.agents/skills` 或你指定的目录。`p` 依赖同级的 `prompt-enhancer`，两个一起装才不会缺文件。
+
+其它宿主的通用做法见下一节；已经用 `install.ps1 -Mode Skill` 装过的话不必重复装。
+
 ### 安装 Skill-only
 
 **前置条件**：任意可读取 Skill 文件的 agent 宿主；如需持久切换默认档，还要 Python 3.10+。
