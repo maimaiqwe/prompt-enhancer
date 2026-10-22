@@ -116,69 +116,9 @@ class SkillProtectionTests(unittest.TestCase):
         )
         self.assertIn("系统提示词结构不完整", problems)
 
-    def test_base_cleanup_is_deterministic(self):
-        self.assertEqual(
-            EH.base_cleanup("  帮我把这个文章继续优化  "),
-            "请帮我把这个文章继续优化。",
-        )
-        self.assertEqual(
-            EH.base_cleanup("第一句话。第二句话"),
-            "第一句话。第二句话。",
-        )
-
-    def test_base_transform_uses_body_and_preserves_skills(self):
-        prepared = EH.prepare_draft("base: $find-skills 帮我把这个文章继续优化")
-        out = EH.base_transform(prepared["body"])
-        self.assertNotIn("base:", out.lower())
-        self.assertIn("$find-skills", out)
-        self.assertIn("这个文章", out)
-
     def test_base_prefix_without_body_is_empty(self):
         self.assertEqual(EH.prepare_draft("base:")["body"], "")
         self.assertEqual(EH.prepare_draft("基础：")["body"], "")
-
-    def test_base_cleanup_preserves_trailing_fence(self):
-        text = "请检查这段代码：\n```python\nprint('a  b')\n```"
-        self.assertEqual(EH.base_cleanup(text), text)
-
-    def test_base_cleanup_preserves_untyped_fence(self):
-        text = "复验一下\n```\n帮我把这个文章继续优化\n```"
-        out = EH.base_cleanup(text)
-        self.assertIn("```\n帮我把这个文章继续优化\n```", out)
-        self.assertNotIn("帮我把这个文章继续优化。", out)
-
-    def test_base_cleanup_preserves_paragraphs_and_nested_list_indent(self):
-        text = "第一段\n\n第二段\n\n- 第一项\n  - 子项咋样"
-        out = EH.base_cleanup(text)
-        self.assertIn("第一段\n\n第二段", out)
-        self.assertIn("  - 子项怎么样", out)
-
-    def test_base_cleanup_does_not_split_punctuation_into_new_lines(self):
-        self.assertEqual(EH.base_cleanup("第一句话。第二句话"), "第一句话。第二句话。")
-
-    def test_base_cleanup_preserves_table_lines(self):
-        text = "| 名称 | 值 |\n| --- | --- |\n| 甲 | 3 |"
-        out = EH.base_cleanup(text)
-        self.assertIn("| --- | --- |", out)
-        self.assertTrue(out.endswith("| 甲 | 3 |"), out)
-
-    def test_base_cleanup_preserves_fenced_and_inline_code(self):
-        text = (
-            "  说明  这里用 `foo  bar`。\r\n"
-            "```python\r\n"
-            "if True:  \r\n"
-            "    print('a  b')  # 代码。不要改\r\n"
-            "```\r\n"
-            "下一句话"
-        )
-        out = EH.base_cleanup(text)
-        self.assertIn("`foo  bar`", out)
-        self.assertIn(
-            "```python\r\nif True:  \r\n"
-            "    print('a  b')  # 代码。不要改\r\n```",
-            out,
-        )
-        self.assertIn("下一句话。", out)
 
 
 class ParsingTests(unittest.TestCase):

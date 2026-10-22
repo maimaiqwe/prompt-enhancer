@@ -245,7 +245,7 @@ if (-not $NoStartup) {
     $shortcut.TargetPath = $watchdogExe
     $shortcut.WorkingDirectory = $InstallDir
     $shortcut.WindowStyle = 7
-    $shortcut.Description = "Ctrl+Shift+Alt+A prompt enhancer (starts with an agent)"
+    $shortcut.Description = "Ctrl+Shift+Alt+E prompt enhancer (starts with an agent)"
     $shortcut.Save()
     Write-Host "STARTUP $shortcutPath"
 }

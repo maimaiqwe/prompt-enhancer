@@ -4,7 +4,7 @@
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#快速开始)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#快速开始)
 
-一个面向 Windows 的全局热键提示词增强器，同时提供可移植到 Codex 及其他 agent 的提示词增强 Skill。两者可以一起安装，也可以按需单独安装。
+一个面向 Windows 的全局热键提示词增强器，同时提供可移植到 Codex 及其他 agent 的提示词增强 Skill。两者可以一起安装，也可以按需单独安装。另有 DeepSeek Harness（DSH）Web GUI 的输入框插件，在本仓库 `dsh-plugin/` 子目录。
 
 ## 下载哪个包
 
@@ -15,12 +15,13 @@
 | 只在 agent 对话中用 `$p` / `$prompt-enhancer` | `prompt-enhancer-skill-vX.Y.Z.zip` | 两个 Skill、规则副本、默认档脚本 |
 | 只想在输入框按热键 | `prompt-enhancer-hotkey-windows-vX.Y.Z.zip` | 热键程序、共享规则、安装器 |
 | 两个都要（推荐） | `prompt-enhancer-bundle-vX.Y.Z.zip` | Skill + 热键 + 安装器 |
+| 用 DSH Web GUI 的输入框 ✨ 按钮 | `dsh-prompt-enhance-cn-X.Y.Z.tgz` | DSH 插件（见下方「DSH 插件」） |
 
-下载后核对同一 Release 中的 `SHA256SUMS.txt`。三种包使用同一版本号和同一份 `core/rules.md`。
+下载后核对同一 Release 中的 `SHA256SUMS.txt`。三种 zip 使用同一版本号和同一份 `core/rules.md`。
 
 ## 项目范围
 
-本仓库包含一个独立的 Windows 热键程序，以及可供 agent 使用的提示词增强 Skill：
+本仓库包含一个独立的 Windows 热键程序、可供 agent 使用的提示词增强 Skill，以及一个 DSH Web GUI 插件（`dsh-plugin/`）：
 
 - 全局热键与白名单窗口检测
 - 基础、标准、专业和系统提示词四类增强
@@ -28,8 +29,25 @@
 - 再次优化、`@iter:` 迭代要求与 Skill token 保护
 - 默认档切换和本地配置
 - `skills/prompt-enhancer` 与 `skills/p`：对话内提示词增强 Skill 与快捷别名
+- `dsh-plugin/`：DSH Web GUI 输入框里的 ✨ 按钮与档位胶囊，走宿主自带的模型服务
 
 热键程序和 Skill 共用 `core/rules.md`。输入框中的 `$p 切换默认` 是热键程序支持的本地命令；对话中的 `$p` 则来自 `skills/p`，两者不要混用。
+
+## DSH 插件
+
+插件在 `dsh-plugin/` 子目录，npm 包名是 `dsh-prompt-enhance-cn`（npm 上 `dsh-prompt-enhance` 已被上游占用，两者不是同一个包）。它和热键程序共用同一份 `core/rules.md`，四档措辞不会分叉。
+
+从 Release 的 tarball 安装：
+
+```bash
+dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
+```
+
+装完重启 DSH。插件默认快捷键是 `Ctrl+Shift+Alt+A`，热键程序默认是 `Ctrl+Shift+Alt+E`，两者默认不冲突。
+
+> **两个都装且想共用一个键时**：把 `DeepSeek Harness` 从热键程序 `config.json` 的 `allowed_processes` 里删掉。看门狗只在白名单窗口位于前台时才启动增强进程，删掉之后它就不会替 DSH 抢注全局热键，DSH 里交给插件，其它 agent 仍由热键程序处理。反过来只想要热键程序、不装插件，就保持白名单原样。
+
+插件自己的文档（安装、配置、开发、测试）在 `dsh-plugin/README.md` 与 `dsh-plugin/README.zh-CN.md`。
 
 ## 安装 Skill-only
 
@@ -150,14 +168,16 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -Mode Bundle -Uninstall
 
 1. 正常情况下安装器已经启动看门狗；若没有，双击 `run.cmd` 启动轻量看门狗（无窗口）。
 2. 在支持窗口的输入框里写好草稿。
-3. 光标放在输入框任意位置，按 **Ctrl+Shift+Alt+A** -> 顶部弹一条状态 -> 等待模型返回后，输入框全文被替换成增强版。
+3. 光标放在输入框任意位置，按 **Ctrl+Shift+Alt+E** -> 顶部弹一条状态 -> 等待模型返回后，输入框全文被替换成增强版。
 
 看门狗只在检测到白名单 agent 时才启动增强服务；全部 agent 关闭 8 秒后自动停止。快捷键在非白名单窗口不会触发增强，也不会弹出失败提示；由于使用 Windows 全局热键注册，该组合键仍由本程序占用。
+
+> **三件套同键时的注意**：本下载包热键默认是 `Ctrl+Shift+Alt+E`，DSH 插件默认是 `Ctrl+Shift+Alt+A`，默认不冲突。如果你把两边改成同一个组合键，又想所有 agent 共用一个键：请把 `DeepSeek Harness` 从 `allowed_processes` 里删掉。看门狗只在白名单窗口前台时才启动增强进程，删掉后它就不会为 DSH 抢注全局热键，DSH 里交给插件处理，其它 agent 仍由热键程序处理。反过来只想要热键程序、不装插件，就保持白名单原样。
 
 ### 档位
 
 - 默认 `标准`：输出一段 80～220 字的高密度提示词，按任务自适应展开。复验类覆盖问题标注、判断依据、修改建议、完整成品、检查清单和修改对照；文章优化类覆盖原意保持、结构/表达/衔接改进、完整修改版和主要优化点。
-- `base:` / `基础:`：基础整理，只轻度理顺文字、补标点和分段，不扩写任务；保留 Markdown 列表、表格、段落空行、行内代码与围栏代码块的结构和缩进。该档在本地确定性处理，不调用模型。
+- `base:` / `基础:`：基础档轻度整理，只理顺语序与连接词、补全标点和分段、修错别字，不扩写任务、不新增要求；保留 Markdown 列表、表格、段落空行、行内代码与围栏代码块的结构和缩进。它和标准、专业档一样调用模型，只是提示词限制了大幅改写的空间。
 - `standard:` / `标准:`：显式使用标准档。
 - `pro:` / `专业:`：专业增强，输出五段结构化提示词；短任务可回退 2～3 个自然段。
 - `系统:` / `sys:`：独立系统提示词类型，使用八段框架，不能与档位前缀同时使用。
@@ -184,7 +204,7 @@ user: 帮我写一篇产品介绍
 
 ### 切换默认档
 
-输入框去掉空白后只写 `$p 切换默认`，按 `Ctrl+Shift+Alt+A`，会弹出 `1 基础 / 2 标准 / 3 专业` 选择框；数字键或鼠标选择，`Esc` 取消。选择后只修改本地 `config.json`，不改输入框内容。
+输入框去掉空白后只写 `$p 切换默认`，按 `Ctrl+Shift+Alt+E`，会弹出 `1 基础 / 2 标准 / 3 专业` 选择框；数字键或鼠标选择，`Esc` 取消。选择后只修改本地 `config.json`，不改输入框内容。
 
 也可以把其中一行发给 agent：
 
@@ -284,9 +304,10 @@ CLI 也支持持久切换，例如 `python enhance_hotkey.py --test "$p 默认 �
 | `provider` | `deepseek` | `deepseek` 或 `openai-compatible` |
 | `model` | `deepseek-flash` | 官方还有 `deepseek-v4-pro`，约贵 3.4~4.5 倍 |
 | `reasoning_effort` | `none` | 设为 `high` 等会重新开启思考，显著增加费用 |
-| `hotkey` | `ctrl+shift+alt+a` | 支持 `ctrl/alt/shift/win` + 字母或 `f1`~`f24` |
+| `hotkey` | `ctrl+shift+alt+e` | 支持 `ctrl/alt/shift/win` + 字母或 `f1`~`f24` |
 | `allowed_processes` | 见配置 | 只在这些窗口生效，防误替换；默认覆盖 ChatGPT、Codex、Claude Code、DeepSeek Harness、Cursor、Gemini、OpenCode、Windsurf、Qoder、CodeBuddy、WorkBuddy、ZCode、Trae、IDEA |
-| `max_tokens` | 700 | 调用模型时的通用输出上限，不是实际计费量；基础档不使用该值 |
+| `max_tokens` | 700 | 调用模型时的通用输出上限，不是实际计费量 |
+| `max_tokens_base` | 700 | 基础档输出上限（基础档只做轻度整理，通常用不满） |
 | `max_tokens_standard` | 900 | 标准档输出上限 |
 | `max_tokens_professional` | 1200 | 专业档输出上限，避免结构化提示词被截断 |
 | `max_tokens_system` | 1200 | 系统档输出上限，八段框架通常需要更多余量 |

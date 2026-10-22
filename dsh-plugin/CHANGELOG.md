@@ -1,0 +1,224 @@
+# Changelog
+
+All notable changes are documented here. Versions follow [npm](https://www.npmjs.com/package/dsh-prompt-enhance-cn); GitHub Release notes live in the [prompt-enhancer repository](https://github.com/qwe3120695033/prompt-enhancer/releases). Entries before 0.3.0 describe the upstream package dsh-prompt-enhance this one was forked from (**rongxingda/dsh-prompt-enhance@0.2.7**, Apache-2.0; licence and attribution kept).
+
+## 0.3.0
+
+首个公开发布版。包名换成 `dsh-prompt-enhance-cn`：npm 上 `dsh-prompt-enhance` 与 `dsh-prompt-enhancer` 都已被功能无关的其它包占用，只能另起名。仓库也从上游 fork 地址搬到 [qwe3120695033/prompt-enhancer](https://github.com/qwe3120695033/prompt-enhancer)，本插件位于该仓库 `dsh-plugin/` 子目录。
+
+默认快捷键从 `ctrl+shift+alt+a` 改成 **`ctrl+shift+alt+e`**：Windows 热键程序和这个插件默认会抢同一个组合键，两个都装的人只有错开才都能用；想让所有 agent 共用一个键的，按 README 里那一段把 `DeepSeek Harness` 移出热键白名单即可。
+
+功能层面这一版就是下面「本地分支」全部内容的定稿：四档位（基础 / 标准 / 专业 / 系统）、输入框档位胶囊与「结合上下文」开关、一键直填与 `Ctrl+Z` 撤销、面板预览、按档位取上下文。其中**基础档走模型做轻度整理**是最后一次调整——原先的纯本地规则管线只能归一空格、改两个口头禅，遇到病句和语序错乱无能为力，现在改由 `[BASE]` 段约束模型：理顺语序与连接词、补全标点与分段、修错别字，不扩写、不新增任务要求。
+
+`peerDependencies` 里的 `@deepseek-ai/dsh-llm` 保持可选；`dsh.engines.dsh` 仍是 `>=0.1.1-rc.2 <0.3.0`，即已实测过的区间。
+
+## 本地分支（未发布，基于 0.2.7）
+
+本地分支：把上游的单套内置策略换成**四档位**（基础 / 标准 / 专业 / 系统），并把档位做成输入框里的常驻控件。基于 `rongxingda/dsh-prompt-enhance@0.2.7`（Apache-2.0，保留授权与署名）。
+
+**基础档回归模型（本轮，回退上一轮的本地整理）。** 上一轮把 `基础` 做成了 `src/local-rewrite.ts` 的确定性管线（不调模型、不占限流与并发位、provider 没配也能用）。实际用下来这不成立：「理顺语序」本身就是模型的工作，纯规则只能归一空格加两个口头禅，遇到病句、缺主语、连接词错乱一概无能为力，反倒把「基础」做成了一个比原稿还僵的版本。现在四档一律走模型，基础档靠 `[BASE]` 段约束成**轻度整理**——理顺语序与连接词、补全缺失标点与空格与分段、修错别字，不扩写、不新增任务要求、不主动加标题与分点。配套三处：① `enhance-routes.ts` 删掉 `localOnly`，全部请求走准入闸门与并发计数（不再有免检通道）；② `orchestrate.ts` 删掉基础档短路，`local-rewrite` 在本插件内只剩对外导出，不再参与增强；③ `validate_output` 侧（热键层）新增 1.5 倍篇幅护栏，扛住模型擅自扩写。`[COMMON]` 里「短指令应当展开」那句加了「标准档及以上」限定，否则基础档会被这两条规则对撞。
+
+**规则真源唯一。** 档位措辞不在插件里手写：仓库根 `core/rules.md` 是唯一真源（与 Windows 热键层共用同一份文件），`npm run gen:tiers` 把它按 `## [SECTION]` 切成 `src/generated/tier-rules.ts`，`npm run build` 先跑 `--check`，生成物落后于规则文件即失败。四档共用 `[COMMON]` 段，因此保真底线、不编造、只输出正文、Skill 占位符（`__PO_SKILL_0001__`）原样保留这些约束不随切档丢失。
+
+**输入框控件。** `conversation.input.right` 槽位里新增档位胶囊（位于 ✨ 左侧，显示 基/标/专/系），点开是四档（每行右端一颗圆点＝设为默认）+ 「结合上下文」开关（同样带一颗圆点）。切档只改选择、不发请求；设默认档经 `settingsScope.set('defaultTier', …)` 写回宿主配置并热生效。
+
+**两层选择状态。** 持久默认（`defaultTier`）+ 每会话覆盖，一次专业档不会悄悄改掉以后所有会话。上下文开关同样两层：切档时套用该档预设（基础永不带上文；标准 4 条 / 3000 字；专业与系统 12 条 / 6000 字），之后可当场覆盖当前会话，且预设与 `contextMaxMessages` / `contextMaxChars` 取较小值。
+
+**协议扩展。** `EnhanceRequestBody` 增加可选 `tier` 与 `useContext`；二者都做宽容窄化——未知档位回落到配置默认而不是拒绝（档位只改措辞），非布尔的 `useContext` 视为未提供。日志行加上 `tier=`。
+
+**默认快捷键改为 `ctrl+shift+alt+a`**，与本机 Windows 热键层一致；档位真源仍共用 `core/rules.md`，两者不会在措辞上分叉。
+
+**新增脚本。** `npm run install:profile` 把 `lib/ src/ package.json cordis.patch.yml …` 同步进 DSH profile 的 `node_modules/dsh-prompt-enhance`（profile 里是实体目录而非软链，改完必须同步）。`npm run verify:profile` 逐文件比对仓库构建物与 profile 拷贝的 sha256，不一致退出 1 并说明两种可能：忘了同步，或 profile 里跑过一次 `pnpm install` 把上游 0.2.7 装了回来。宿主半区改动重启 DSH 生效，客户端改动刷新页面生效。
+
+**复验修复（同轮）。** ① 插件设置里的「上下文感知」恢复为真正的总开关：关掉后宿主拒绝所有按次传入的 `useContext`，胶囊上的勾选状态也随之显示为关并禁用；② 基础档的上下文行一并锁住并给出档位专属说明（该档规则禁止扩写，读取历史会让它和规则打架），不再出现「勾上却无效果」；③ 档位列表由 `role="menu"` 改为 `role="radiogroup"` + `role="radio"`——同一个弹层里还有复选框和按钮，`menu` 容器不允许这些子元素；④ 弹层改为贴右边缘展开（`right: 0`），胶囊位于输入框右端，向左展开才不会溢出视口；⑤ 没有绑定 settings 服务时不再假装写入成功（本版改为：默认档仍记在本地 `localStorage`，只是不写宿主那份 `defaultTier`）；⑥ `install-profile.mjs` 识别 `link:` 依赖，遇到软链不覆盖（并注明不要改成 `link:`：那会让 `@deepseek-ai/dsh-llm` 解析到本仓库 devDependencies 的另一份实例，cordis 服务身份会冲突）。
+
+**基础档改为真正的本地整理（上一轮，已被本轮回退）。** 之前四档里的 `基础` 只是换成一段「只轻度理顺」的模型指令——仍然要联网、要等首字、要计费，与这套工具最初「基础档零 token」的定位不符。于是 `基础` 在宿主侧直接走 `src/local-rewrite.ts` 的确定性管线，**完全不调用模型**：保护 `$skill-name` 调用 → 保护围栏代码块与行内代码 → 归一空格、修两处口头禅（`咋`→`怎么`、`啥`→`什么`）、给最后一行自然语言补句末标点 → 还原代码与 Skill token。四个直接后果：① provider/model 没配也能用（不再报 `unconfigured`）；② 结果即时返回，没有首字等待；③ 不占限流窗口与并发位——那两道闸门是为上游模型设的，本地整理不消耗上游配额；④ 幂等，重复点 ✨ 不会越改越走形。另补两个拒绝分支：草稿里**只有 Skill 调用、没有需求描述**时报 `error.tokensOnly`（不为空需求花一次调用），空草稿仍走原来的空输入提示——两者措辞不同，因为修法不同。⚠️ **本轮已回退**：纯规则改不动病句与语序，见本节第一条。
+
+**增强中的反馈（本轮）。** 直填模式下没有预览面板，点亮 ✨ 后唯一的动静是按钮图标——而在 1～4 秒的模型延迟里，那看起来就是「点了没反应」。改动三处：① 按钮忙碌态不再旋转 `◌`（这个字形旋转对称，转起来等于没转），换成真正在转的圆环 `.dsh-pe-ring`；② 直填运行期间在输入框上方的 dock 行显示「正在增强… + 已用秒数 + 取消」——秒数每秒刷新，证明这次调用还活着，✕ 直接中止，且**中止不算失败**（不报内部错误、不弹提示）；③ 面板档（系统档）不显示这一行，那边的加载面板本身就是进度指示，两处同时报会让人以为发了两个请求。
+
+**一键直填（本轮）。** 点 ✨ 不再一律弹预览：基础 / 标准 / 专业三档直接**原地替换输入框草稿**，结果落地后在输入框上方留一行「已替换 + 撤销」提示。只有**系统档**仍开对话框——八段系统提示词改的是整个 agent 人设，值得先看一眼再落。四条护栏：① 直填**不以增量形式写框**，整段结果到齐后一次性替换（理由见下一条），等待期间由按钮圆环与 dock 行的已用秒数证明调用还活着；② 用户在飞行中自己改了草稿 → 结果转进预览面板等显式「回填」，绝不覆盖用户刚打的字；③ 失败时输入框**一个字符都没被动过**，无需回滚，错误走同一行内联提示，点 ✕ 关闭；④ **Ctrl+Z** 回退上一版——仅当焦点在输入框内、且框里仍是增强填入的那段文字时生效（`ui.undoTarget()` 返回 false 就不拦事件，在设置页或普通字段里按 Ctrl+Z 照旧撤销逐字输入），提示行里的 `撤销` 链接与 Ctrl+Z 等效。
+
+**临时档位与默认档分成两个动作（本轮）。** 之前「选一档」和「设为默认」是下拉里的两类控件：点一行＝会话临时，再点底部按钮＝改成默认，而这两件事经常要在同一次访问里做完，底部按钮又只在弹层可见时才有意义。现在合并成一行两件事：**点整行 = 只在本会话用**（弹层不关，底部一行说明「本会话临时使用 X，关闭 DSH 后回到默认档」），**勾该行右端的单选 = 设为默认档**（立即写 `localStorage` 并尽力 `settingsScope.set('defaultTier', …)` 写回宿主；没绑 settings 服务时本地默认照存，只是宿主那份落后）。系统档的单选 `disabled`，标题说明为什么（八段人设做默认会把每次增强都变成人设重写，Windows 热键层的 `set_default_tier` 同样拒绝）。
+
+**两层状态各自落盘（本轮）。** 默认档进 `localStorage`（`…:default-tier:v1`，跨重启），会话临时选择进 `sessionStorage`（`…:session-picks:v1`，刷新存活、关 DSH 即释放，最多 64 个会话）。同时修掉键漂移这个真根因：dsh 0.1.2-rc 起输入槽标准 props 里已没有 `sessionId`，此前一直退化成「按 `inputActions` 现场铸一个 `pe:zone:N`」——而它每次刷新都变，存下的选择永远匹配不回来，于是「改了不结合上下文，回来又变回去」。现在 `session-key.ts` 优先读 composer owner share 的 `session.sessionId`（`InputZone.session: ConversationSnapshot`），有真 id 才用它做键。
+
+**逐字写框改为整段替换（本轮）。** 早先直填走流式、把增量一个个 `setDraft` 打进输入框，看着像在打字，实际**每次增量都是一次完整的 `setDraft`**——composer 重渲染、高度重算、光标被推到末尾，稍长一点的重写会连续卡顿好几秒，还把用户正打算继续敲的输入框抢过去。现在直填三档只发一次性请求，结果到齐后整段替换，输入框在一次运行里**只被写一次**；面板档（系统档）保留流式，那边增量落在专用浮层里，不碰用户的编辑器。`streaming` 配置项仍在，只是对直填不再生效。
+
+**上下文圆点改为「你看到的就是默认」（本轮）。** 之前圆点的判定是「只要存了默认就点亮」，而 title 又拿**本会话实际值**去渲染「已固定默认：X」——于是默认固定成「开」、用户临时拨成「关」之后，提示会反过来写「已固定默认：关」，看着像拨开关把默认也改了。现在圆点统一成与档位行同一个含义：**勾着＝屏幕上这个状态就是默认**。判定改为 `useContext === effectiveDefaultContext(tier)`（新增导出：已存默认优先，否则该档预设），因此标准档一开始圆点就是亮的——它的预设本来就是新会话的默认；一拨方框立刻变空，底部多一行说明「本会话临时改为关，默认仍为开；点圆点可把当前状态设为默认」。点圆点＝把当前状态写成默认，点在同状态上＝取消固定、回落到档位预设。**拨方框永远只写 `sessionStorage` 的本会话选择，一个字节都不会碰默认值。**
+
+**会话选择现在跨刷新存活（复验轮）。** 档位与会话级的「结合上下文」开关原先只存在模块内存里，而客户端 bundle 每次刷新页面都会重新执行——于是「把它关掉」这件事在下一次刷新（装插件、改配置、任何一次更新）就悄悄失效，看起来像设置被无视。现在两者都写进 `localStorage`（`dsh-prompt-enhance:overrides:v1`，最多保留 64 个会话，最久未动的先淘汰），刷新后原样恢复；存储被策略挡住或配额满时静默退回旧行为，不阻断输入框。`clearOverrides()` 也顺手清空存储，否则「重置」只撑到下一次刷新。
+
+**系统档不再可设为默认档（复验轮）。** 先前胶囊里的「设为默认档」不判档位，而 Windows 热键层的 `set_default_tier` 明确拒绝系统档——同一套规则在两个入口给出相反的答案。现在系统档下该位置换成一句说明：系统档改的是整个人设，做默认会把每次增强（含热键与 `/enhance`）都变成人设重写。
+
+**已知差异（不打算改）。** 插件不实现 `core/rules.md` 的 `[ITERATE]` 段与 `@iter:` 元指令：对输入框里已是上一版的文本再点一次 ✨ 就是迭代，天然带上下文；补 `@iter:` 要连「元指令不许出现在输出」那一整套护栏一起搬，收益不抵成本。热键层仍保留 `@iter:`。
+
+## 0.2.7 (2026-09-30)
+
+Documentation-only version bump; `src/` and `lib/` are identical to 0.2.6 and the shipped bundles are unchanged.
+
+Carries the corrected record of the `0.2.0-rc.2` verification. 0.2.6's notes described that verification as having happened on the global CLI, which understated it: the environment the plugin is actually used in day to day is the dsh **desktop application**, whose `FileVersion` is `0.2.0-rc.2` as well. Both hosts were exercised, and both READMEs now say so. Nothing about the supported range changes — it remains `>=0.1.1-rc.2 <0.3.0`.
+
+## 0.2.6 (2026-09-30)
+
+Verified on the `0.2.x` runtime — including the dsh **desktop application** at `0.2.0-rc.2`, which is the environment the plugin is actually used in day to day. No runtime behavior changes.
+
+**`dsh.engines.dsh` is now `>=0.1.1-rc.2 <0.3.0`.** 0.2.5 deliberately capped the range at `<0.2.0` because `0.2.0-rc.1` / `0.2.0-rc.2` had never been exercised. They have now been, on two hosts running `0.2.0-rc.2` — the desktop app (`D:\deepseek\DeepSeek Harness.exe`, FileVersion `0.2.0-rc.2`) and the global CLI — both completing a real enhancement against a live profile:
+
+- it is **not** listed among the bundles the new runtime refuses (`dshmarket@1.45.0`, `dsh-find-plugin@0.4.0`, and `dsh-better-sidebar@0.15.2` are skipped as peer-incompatible; this plugin passes that gate, thanks to the `>=0.1.1-rc.2` optional `@deepseek-ai/dsh-llm` peer from 0.2.4);
+- no `pending (waiting for service: …)` and no `1 entry did not activate` — the "hard-require nothing" fix from 0.2.3 holds on the new runtime too;
+- the host route answered successfully against the live model (`[prompt-enhance] … out=64 … ok`).
+
+The ceiling moves to `<0.3.0`, which covers the whole `0.2.x` line including its prereleases (`0.2.0-rc.2`, `0.2.1-rc.1`, …) while still refusing a `0.3.x` that has never been seen. Note that `dsh.engines` is advisory metadata for the loader and the plugin manager, not an enforcement gate.
+
+## 0.2.5 (2026-09-30)
+
+Two metadata corrections; no runtime behavior changes.
+
+**`dsh.engines.dsh` is now bounded: `>=0.1.1-rc.2 <0.2.0`.** It previously read `>=0.1.1-rc.2` — an open-ended claim that *any* future harness version is supported, which the project cannot back: boot verification covers `0.1.1-rc.2`, `0.1.2-alpha.3`, and `0.1.7-rc.2`, while the current npm line is already `0.2.0-rc.2`. The ceiling states what has actually been exercised. `<0.2.0` (rather than `<0.1.8`) is deliberate: per semver, a prerelease only matches a range that names a prerelease, so `<0.1.8` would have **excluded the verified `0.1.7-rc.2`** — the exact version the range must keep. `<0.2.0` keeps every `0.1.x` and excludes the unverified `0.2.0-rc.1` / `0.2.0-rc.2`. Widening it after a successful 0.2.x boot is a one-line change; both READMEs now say so and invite reports.
+
+**`dsh.client.inject` no longer lists `@deepseek-ai/dsh-client-ui-settings`.** That entry dated from the layout in which the browser half hard-declared the settings surface — the declaration that produced `web boot: 1 entry did not activate` on a profile without it. The half now reaches `settingsScope` (and `slots`, `locale`) through optional `ctx.inject`, so the module no longer belongs in the required-provider list.
+
+## 0.2.4 (2026-09-30)
+
+Packaging-only follow-up to 0.2.3; no runtime behavior changes.
+
+**`@deepseek-ai/dsh-llm` is now an optional peer with a satisfiable range.** 0.2.3 declared it as `^0.1.1-rc.2`, which no published version can satisfy — the registry serves `0.0.1-rc.1`, one minor below the range — so every install produced a peer warning that could not be resolved, and npm could offer to pull a version whose API does not match. The module is in fact a **runtime module supplied by the dsh host**: both `lib/` bundles keep every package import external and the loader satisfies it in-process, so it is not installable from npm by design. The range is now the honest floor (`>=0.1.1-rc.2`, matching the `dsh.engines.dsh` floor) and the entry is marked `optional` in `peerDependenciesMeta`; the react / react-dom peers stay required. Both READMEs' Requirements sections state where the module comes from.
+
+## 0.2.3 (2026-09-30)
+
+Four real defects fixed — two of them long-standing, two surfaced only by running the plugin against a live `dsh web` host. Patch release: no feature, config, or API additions, and no behavior change on a host that already worked.
+
+**Upstream fix hints never appeared (`error.upstream.<reason>`).** The host sends `reason` in kebab-case (`invalid-credential`, `rate-limit`, `context-window`, `tool-call`, `max-tokens`) while the dictionaries key those hints in camelCase (`error.upstream.invalidCredential`, …). Building the key as `` `error.upstream.${reason}` `` therefore matched only the three single-word reasons (`auth`, `quota`, `empty`) and silently fell back to the generic line for the other five — the specific copy was shipped but unreachable. `UPSTREAM_ERROR_KEYS` is now an explicit, literal-typed table (`PromptEnhanceKey`), covered by a key-set test plus a per-reason render test on the real panel.
+
+**The streamed route never ended its response.** `/prompt-enhance/enhance-stream` wrote its `done` frame but never called `res.end()`, so the chunked body lacked its `0\r\n\r\n` terminator and the connection stayed half-open: a browser client survived only because it returns on the `done` frame and cancels its reader, while any whole-body consumer (`response.text()`, curl, a reverse proxy, a logging middleware) waited forever and keep-alive could never reuse the socket. The route now ends the response after the final frame, guarded against a client that vanished mid-stream. Locked by SSE end-to-end tests that read the body to completion.
+
+**The plugin could take the whole web boot down.** The browser half declared `settingsScope` in its exported `inject`. Cordis loads a plugin *only while every service named there is available*, and that service belongs to the optional settings surface (`@deepseek-ai/dsh-client-ui-settings`), which a minimal profile need not bundle — so the entry sat `pending` forever and the shell reported `web boot: 1 entry did not activate` on a blank page. The half now hard-requires nothing: `slots`, `locale`, and `settingsScope` all ride optional `ctx.inject`, and `apply()` itself touches no service. Degradation is graceful — no settings surface keeps the bundled default mirror, no locale service renders dictionary keys.
+
+**A missing host field unmounted the composer button.** `EnhanceButton` read `state.imageIds.length` and `state.occurrences.length` directly. Those fields are part of the input snapshot in the dsh lines the plugin was written against, but a slot host is not obliged to expose them; reading `.length` off a missing field throws *during render*, and React answers that by unmounting the entire slot entry behind its error boundary (`slot entry crashed in 'conversation.input.right'`) — the composer silently lost the button while the console filled with one repeated stack trace. Both counts, plus `draft`/`phase`, are now read defensively; an absent field only disables the corresponding advisory guard, never the feature.
+
+**Also:** new SSE frame writer with real socket backpressure (`src/sse.ts`) so a slow reader cannot make the socket buffer grow without bound; the context window budget uses the same Unicode code-point gauge as the input cap and truncates without splitting surrogate pairs; `resolveConfig` normalizes a blank `provider`/`model` pair to `undefined` instead of a surviving `''` that downstream read as "an override exists"; the cross-session busy state uses `aria-disabled` with a readable reason instead of a silently disabled button; `ResultPanel`'s focus restore no longer hands focus straight back out under StrictMode; `peerDependencies` now includes `react-dom` and `@deepseek-ai/dsh-llm`; `files` includes the `docs/` screenshot the READMEs reference; CI runs the Node floor (`22.19`).
+
+Tests: 207 across 20 files (new: locale key-set integrity, per-reason error copy, 10 SSE writer units, SSE route end-to-end, boot under a service-less host, and render under a host input state without `imageIds`/`occurrences`).
+
+## 0.2.2 (2026-09-27)
+
+Forward compatibility with the current dsh line (`0.1.5-rc.3` / `0.1.7-rc.2`). On those hosts every enhancement failed with HTTP 502 — this is a bug fix, not a feature: no API, config, or dependency changes, and no behavior change on any already-supported host.
+
+**Default model route.** `defaultRouteOf()` resolves the harness-wide selection through three shapes, tried in order, where each miss means "try the next" and never "fail the enhance request": (1) the `agentDefaultModel` service fetched by name via `ctx.get` and read through `currentSelection()` (dsh >= `0.1.5-rc.3`); (2) the same service reached as a context property, for hosts that inject it for us; (3) the legacy synchronous `settings.get('agent-default-model')` namespace read (<= `0.1.2-rc.1`). `ctx.get` deliberately precedes the property read: cordis raises `cannot get property "agentDefaultModel" without inject` when a property is read without declaring the dependency, and declaring it through `inject` is not survivable for a cross-version plugin — hosts without the service would then never activate the plugin at all. Both the property access and the `currentSelection()` call are individually guarded.
+
+**Store reads.** A new `serviceEntry(ctx, service, key)` helper guards the whole cordis store handshake — service present, `get` actually a function, call wrapped — and `sessionRouteOf()` / `conversationContextOf()` now read sessions through it. A structural interface can promise `get`; only a runtime existence check keeps that promise honest, and a missing reader must degrade to "no entry" instead of `ctx.get(...)?.get is not a function` on the critical path of every request.
+
+Without this change the failure was absolute rather than partial: the route resolution ran on every enhance call, so a single unsupported service shape turned the whole plugin dark.
+
+Verified on a real `0.1.7-rc.2` profile: the layer mounts with zero errors, `POST /prompt-enhance/enhance` reaches the configured LLM (the `Insufficient Balance` response came from the upstream account, which proves model routing worked end to end), `/prompt-enhance/enhance-stream` returns well-formed SSE, and a hostile Origin still gets 403. Docs now list `0.1.7-rc.2` among the boot-verified lines.
+
+Tests: 169 (new regression: settings service without a synchronous reader degrades, sessions store without a reader degrades, selection via property, `ctx.get` preferred over the property, fallback to the legacy namespace, a throwing `currentSelection`, and the cordis `without inject` throw).
+
+## 0.2.1 (2026-09-08)
+
+Internal hardening from the 0.2.0 self-audit — three performance fixes with no behavior change, a privacy clarification in the docs, and a devDependency cleanup. No new features, no config changes.
+
+**Performance.** `checkInputText` now walks the draft once by code point, counting characters and stripping invisible characters in the same pass — the old path allocated a full spread array per validation (`[...text]`, 12 k elements on a maximum-size draft) and then re-scanned with a regex. The rate-window expiry loop in the host route no longer `shift()`s expired stamps one at a time (O(N²) in the worst case at `rateLimitPerMinute = 600`); it finds the first surviving stamp and drains the expired prefix with a single `splice`. `appendDelta` on the browser side now coalesces same-turn deltas into one microtask flush, so a fast model pushing 100+ tokens/s triggers one React re-render per tick instead of one per token — synchronous reads of `getPanel().streaming` between the call and the flush intentionally return the previous value.
+
+**Docs.** The `contextAware` row in both READMEs and the Security Model section now state plainly that with the switch on, the plugin ships up to `contextMaxMessages` turns / `contextMaxChars` characters of the current conversation to the configured LLM verbatim — users with secrets in the active session should turn it off or scope the session first.
+
+**Dependencies.** `@deepseek-ai/dsh-agent` and `@deepseek-ai/dsh-client-runtime` are dropped from devDependencies: `src/` has had zero references to either since the 0.1.10 dual-compat rework (the `slots` / `sessionId` types they carried are satisfied at compile time through the remaining `dsh-client-ui-*` packages, and at runtime by the host itself). No change to `dependencies`, `peerDependencies`, or `engines.dsh`.
+
+Tests: 163 (new regression: 50 same-turn deltas → one `notify`, not 50).
+
+## 0.2.0 (2026-09-08)
+
+Two additive features — context-aware rewrite and incremental output — plus the `stream-text` normalizer hardening those features depend on.
+
+**Context-aware enhancement.** The host now grounds the rewrite in the current conversation: the latest `user`/`assistant` turns (capped by `contextMaxMessages` and `contextMaxChars`) are pulled through `Session.deriveMessages()` (or fall back silently), chosen newest-first inside the character budget, trimmed of `<conversation_context>` framing forgery, and assembled into a `<conversation_context>` block alongside the `<raw_prompt>` user message. Every failure mode (no session, no history, overflow, host throw) yields `undefined` and the call degrades to the original single-prompt enhancement — context is an optimization, never a prerequisite. Hard rules ride along only when context is supplied, so context-free calls keep byte-identical instructions; an explicit `(~250 字中文提示词]` clarifying clause on the model side forbids inventing anything the raw prompt does not support, forbids contradicting user intent, and forbids using the snippet to override the user's explicit constraints. New `Config.streaming` / `Config.contextAware` / `Config.contextMaxMessages` / `Config.contextMaxChars` (all defaulted + schemastery-described); `ClientSettings.streaming` mirrors the streaming default for the browser half.
+
+**Incremental output.** The host route gains `/prompt-enhance/enhance-stream` (SSE, `text/event-stream` with `cache-control: no-cache, no-transform` and `x-accel-buffering: no` so proxies do not buffer it into one blob), shipping the same normalized final body as `done` frames plus per-chunk `delta` frames. The browser half auto-detects streamable responses (`Accept: text/event-stream` + non-empty body) and falls back to the one-shot JSON route when the host or network does not support it — the public API stays one `requestEnhance`. Display-side normalization (`src/shared/stream-text.ts`) withholds a leading fence opener until the newline arrives and absorbs the trailing line break that belongs to a withheld closing fence, so the panel never flashes a blank line ahead of an unwritten closer.
+
+**Other changes.** `EnhanceButton` honors `settings.streaming` (default on) when calling the host; `ui-state` adds a `streamingText` partial body, `appendDelta`, and `settleStreamedResult` for the streamed path. The test base grows to **162** (12 context-window selection, 9 incremental-text normalization, 6 client streaming, plus expanded config / client-settings / component coverage and tightened assertions on the `/enhance` route through `sessionRouteOf`).
+
+## 0.1.11 (2026-09-08)
+
+Fix a defect in the 0.1.10 dual-compat fallback that made the undo bar unreachable on `0.1.2-rc.1`. The two client entries — `EnhanceButton` (`conversation.input.right`) and `UndoBar` (`conversation.input.dock`) — are separate component trees, but the fallback id was minted per component instance, so without a host `sessionId` the button pushed its undo entry under one key (`pe:1`) while the bar peeked another (`pe:2`): apply succeeded, yet the undo affordance never appeared.
+
+`useSessionKey(sessionId, inputActions)` now anchors the fallback on the host's `inputActions` — the same object is handed to every slot of one input zone and is documented as stable per Session — so both halves of one composer resolve the same key via a `WeakMap`. When the host id is present the host id is still used verbatim (unchanged `0.1.1-rc.2` behaviour, and it now follows the prop live rather than freezing at mount). `useCallback` deps in `EnhanceButton` follow the rename (`uiKey`, plus `wireId` for the id actually sent).
+
+Tests: 134 (new rc.1 component regression: `sessionId` absent → route receives `undefined`, apply → undo bar appears → undo restores the original — the exact loop that was silently broken).
+
+## 0.1.10 (2026-09-08)
+
+Dual-host compatibility across the dsh `0.1.1-rc.2` and `0.1.2-rc.1` client API split, with no `package.json` / `engines` change (`engines.dsh` already covers both).
+
+- **Client session key** (new `src/client/session-key.ts`): the input slot owner share (`SessionStandardProps`) carried a `sessionId` on `0.1.1-rc.2`, which `0.1.2-rc.1` dropped (the snapshot hooks `useConversation` / `useInput` / `inputActions` remain). `EnhanceButton` / `UndoBar` now key their panel, undo stack, and shortcut target by `useSessionKey(sessionId)` — the host id when present, otherwise a stable per-mount fallback — so the UI stays correct on both lines. The host route receives the real id only via `serverSessionId(sessionId)`; on `0.1.2-rc.1` it is `undefined`, which degrades to the harness default model route (`sessionRouteOf` undefined branch) — the documented fallback.
+- **Settings registration**: the existing `installSettingsSectionCompat` already probes `ctx.settings.installSection(owner, ns, schema, entry, hooks)` (the `0.1.2` service method) versus the legacy standalone `installSettingsSection` / `settingsNamespace` helpers (the `0.1.1-rc` line, reached through a dynamic import); both paths are exercised by the existing tests. `dsh-client-runtime` stays a devDependency for its cordis declaration merging (`slots` / `sessionId` types), which the `0.1.2` host still satisfies at runtime via `dsh-cordis-client-runner`.
+
+No user-visible behavior change on `0.1.1-rc.2`; the `0.1.2-rc.1` line gains a working client (per-session model routing is unavailable there because the host no longer exposes the session id to the input slots).
+
+## 0.1.9 (2026-09-01)
+
+Fix a silent no-op in the per-session route-priority layer: `Session.requestHeader` is a method on both dsh generations (`requestHeader(): EpochHeader | undefined`), not a property, but `sessionRouteOf()` read it as a field — so the lookup always saw `undefined` and fell through to the default route. The test mocks shaped it as a property, which is exactly why they passed while the real runtime path was dead. The read now probes at runtime (call it when it is a function, otherwise use the value), and `SessionsFace` reflects both shapes. The client half also dropped its leftover type-only empty imports of the removed `dsh-client-runtime` / `dsh-client-ui-conversation` client entry points, and `ClientContext` now resolves from `@deepseek-ai/cordis` directly (the `dsh-client-runtime` devDependency stays for its cordis declaration merging).
+
+Tests: 132 (method-shaped mock, method returning `undefined`, defensive property-shaped value, and a new 7-case `/enhance` command suite — empty arg, disabled, over-length, success, error mapping, missing `commands` service skip, `recordInput`).
+
+## 0.1.8 (2026-09-01)
+
+Compatibility fix found by testing the plugin on a real 0.1.2-alpha.3 harness, not by inspection: `@deepseek-ai/dsh-settings` moved its registration API — the alpha line dropped the standalone `installSettingsSection()` / `settingsNamespace()` exports and exposes the same wiring as `ctx.settings.installSection(owner, ns, …)`. Because the host half imported those names statically, the plugin failed at module load with `SyntaxError: … does not provide an export named 'installSettingsSection'`, taking the whole web profile down; 0.1.7 fixed the inject list but still crashed there.
+
+Registration now goes through `ctx.inject(['settings'])` — the service-availability gate both generations use internally — with a runtime probe picking the API the mounted service speaks, and the legacy helpers reached through a dynamic import so an alpha build never evaluates the removed names. Verified on a real alpha.3 profile: the layer mounts, the route answers, the client bundle builds with all four injected packages resolved, and the settings service (`dsh-settings-file`) is present so the alpha branch is the one taken.
+
+Tests: 122 (alpha `installSection` branch, legacy standalone-helper fallback, no-service case, and a load-time guard that fails if a static import of the removed names ever comes back).
+
+## 0.1.7 (2026-09-01)
+
+Compatibility fix for the 0.1.2-alpha harness cohort, reported in the upstream market review (zhu1090093659/dsh-web#1282): `@deepseek-ai/dsh-client-runtime` was removed upstream (it never published an alpha), so its entry in `dsh.client.inject` failed to resolve on alpha hosts and the plugin would not load. The entry is gone from the inject list — the browser half only ever used the package as a type-only import (`import type`), and the compiled `lib/client.js` has zero runtime references to it, so nothing changes at runtime. The remaining 4 injected packages all publish alphas and stay. `engines.dsh` tightens from `>=0.1.1-rc.1` to `>=0.1.1-rc.2`, the version actually tested (rc.1 predates the runtime package). The devDependency is kept for compile-time type checking only.
+
+## 0.1.6 (2026-08-31)
+
+Errors are now structured: the host sends `{ code, params?, message? }` where `message` is only an optional diagnostic detail (provider raw text, config errors) — the browser renders its localized primary line from `code`/`params` via the locale dictionaries, so non-Chinese UIs no longer see Chinese host copy. `upstream` errors carry an optional `reason` (auth / quota / rateLimit / empty / contextWindow / toolCall / maxTokens / invalidCredential) that picks a specific fix hint; over-length rejections carry `{ count, max }` and reuse the too-long input message. A host-side `formatEnhanceError()` renders the same errors for the `/enhance` command plane, which has no browser dictionary.
+
+Rate limiting counts successful calls only: a stamp lands after the 200 is written, so a run of failures (timeouts, upstream errors, cancellations) no longer burns the user's per-minute window and locks them out right when the model recovers. The concurrency cap still bounds in-flight calls regardless of outcome. `Retry-After` and the `rate-limit` params stay in sync.
+
+Undo stack: the per-session store now has a global entry cap (default 60) with least-recently-written-session eviction, so many long-lived sessions cannot accumulate undo entries without bound (per-session depth 3 unchanged).
+
+Docs: error-code reference table, troubleshooting section, and the success-only rate-window semantics in the zh README; the browser half's single-panel concurrency (1 in-flight request) vs the host `maxConcurrent` cap is documented rather than changed.
+
+Tests: 118 (failed calls do not consume the rate window, structured error params, host-side error rendering, undo-stack global-cap eviction).
+
+## 0.1.5 (2026-08-31)
+
+Features: a `strategyMode` setting (`replace-default` | `extend-default`, default `replace-default` for backward compatibility) — a non-empty custom `systemPrompt` either swaps the built-in strategy out entirely (`replace-default`, the earlier behavior) or is appended after it (`extend-default`), so the built-in hard rules stay in force. Host call logs no longer record the provider/model route, which can carry internal gateway or project identifiers — request id and sizes only.
+
+Security/resource: `Content-Length` fast reject answers `413` before a single body byte is read (the streamed cap stays as the chunked-body backstop), and the connection closes after the refusal so a declared-but-never-sent body cannot pin the socket open. Re-applying the plugin on one context no longer stacks a second admission gate, which would have silently doubled the effective limits. The rate cap and the concurrency cap now answer distinct codes (`rate-limit` / `concurrency-limit`) — the rate branch sends a precise `Retry-After` computed from the sliding window; the concurrency branch sends none, because a busy slot frees whenever an in-flight call settles.
+
+Consistency: input lengths are counted by one shared `countText()` (Unicode code points) everywhere — validation, error copy, and host logs no longer disagree on emoji or composed characters; copy now says 字符/characters and states it is a character count, not a token count.
+
+Docs: single-process scope of the admission caps, undo-stack lifecycle (page memory, 3 per session), the `strategyMode` combination semantics for `systemPrompt`, request-level timeout ownership (host/Node, not the plugin), and a corrected 0.1.2 note on oversized bodies.
+
+Tests: 112 (Content-Length fast reject, no-Origin local caller, concurrency slot returned after a mid-flight disconnect, one gate per context, degenerate and attacker-shaped Origins, localhost look-alike Hosts, code-point counting, strategy modes).
+
+## 0.1.4 (2026-08-29)
+
+Security/resource: `Origin` gate on the enhance route (cross-site fire-and-forget POSTs are refused), host-side concurrency cap (`maxConcurrent`, default 2) and sliding-window rate limit (`rateLimitPerMinute`, default 10) answering `429`, structured single-line call logs (request id, route, input/output sizes, error code — never the prompt text), `X-Forwarded-For` / `Forwarded` requests refused.
+
+Robustness: `resolveConfig` deep runtime validation (types, finiteness, ranges, integrality) with provider/model stored trimmed; strict client envelope parsing (provider/model/elapsedMs validated, unknown error codes normalized); input length counted in Unicode code points; single-line and CRLF fence normalization.
+
+Docs: security and language-consistency statements softened to best-effort wording, compatibility matrix, install smoke checklist, `/enhance` cancellation note, evidence-binding rule in the default strategy.
+
+Tests: 97 (admission gate 429s, Origin gate, deep config validation, route-resolution trimming, single-line/CRLF fences, code-point counts).
+
+## 0.1.2 (2026-08-29)
+
+Security: `Host` header allowlist on the enhance route (defeats DNS rebinding), `cache-control: no-store`, `<raw_prompt>` framing neutralizes literal closing tags, Security Model docs section (en/zh).
+
+Usability: light theme via theme-scoped variables + `prefers-color-scheme`, server errors localized by stable code with the host message as detail line, shortcut parsing requires at least one modifier, dialog accessibility (`aria-modal`, focus trap, IME-safe Escape).
+
+Fixes: applying over a draft edited during the request keeps the current draft restorable via undo (plus a stale-content warning both ways), busy-click no longer orphans the running request, disconnect abort uses a version-safe `res.close` + `writableEnded` guard, timed-out streams finalize their iterators, oversized streamed bodies answer `413` without destroying the connection (the route still owes the client a deliverable response), route validates its exact path, disabled state short-circuits before body read, unknown legacy config keys stripped, multi-session shortcut fallback.
+
+Tests: 78 (component suite with jsdom/RTL, real-socket disconnect regression, loopback/Host fence units, prompt-framing units). Shared orchestration extracted (`orchestrate.ts`).
+
+## 0.1.1 (2026-08-29)
+
+Docs: bilingual README (English + 简体中文) with architecture walkthrough, configuration table, error matrix, development guide, FAQ; evidence screenshot; package metadata (keywords, repository, homepage).
+
+## 0.1.0 (2026-08-29)
+
+Initial release: composer enhance button (`conversation.input.right`), before/after preview panel, one-click undo bar (`conversation.input.dock`), `/enhance` slash command, configurable global shortcut, settings section rendered in Settings → 插件配置, host route via `ctx.llm` with model routing (settings pair → session model → harness default), 56 tests.

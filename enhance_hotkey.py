@@ -68,7 +68,7 @@ DEFAULTS = {
     "model": "deepseek-flash",
     "reasoning_effort": "none",
     "api_key_env": "DEEPSEEK_API_KEY",
-    "hotkey": "ctrl+shift+alt+a",
+    "hotkey": "ctrl+shift+alt+e",
     "allowed_processes": [
         "ChatGPT.exe",
         "codex.exe",
@@ -88,6 +88,7 @@ DEFAULTS = {
         "idea64.exe",
     ],
     "max_tokens": 700,
+    "max_tokens_base": 700,
     "max_tokens_standard": 900,
     "max_tokens_professional": 1200,
     "max_tokens_system": 1200,
@@ -858,6 +859,10 @@ def validate_output(source, output, mode, iteration, tokens, tier="standard"):
         phrase in output for phrase in BASE_REQUESTING_PHRASES
     ):
         problems.append("基础档索要了原文没有的材料")
+    if tier == "base":
+        limit = max(len(source) * 1.5, len(source) + 120)
+        if len(output) > limit:
+            problems.append("基础档扩写了正文")
     if not iteration and tier == "standard":
         if re.search(r"(?m)^\s*(?:#{1,6}\s+|\*\*[^*]+\*\*\s*$|[-*+]\s+)", output):
             problems.append("标准档输出成了结构化内容")
@@ -1000,200 +1005,6 @@ def clean(text):
     return out.strip()
 
 
-_BASE_CODE_TOKEN = re.compile(r"__PO_BASE_CODE_(\d{4})__")
-_BACKTICK = chr(96)
-_TILDE = chr(126)
-_BASE_FENCE_OPEN = re.compile(
-    r"^[ \t]*(?P<mark>" + _BACKTICK + "{3,}|" + re.escape(_TILDE) + "{3,})"
-)
-_BASE_FENCE_CLOSE = re.compile(
-    r"^[ \t]*(?P<mark>"
-    + _BACKTICK
-    + "{3,}|"
-    + re.escape(_TILDE)
-    + r"{3,})[ \t]*(?:\r?\n)?$"
-)
-_BASE_INLINE_CODE = re.compile(
-    r"(?<!"
-    + _BACKTICK
-    + ")(?P<ticks>"
-    + _BACKTICK
-    + "+)(?!"
-    + _BACKTICK
-    + ")(?P<body>[^\\n]*?)(?<!"
-    + _BACKTICK
-    + ")(?P=ticks)(?!"
-    + _BACKTICK
-    + ")"
-)
-_BASE_BLOCK_START = re.compile(
-    r"^[ \t]*(?:"
-    r"#{1,6}[ \t]+"
-    r"|[-+*][ \t]+"
-    r"|\d+[.)][ \t]+"
-    r"|>"
-    r"|\|"
-    r")"
-)
-_BASE_STRUCTURAL_LINE = re.compile(
-    r"^[ \t]*(?:"
-    r"#{1,6}[ \t]+"
-    r"|[-+*][ \t]+"
-    r"|\d+[.)][ \t]+"
-    r"|>"
-    r"|\|"
-    r"|[-*_]{3,}[ \t]*$"
-    r"|_{3,}[ \t]*$"
-    r")"
-)
-
-
-def _protect_base_inline_code(text, tokens):
-    out = []
-    index = 0
-    length = len(text)
-    backtick = ord(_BACKTICK)
-    while index < length:
-        if ord(text[index]) != backtick:
-            out.append(text[index])
-            index += 1
-            continue
-        run_end = index
-        while run_end < length and ord(text[run_end]) == backtick:
-            run_end += 1
-        ticks = text[index:run_end]
-        closing = text.find(ticks, run_end)
-        newline = text.find("\n", run_end)
-        if closing < 0 or (newline >= 0 and closing > newline):
-            out.append(ticks)
-            index = run_end
-            continue
-        tokens.append(text[index:closing + len(ticks)])
-        out.append("__PO_BASE_CODE_%04d__" % len(tokens))
-        index = closing + len(ticks)
-    return "".join(out)
-
-
-def _protect_base_code(text):
-    """保护围栏代码块与行内代码，返回占位文本和原始片段。"""
-    tokens = []
-    parts = []
-    plain = []
-    lines = text.splitlines(keepends=True)
-
-    def flush_plain():
-        if plain:
-            parts.append(_protect_base_inline_code("".join(plain), tokens))
-            plain.clear()
-
-    index = 0
-    while index < len(lines):
-        stripped = lines[index].lstrip(" \t")
-        marker_char = stripped[:1]
-        marker_len = 0
-        while (
-            marker_len < len(stripped)
-            and stripped[marker_len] == marker_char
-            and marker_char in (_BACKTICK, _TILDE)
-        ):
-            marker_len += 1
-        if marker_len < 3:
-            plain.append(lines[index])
-            index += 1
-            continue
-
-        flush_plain()
-        fence_char = marker_char
-        fence_len = marker_len
-        start = index
-        index += 1
-        while index < len(lines):
-            close_text = lines[index].strip()
-            close_len = len(close_text)
-            if (
-                close_len >= fence_len
-                and set(close_text) == {fence_char}
-            ):
-                index += 1
-                break
-            index += 1
-        block = "".join(lines[start:index])
-        if block.endswith("\r\n"):
-            block, suffix = block[:-2], "\r\n"
-        elif block.endswith("\n"):
-            block, suffix = block[:-1], "\n"
-        else:
-            suffix = ""
-        tokens.append(block)
-        parts.append(
-            "__PO_BASE_CODE_%04d__" % len(tokens) + suffix
-        )
-
-    flush_plain()
-    return "".join(parts), tokens
-
-
-def _restore_base_code(text, tokens):
-    def replace(match):
-        index = int(match.group(1)) - 1
-        if 0 <= index < len(tokens):
-            return tokens[index]
-        return match.group(0)
-
-    return _BASE_CODE_TOKEN.sub(replace, text)
-
-
-def base_cleanup(text):
-    """基础档的确定性轻量整理，不请求模型。"""
-    out, code_tokens = _protect_base_code(text or "")
-    out = out.strip()
-    lines = out.splitlines()
-    cleaned = []
-    for line in lines:
-        if not line.strip():
-            cleaned.append("")
-            continue
-        if re.match(r"^[ \t]*\|", line):
-            cleaned.append(line.rstrip())
-            continue
-        if _BASE_STRUCTURAL_LINE.match(line):
-            cleaned.append(line.rstrip())
-            continue
-        cleaned.append(re.sub(r"[ \t]+", " ", line.strip()))
-    out = "\n".join(cleaned).strip()
-    out = re.sub(r"^ *帮我", "请帮我", out)
-    out = out.replace("咋", "怎么").replace("啥", "什么")
-    out = _base_terminal_punctuation(out)
-    return _restore_base_code(out, code_tokens)
-
-
-def _base_terminal_punctuation(text):
-    """只给自然语言行补句末标点，不改列表、表格、标题和代码占位。"""
-    lines = text.splitlines()
-    for index in range(len(lines) - 1, -1, -1):
-        line = lines[index]
-        stripped = line.strip()
-        if not stripped:
-            if index == len(lines) - 1:
-                return "\n".join(lines)
-            continue
-        if (
-            _BASE_STRUCTURAL_LINE.match(line)
-            or stripped.startswith("__PO_BASE_CODE_")
-        ):
-            return "\n".join(lines)
-        if stripped[-1] not in "。！？!?；;：:":
-            lines[index] = line + "。"
-        return "\n".join(lines)
-    return "\n".join(lines)
-
-
-def base_transform(text):
-    """基础档统一入口：先保护 Skill token，再整理并还原。"""
-    protected, skill_tokens = protect_skills(text)
-    return restore_skills(base_cleanup(protected), skill_tokens)
-
-
 def api_key(cfg):
     name = cfg.get("api_key_env") or "DEEPSEEK_API_KEY"
     value = os.environ.get(name, "").strip()
@@ -1239,7 +1050,7 @@ def enhance(protected, cfg, mode="user", iteration=False, iteration_request="", 
             if tier == "standard"
             else cfg.get("max_tokens_system", 1200)
             if tier == "system"
-            else cfg["max_tokens"]
+            else cfg.get("max_tokens_base", cfg["max_tokens"])
         ),
         "temperature": cfg["temperature"],
     }
@@ -1514,53 +1325,6 @@ def _worker(cfg, events, hwnd0, backup, draft, restore_clip=True):
         if prepared.get("conflict"):
             log("类型/档位冲突：%s" % prepared["conflict"])
             events.put(("failure", prepared["conflict"]))
-            return
-        if prepared["tier"] == "base":
-            if not body.strip():
-                log("草稿为空或只剩元指令，放弃")
-                events.put(("failure", "没有可整理的提示词正文"))
-                return
-            out = base_transform(body)
-            if not out.strip():
-                events.put(("failure", "没有可整理的提示词正文"))
-                return
-            save_text(ORIGINAL_PATH, draft)
-            save_text(LAST_PATH, out)
-            save_last_state(prepared["mode"], "base")
-            append_history(
-                {
-                    "mode": prepared["mode"],
-                    "tier": "base",
-                    "iteration": False,
-                    "iteration_request": "",
-                    "original": draft,
-                    "enhanced": out,
-                    "tokens": 0,
-                },
-                cfg,
-            )
-            if not clip_set(out):
-                events.put(("failure", "结果已生成，但写入剪贴板失败"))
-                return
-            user32.SetForegroundWindow(hwnd0)
-            time.sleep(0.12)
-            _, _, hwnd_now, _ = foreground_exe()
-            if hwnd_now != hwnd0:
-                keep_clip = True
-                events.put(
-                    ("failure", "焦点已切换，结果留在剪贴板（%d 字）" % len(out))
-                )
-                return
-            time.sleep(0.05)
-            ctrl_key(VK_V)
-            time.sleep(0.25)
-            events.put(
-                (
-                    "status",
-                    "基础整理完成 · %d→%d 字 · Ctrl+Z 可撤销"
-                    % (len(draft), len(out)),
-                )
-            )
             return
         if not body.strip():
             log("草稿为空或只剩元指令，放弃")
@@ -2112,13 +1876,6 @@ def main():
                 body = previous
         protected, tokens = protect_skills(body)
         t0 = time.time()
-        if tier == "base":
-            if not body.strip():
-                print("没有可整理的提示词正文", file=sys.stderr)
-                return 2
-            print(base_transform(body))
-            print("\n[0.0s | local]", file=sys.stderr)
-            return 0
         try:
             raw, usage = enhance(
                 protected,
