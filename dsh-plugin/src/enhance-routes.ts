@@ -108,11 +108,9 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
   // rejected for fields that cannot change what the user is allowed to do.
   const tier = typeof record.tier === 'string' ? record.tier.trim().toLowerCase() : undefined
   const useContext = typeof record.useContext === 'boolean' ? record.useContext : undefined
-  // The 基础 tier is a deterministic local pass — it reaches no model, so the
-  // admission gate below (which exists to protect the upstream) has nothing to
-  // protect. Charging it would let an exhausted rate window block the one tier
-  // that costs nothing.
-  const localOnly = tier === 'base'
+  // Every tier, 基础 included, now reaches the model, so every call is subject
+  // to the admission gate below — there is no longer a free local-only pass to
+  // exempt.
   const check = checkInputText(record.text, config.maxInputChars)
   if (!check.ok) {
     // The over-length case carries structured counts so the client renders
@@ -146,7 +144,7 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
   let validFrom = 0
   while (validFrom < stamps.length && (stamps[validFrom] ?? cut) < cut) validFrom++
   if (validFrom > 0) stamps.splice(0, validFrom)
-  if (!localOnly && stamps.length >= config.rateLimitPerMinute) {
+  if (stamps.length >= config.rateLimitPerMinute) {
     // The window is bounded, so the oldest surviving stamp tells exactly when
     // a slot frees up — advertise it instead of making the user guess.
     const oldest = stamps[0] ?? now
@@ -159,19 +157,17 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
     return
   }
   // No Retry-After here: a busy slot frees whenever some in-flight call
-  // settles, which is not a delay this route can predict. A local-only call
-  // holds no upstream slot, so it is not subject to this cap either.
-  if (!localOnly && gate.active >= config.maxConcurrent) {
+  // settles, which is not a delay this route can predict.
+  if (gate.active >= config.maxConcurrent) {
     writeJson(res, 429, {
       ok: false,
       error: { code: 'concurrency-limit', params: { max: config.maxConcurrent } },
     })
     return
   }
-  // Only upstream calls occupy a slot; a local pass neither waits for one nor
-  // takes one, so the two counters below are charged together.
-  const charged = !localOnly
-  if (charged) gate.active += 1
+  // Every call occupies an upstream slot while it runs, so both counters below
+  // are charged together.
+  gate.active += 1
   // Cancel the model call when the browser goes away mid-flight. `res.close`
   // also fires after a normal response completes, so guard with
   // `writableEnded` — only a premature close aborts the call.
@@ -241,9 +237,8 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
     }
     // Count only on success: failed calls must not consume the sliding window
     // (see the gate note above). `Date.now()` at completion, not admission,
-    // keeps the window honest — a slow success still counts as one call. A
-    // local pass never counts: it spent no upstream quota to ration.
-    if (charged) stamps.push(Date.now())
+    // keeps the window honest — a slow success still counts as one call.
+    stamps.push(Date.now())
   } catch (error) {
     const wire = toEnhanceError(error)
     if (stream && res.headersSent) {
@@ -254,7 +249,7 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
     }
   } finally {
     res.off('close', onConnectionClosed)
-    if (charged) gate.active -= 1
+    gate.active -= 1
   }
 }
 

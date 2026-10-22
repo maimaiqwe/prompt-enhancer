@@ -13,7 +13,7 @@ var RULE_SECTIONS = {
 - \u63A8\u6D4B\u53EA\u80FD\u5F71\u54CD\u63AA\u8F9E\uFF0C\u4E0D\u80FD\u5199\u6210\u4E8B\u5B9E\u3002\u539F\u6587\u6CA1\u6709\u7684\u4FE1\u606F\u7528\u201C\u5982\u65E0\u7279\u522B\u8BF4\u660E\u201D\u5F15\u51FA\uFF0C\u4E0D\u7F16\u9020\u63A5\u53E3\u3001\u6587\u4EF6\u540D\u3001\u4E1A\u52A1\u89C4\u5219\u6216\u6570\u5B57\u3002
 - \u539F\u6587\u5DF2\u6709 Markdown\u3001\u5217\u8868\u3001\u4EE3\u7801\u5757\u65F6\u4FDD\u7559\u5176\u7ED3\u6784\uFF1B\u4E0D\u91CD\u6392\u4EE3\u7801\uFF0C\u4E0D\u6539\u7F29\u8FDB\u3002
 - \u8BED\u8A00\u8DDF\u968F\u539F\u6587\uFF1A\u4E2D\u6587\u8FDB\u4E2D\u6587\u51FA\uFF0C\u82F1\u6587\u8FDB\u82F1\u6587\u51FA\uFF1B\u4E2D\u82F1\u6DF7\u5408\u65F6\u4FDD\u7559\u539F\u6709\u672F\u8BED\u3002
-- \u539F\u6587\u5DF2\u7ECF\u6E05\u695A\u65F6\u4E0D\u704C\u6C34\uFF1B\u4F46\u201C\u6E05\u695A\u201D\u4E0D\u7B49\u4E8E\u201C\u5B8C\u6574\u201D\u3002\u77ED\u6307\u4EE4\u4ECD\u6709\u672A\u5199\u660E\u7684\u6267\u884C\u7EC6\u8282\uFF0C\u5E94\u5F53\u5C55\u5F00\uFF0C\u800C\u4E0D\u662F\u53EA\u8865\u6807\u70B9\u6216\u6362\u63AA\u8F9E\u3002
+- \u539F\u6587\u5DF2\u7ECF\u6E05\u695A\u65F6\u4E0D\u704C\u6C34\uFF1B\u4F46\u201C\u6E05\u695A\u201D\u4E0D\u7B49\u4E8E\u201C\u5B8C\u6574\u201D\u3002\u6807\u51C6\u6863\u53CA\u4EE5\u4E0A\uFF0C\u77ED\u6307\u4EE4\u4ECD\u6709\u672A\u5199\u660E\u7684\u6267\u884C\u7EC6\u8282\uFF0C\u5E94\u5F53\u5C55\u5F00\uFF0C\u800C\u4E0D\u662F\u53EA\u8865\u6807\u70B9\u6216\u6362\u63AA\u8F9E\uFF1B\u57FA\u7840\u6863\u4F8B\u5916\uFF0C\u53EA\u505A\u8F7B\u5EA6\u6574\u7406\uFF0C\u4E0D\u5C55\u5F00\u3002
 
 ### Skill token \u5360\u4F4D\u7B26
 
@@ -33,12 +33,12 @@ var RULE_SECTIONS = {
 
 - \u4FDD\u7559\u539F\u6587\u7684\u6BB5\u843D\u7ED3\u6784\u3001\u8BED\u4E49\u987A\u5E8F\u3001\u8BED\u7528\u7C7B\u578B\u548C\u6838\u5FC3\u4FE1\u606F\u3002
 - \u4FDD\u7559 Markdown \u6807\u9898\u3001\u5217\u8868\u3001\u8868\u683C\u3001\u5F15\u7528\u3001\u6BB5\u843D\u7A7A\u884C\u4EE5\u53CA\u4EE3\u7801\u7F29\u8FDB\uFF1B\u4EE3\u7801\u5757\u548C\u884C\u5185\u4EE3\u7801\u5185\u5BB9\u9010\u5B57\u4FDD\u7559\u3002
-- \u53EF\u4EE5\u4FEE\u6B63\u9519\u522B\u5B57\uFF0C\u8865\u5168\u660E\u663E\u7F3A\u5931\u7684\u6807\u70B9\u3001\u7A7A\u683C\u548C\u5206\u6BB5\uFF0C\u8C03\u6574\u75C5\u53E5\u4E0E\u8FDE\u63A5\u8BCD\u3002
+- \u8865\u5168\u660E\u663E\u7F3A\u5931\u7684\u6807\u70B9\u3001\u7A7A\u683C\u548C\u5206\u6BB5\uFF0C\u4FEE\u6B63\u9519\u522B\u5B57\u4E0E\u75C5\u53E5\uFF0C\u7406\u987A\u8BED\u5E8F\u548C\u8FDE\u63A5\u8BCD\uFF0C\u4F7F\u53E5\u5B50\u5B8C\u6574\u901A\u987A\u3002
 - \u539F\u6587\u662F\u4EFB\u52A1\u6307\u4EE4\u65F6\uFF0C\u7EE7\u7EED\u8F93\u51FA\u53D1\u7ED9\u4E0B\u6E38 AI \u7684\u4EFB\u52A1\u6307\u4EE4\uFF0C\u4E0D\u5F97\u6539\u6210\u53CD\u95EE\u3001\u7D22\u8981\u6750\u6599\u6216\u8981\u6C42\u7528\u6237\u8865\u5145\u4FE1\u606F\u3002
-- \u53EF\u4EE5\u8F7B\u5EA6\u66FF\u6362\u63AA\u8F9E\u3001\u8C03\u6574\u8BED\u5E8F\uFF0C\u4F7F\u53E5\u5B50\u66F4\u901A\u987A\uFF0C\u4F46\u4E0D\u5F97\u6539\u53D8\u52A8\u4F5C\u5BF9\u8C61\u3001\u52A8\u4F5C\u65B9\u5411\u3001\u8303\u56F4\u6216\u5426\u5B9A\u5173\u7CFB\u3002
-- \u4E0D\u65B0\u589E\u76EE\u6807\u3001\u80CC\u666F\u3001\u6267\u884C\u6B65\u9AA4\u3001\u9A8C\u6536\u6807\u51C6\u3001\u4EA4\u4ED8\u5F62\u6001\u7B49\u539F\u6587\u6CA1\u6709\u7684\u4EFB\u52A1\u8981\u6C42\u3002
+- \u53EF\u4EE5\u8F7B\u5EA6\u66FF\u6362\u63AA\u8F9E\u3001\u8C03\u6574\u8BED\u5E8F\uFF0C\u4F46\u4E0D\u5F97\u6539\u53D8\u52A8\u4F5C\u5BF9\u8C61\u3001\u52A8\u4F5C\u65B9\u5411\u3001\u6570\u91CF\u3001\u8303\u56F4\u3001\u5426\u5B9A\u5173\u7CFB\u6216\u6280\u672F\u542B\u4E49\u3002
+- \u4E0D\u65B0\u589E\u76EE\u6807\u3001\u80CC\u666F\u3001\u6267\u884C\u6B65\u9AA4\u3001\u6837\u4F8B\u3001\u9A8C\u6536\u6807\u51C6\u3001\u4EA4\u4ED8\u5F62\u6001\u7B49\u539F\u6587\u6CA1\u6709\u7684\u4EFB\u52A1\u8981\u6C42\u3002
 - \u4E0D\u65B0\u589E\u539F\u6587\u6CA1\u6709\u7684\u4E8B\u5B9E\u3001\u6570\u5B57\u3001\u63A5\u53E3\u540D\u3001\u6587\u4EF6\u540D\u3001\u6280\u672F\u6808\u6216\u4E1A\u52A1\u89C4\u5219\u3002
-- \u4E0D\u4E3B\u52A8\u52A0\u6807\u9898\u3001\u7F16\u53F7\u3001\u9879\u76EE\u7B26\u53F7\u6216\u8868\u683C\u3002
+- \u4E0D\u4E3B\u52A8\u52A0\u6807\u9898\u3001\u7F16\u53F7\u3001\u9879\u76EE\u7B26\u53F7\u6216\u8868\u683C\uFF1B\u539F\u6587\u6CA1\u6709\u7684\u5206\u70B9\u4E0D\u8981\u81EA\u884C\u62C6\u6210\u5206\u70B9\u3002
 - \u901A\u5E38\u4E0D\u8D85\u8FC7\u539F\u6587\u7684 1.3 \u500D\uFF1B\u539F\u6587\u5DF2\u7ECF\u901A\u987A\u65F6\uFF0C\u53EF\u4EE5\u63A5\u8FD1\u539F\u6837\u3002
 - \u53EA\u8F93\u51FA\u6574\u7406\u540E\u7684\u63D0\u793A\u8BCD\u672C\u4F53\uFF0C\u4E0D\u89E3\u91CA\u4FEE\u6539\u70B9\u3002`,
   /** `[STANDARD]` — 标准增强（默认） */
@@ -688,155 +688,6 @@ function toEnhanceError(error) {
 // src/orchestrate.ts
 import { randomUUID } from "node:crypto";
 
-// src/shared/skill-tokens.ts
-var SKILL_TOKEN_ONE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/;
-var SKILL_TOKEN = /(?<![\w$])\$([A-Za-z][A-Za-z0-9_-]*)/g;
-function onlySkillTokens(text) {
-  if (!SKILL_TOKEN_ONE.test(text)) return false;
-  return text.replace(SKILL_TOKEN, "").trim() === "";
-}
-
-// src/local-rewrite.ts
-var SKILL_PLACEHOLDER = /__PO_SKILL_(\d{4})_[A-Za-z0-9_]+__/g;
-var CODE_PLACEHOLDER = /__PO_BASE_CODE_(\d{4})__/g;
-var STRUCTURAL_LINE = /^[ \t]*(?:#{1,6}[ \t]+|[-+*][ \t]+|\d+[.)][ \t]+|>|\||[-*_]{3,}[ \t]*$|_{3,}[ \t]*$)/;
-var TIC_REPLACEMENTS = [
-  ["\u548B", "\u600E\u4E48"],
-  ["\u5565", "\u4EC0\u4E48"]
-];
-var LEADING_ASK = /^( *)帮我/;
-function protectSkillTokens(text) {
-  const tokens = [];
-  const masked = text.replace(SKILL_TOKEN, (whole, name2) => {
-    tokens.push(whole);
-    const safe = name2.replace(/[^A-Za-z0-9]/g, "_");
-    return `__PO_SKILL_${String(tokens.length).padStart(4, "0")}_${safe}__`;
-  });
-  return { text: masked, tokens };
-}
-function restoreSkillTokens(text, tokens) {
-  return text.replace(SKILL_PLACEHOLDER, (whole, index) => {
-    const slot = Number.parseInt(index, 10) - 1;
-    return slot >= 0 && slot < tokens.length ? tokens[slot] : whole;
-  });
-}
-function protectFences(text, tokens) {
-  const lines = text.split(/(?<=\n)/);
-  const out = [];
-  let plain = [];
-  let index = 0;
-  const flush = () => {
-    if (plain.length > 0) {
-      out.push(protectInline(plain.join(""), tokens));
-      plain = [];
-    }
-  };
-  while (index < lines.length) {
-    const line = lines[index];
-    const stripped = line.replace(/^[ \t]+/, "");
-    const marker = stripped.charAt(0);
-    let run = 0;
-    while (run < stripped.length && stripped.charAt(run) === marker && (marker === "`" || marker === "~")) {
-      run += 1;
-    }
-    if (run < 3) {
-      plain.push(line);
-      index += 1;
-      continue;
-    }
-    flush();
-    const fence = marker.repeat(run);
-    const start = index;
-    index += 1;
-    while (index < lines.length) {
-      const closeText = lines[index].trim();
-      if (closeText.length >= run && closeText === fence.repeat(closeText.length / run)) {
-        index += 1;
-        break;
-      }
-      index += 1;
-    }
-    let block = lines.slice(start, index).join("");
-    let suffix = "";
-    if (block.endsWith("\r\n")) {
-      block = block.slice(0, -2);
-      suffix = "\r\n";
-    } else if (block.endsWith("\n")) {
-      block = block.slice(0, -1);
-      suffix = "\n";
-    }
-    tokens.push(block);
-    out.push(`__PO_BASE_CODE_${String(tokens.length).padStart(4, "0")}__${suffix}`);
-  }
-  flush();
-  return out.join("");
-}
-function protectInline(text, tokens) {
-  let out = "";
-  let index = 0;
-  while (index < text.length) {
-    if (text.charAt(index) !== "`") {
-      out += text.charAt(index);
-      index += 1;
-      continue;
-    }
-    let runEnd = index;
-    while (runEnd < text.length && text.charAt(runEnd) === "`") runEnd += 1;
-    const ticks = text.slice(index, runEnd);
-    const closing = text.indexOf(ticks, runEnd);
-    const newline = text.indexOf("\n", runEnd);
-    if (closing < 0 || newline >= 0 && closing > newline) {
-      out += ticks;
-      index = runEnd;
-      continue;
-    }
-    tokens.push(text.slice(index, closing + ticks.length));
-    out += `__PO_BASE_CODE_${String(tokens.length).padStart(4, "0")}__`;
-    index = closing + ticks.length;
-  }
-  return out;
-}
-function finalizePunctuation(text) {
-  const lines = text.split("\n");
-  const marks = "\u3002\uFF01\uFF1F!?\uFF1B;\uFF1A:";
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index];
-    const stripped = line.trim();
-    if (stripped === "") {
-      if (index === lines.length - 1) return lines.join("\n");
-      continue;
-    }
-    if (STRUCTURAL_LINE.test(line) || stripped.startsWith("__PO_BASE_CODE_")) return lines.join("\n");
-    if (!marks.includes(stripped.charAt(stripped.length - 1))) lines[index] = `${line}\u3002`;
-    return lines.join("\n");
-  }
-  return lines.join("\n");
-}
-function tidyMasked(text) {
-  const lines = text.trim().split("\n");
-  const cleaned = lines.map((line) => {
-    if (line.trim() === "") return "";
-    if (/^[ \t]*\|/.test(line)) return line.replace(/[ \t]+$/, "");
-    if (STRUCTURAL_LINE.test(line)) return line.replace(/[ \t]+$/, "");
-    return line.trim().replace(/[ \t]+/g, " ");
-  });
-  let out = cleaned.join("\n").trim();
-  out = out.replace(LEADING_ASK, "$1\u8BF7\u5E2E\u6211");
-  for (const [from, to] of TIC_REPLACEMENTS) out = out.split(from).join(to);
-  return finalizePunctuation(out);
-}
-function rewriteLocally(text) {
-  const skills = protectSkillTokens(text);
-  const codeTokens = [];
-  const masked = protectFences(skills.text, codeTokens);
-  const tidied = tidyMasked(masked);
-  const withCode = tidied.replace(CODE_PLACEHOLDER, (whole, index) => {
-    const slot = Number.parseInt(index, 10) - 1;
-    return slot >= 0 && slot < codeTokens.length ? codeTokens[slot] : whole;
-  });
-  return restoreSkillTokens(withCode, skills.tokens);
-}
-
 // src/context.ts
 var TRUNCATION_MARK = "\u2026\uFF08\u5DF2\u622A\u65AD\uFF09";
 function cutToCodePoints(text, max) {
@@ -1002,12 +853,6 @@ async function runEnhance(ctx, config, options) {
   const tier = normalizeTier(options.tier, normalizeTier(config.defaultTier));
   const window = contextWindowFor(tier, config, options.useContext ?? config.contextAware);
   try {
-    if (tier === "base" && options.context === void 0) {
-      const text = rewriteLocally(options.text);
-      const local = { text, provider: "local", model: "deterministic", elapsedMs: Date.now() - started };
-      console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(text)} ctx=0 local ${local.elapsedMs}ms ok`);
-      return local;
-    }
     const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx));
     if (route === void 0) {
       throw new EnhanceFailure({ code: "unconfigured" });
@@ -1153,7 +998,6 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
   const sessionId = typeof record.sessionId === "string" && record.sessionId !== "" ? record.sessionId : void 0;
   const tier = typeof record.tier === "string" ? record.tier.trim().toLowerCase() : void 0;
   const useContext = typeof record.useContext === "boolean" ? record.useContext : void 0;
-  const localOnly = tier === "base";
   const check = checkInputText(record.text, config.maxInputChars);
   if (!check.ok) {
     writeJson(res, 422, {
@@ -1168,7 +1012,7 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
   let validFrom = 0;
   while (validFrom < stamps.length && (stamps[validFrom] ?? cut) < cut) validFrom++;
   if (validFrom > 0) stamps.splice(0, validFrom);
-  if (!localOnly && stamps.length >= config.rateLimitPerMinute) {
+  if (stamps.length >= config.rateLimitPerMinute) {
     const oldest = stamps[0] ?? now;
     const retryAfterSeconds = Math.max(1, Math.ceil((6e4 - (now - oldest)) / 1e3));
     res.setHeader("Retry-After", String(retryAfterSeconds));
@@ -1178,15 +1022,14 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
     });
     return;
   }
-  if (!localOnly && gate.active >= config.maxConcurrent) {
+  if (gate.active >= config.maxConcurrent) {
     writeJson(res, 429, {
       ok: false,
       error: { code: "concurrency-limit", params: { max: config.maxConcurrent } }
     });
     return;
   }
-  const charged = !localOnly;
-  if (charged) gate.active += 1;
+  gate.active += 1;
   const callerAbort = new AbortController();
   const onConnectionClosed = () => {
     if (!res.writableEnded) callerAbort.abort();
@@ -1241,7 +1084,7 @@ data: ${JSON.stringify({ type: "done", value })}
       const value = await runEnhance(ctx, config, runOptions);
       writeJson(res, 200, { ok: true, value });
     }
-    if (charged) stamps.push(Date.now());
+    stamps.push(Date.now());
   } catch (error) {
     const wire = toEnhanceError(error);
     if (stream && res.headersSent) {
@@ -1254,7 +1097,7 @@ data: ${JSON.stringify({ type: "error", error: wire })}
     }
   } finally {
     res.off("close", onConnectionClosed);
-    if (charged) gate.active -= 1;
+    gate.active -= 1;
   }
 }
 var mountedContexts = /* @__PURE__ */ new WeakSet();
@@ -1272,6 +1115,14 @@ function registerEnhanceRoute(ctx, readConfig) {
       return serveEnhance(ctx, readConfig, gate, pathname, req, res, pathname === ENHANCE_STREAM_ENDPOINT);
     }
   });
+}
+
+// src/shared/skill-tokens.ts
+var SKILL_TOKEN_ONE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/;
+var SKILL_TOKEN = /(?<![\w$])\$([A-Za-z][A-Za-z0-9_-]*)/g;
+function onlySkillTokens(text) {
+  if (!SKILL_TOKEN_ONE.test(text)) return false;
+  return text.replace(SKILL_TOKEN, "").trim() === "";
 }
 
 // src/enhance-command.ts
@@ -1313,6 +1164,147 @@ function registerEnhanceCommand(ctx, readConfig) {
     }
   };
   ctx.effect(() => commands.register(definition));
+}
+
+// src/local-rewrite.ts
+var SKILL_PLACEHOLDER = /__PO_SKILL_(\d{4})_[A-Za-z0-9_]+__/g;
+var CODE_PLACEHOLDER = /__PO_BASE_CODE_(\d{4})__/g;
+var STRUCTURAL_LINE = /^[ \t]*(?:#{1,6}[ \t]+|[-+*][ \t]+|\d+[.)][ \t]+|>|\||[-*_]{3,}[ \t]*$|_{3,}[ \t]*$)/;
+var TIC_REPLACEMENTS = [
+  ["\u548B", "\u600E\u4E48"],
+  ["\u5565", "\u4EC0\u4E48"]
+];
+var LEADING_ASK = /^( *)帮我/;
+function protectSkillTokens(text) {
+  const tokens = [];
+  const masked = text.replace(SKILL_TOKEN, (whole, name2) => {
+    tokens.push(whole);
+    const safe = name2.replace(/[^A-Za-z0-9]/g, "_");
+    return `__PO_SKILL_${String(tokens.length).padStart(4, "0")}_${safe}__`;
+  });
+  return { text: masked, tokens };
+}
+function restoreSkillTokens(text, tokens) {
+  return text.replace(SKILL_PLACEHOLDER, (whole, index) => {
+    const slot = Number.parseInt(index, 10) - 1;
+    return slot >= 0 && slot < tokens.length ? tokens[slot] : whole;
+  });
+}
+function protectFences(text, tokens) {
+  const lines = text.split(/(?<=\n)/);
+  const out = [];
+  let plain = [];
+  let index = 0;
+  const flush = () => {
+    if (plain.length > 0) {
+      out.push(protectInline(plain.join(""), tokens));
+      plain = [];
+    }
+  };
+  while (index < lines.length) {
+    const line = lines[index];
+    const stripped = line.replace(/^[ \t]+/, "");
+    const marker = stripped.charAt(0);
+    let run = 0;
+    while (run < stripped.length && stripped.charAt(run) === marker && (marker === "`" || marker === "~")) {
+      run += 1;
+    }
+    if (run < 3) {
+      plain.push(line);
+      index += 1;
+      continue;
+    }
+    flush();
+    const fence = marker.repeat(run);
+    const start = index;
+    index += 1;
+    while (index < lines.length) {
+      const closeText = lines[index].trim();
+      if (closeText.length >= run && closeText === fence.repeat(closeText.length / run)) {
+        index += 1;
+        break;
+      }
+      index += 1;
+    }
+    let block = lines.slice(start, index).join("");
+    let suffix = "";
+    if (block.endsWith("\r\n")) {
+      block = block.slice(0, -2);
+      suffix = "\r\n";
+    } else if (block.endsWith("\n")) {
+      block = block.slice(0, -1);
+      suffix = "\n";
+    }
+    tokens.push(block);
+    out.push(`__PO_BASE_CODE_${String(tokens.length).padStart(4, "0")}__${suffix}`);
+  }
+  flush();
+  return out.join("");
+}
+function protectInline(text, tokens) {
+  let out = "";
+  let index = 0;
+  while (index < text.length) {
+    if (text.charAt(index) !== "`") {
+      out += text.charAt(index);
+      index += 1;
+      continue;
+    }
+    let runEnd = index;
+    while (runEnd < text.length && text.charAt(runEnd) === "`") runEnd += 1;
+    const ticks = text.slice(index, runEnd);
+    const closing = text.indexOf(ticks, runEnd);
+    const newline = text.indexOf("\n", runEnd);
+    if (closing < 0 || newline >= 0 && closing > newline) {
+      out += ticks;
+      index = runEnd;
+      continue;
+    }
+    tokens.push(text.slice(index, closing + ticks.length));
+    out += `__PO_BASE_CODE_${String(tokens.length).padStart(4, "0")}__`;
+    index = closing + ticks.length;
+  }
+  return out;
+}
+function finalizePunctuation(text) {
+  const lines = text.split("\n");
+  const marks = "\u3002\uFF01\uFF1F!?\uFF1B;\uFF1A:";
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    const stripped = line.trim();
+    if (stripped === "") {
+      if (index === lines.length - 1) return lines.join("\n");
+      continue;
+    }
+    if (STRUCTURAL_LINE.test(line) || stripped.startsWith("__PO_BASE_CODE_")) return lines.join("\n");
+    if (!marks.includes(stripped.charAt(stripped.length - 1))) lines[index] = `${line}\u3002`;
+    return lines.join("\n");
+  }
+  return lines.join("\n");
+}
+function tidyMasked(text) {
+  const lines = text.trim().split("\n");
+  const cleaned = lines.map((line) => {
+    if (line.trim() === "") return "";
+    if (/^[ \t]*\|/.test(line)) return line.replace(/[ \t]+$/, "");
+    if (STRUCTURAL_LINE.test(line)) return line.replace(/[ \t]+$/, "");
+    return line.trim().replace(/[ \t]+/g, " ");
+  });
+  let out = cleaned.join("\n").trim();
+  out = out.replace(LEADING_ASK, "$1\u8BF7\u5E2E\u6211");
+  for (const [from, to] of TIC_REPLACEMENTS) out = out.split(from).join(to);
+  return finalizePunctuation(out);
+}
+function rewriteLocally(text) {
+  const skills = protectSkillTokens(text);
+  const codeTokens = [];
+  const masked = protectFences(skills.text, codeTokens);
+  const tidied = tidyMasked(masked);
+  const withCode = tidied.replace(CODE_PLACEHOLDER, (whole, index) => {
+    const slot = Number.parseInt(index, 10) - 1;
+    return slot >= 0 && slot < codeTokens.length ? codeTokens[slot] : whole;
+  });
+  return restoreSkillTokens(withCode, skills.tokens);
 }
 
 // src/index.ts

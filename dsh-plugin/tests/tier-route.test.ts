@@ -211,11 +211,13 @@ describe('per-call context toggle', () => {
     }
   })
 
-  it('never grounds the base tier, which never reaches a model at all', async () => {
+  it('runs the base tier through the model but never grounds it in history', async () => {
     const { server, calls, close } = await mount(CONFIG, HISTORY)
     try {
       await call(server, { text: '继续', sessionId: 's1', tier: 'base', useContext: true })
-      expect(calls).toHaveLength(0)
+      expect(calls).toHaveLength(1)
+      expect(userMessageText(calls[0])).not.toContain('<conversation_context>')
+      expect(calls[0]?.system).not.toContain('Hard limits on context use')
     } finally {
       await close()
     }

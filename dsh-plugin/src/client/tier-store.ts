@@ -228,9 +228,10 @@ export function sessionContextPick(sessionId: string): boolean | undefined {
 export function effectiveUseContext(sessionId: string): boolean {
   if (!getClientSettings().contextAware) return false
   const tier = effectiveTier(sessionId)
-  // 基础档 is a local tidy-up: its rules forbid expansion, and history is the
-  // main source of expansion. The host refuses context for it regardless, so
-  // reporting an override here would show a toggle the next call ignores.
+  // 基础档 only does a light tidy-up: its rules forbid expansion, and history
+  // is the main source of expansion. The host refuses context for it
+  // regardless, so reporting an override here would show a toggle the next call
+  // ignores.
   if (!tierAllowsContext(tier)) return false
   const pick = picks.get(sessionId)?.context
   if (pick !== undefined) return pick

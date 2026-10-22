@@ -1,14 +1,17 @@
 /**
- * Deterministic local rewriting for the 基础 (base) tier.
+ * Deterministic local rewriting — a standalone utility, no longer wired to any
+ * tier.
  *
- * The base tier promises the cheapest possible pass: tidy the draft without
- * asking a model, so it works offline, costs nothing, and cannot invent
- * requirements. That promise only holds if the transformation is deterministic
- * and lossless in the two places that matter — Skill tokens and code.
+ * History: the 基础 (base) tier used to run this pipeline so it could tidy a
+ * draft with no model call (offline, free, unable to invent requirements). That
+ * promise only held for whitespace and two verbal tics — it could not fix a
+ * broken sentence, a missing subject, or tangled connectives, which is exactly
+ * what "理顺语序" means. The base tier now calls the model under a tight
+ * light-tidy-up rule set instead, and nothing in the plugin calls this module.
+ * It is kept (and exported) as a pure helper for callers that want a lossless
+ * whitespace/punctuation pass with Skill tokens and code preserved.
  *
- * The whole pipeline mirrors the Windows hotkey layer
- * (`enhance_hotkey.py` → `base_transform`) so both entry points agree on what
- * "基础整理" means:
+ * The pipeline:
  *
  *   1. protect `$skill-name` invocations behind `__PO_SKILL_0001__` placeholders;
  *   2. protect fenced blocks and inline code behind `__PO_BASE_CODE_0001__`;

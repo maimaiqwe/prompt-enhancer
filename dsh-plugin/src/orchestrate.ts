@@ -10,8 +10,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from 'node:crypto'
 import { effectiveSystemPrompt, type Config } from './config'
 import { withContextRules } from './prompts'
-import { onlySkillTokens, rewriteLocally } from './local-rewrite'
-import { contextWindowFor, normalizeTier, tierSystemPrompt, type Tier } from './tiers'
+import { contextWindowFor, normalizeTier, tierSystemPrompt } from './tiers'
 import { buildConversationContext } from './context'
 import { EnhanceFailure, enhanceText, resolveRoute, toEnhanceError, type RoutePair } from './enhancer'
 import type { EnhanceResult } from './shared/protocol'
@@ -242,16 +241,10 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
   const tier = normalizeTier(options.tier, normalizeTier(config.defaultTier))
   const window = contextWindowFor(tier, config, options.useContext ?? config.contextAware)
   try {
-    // 基础 is a deterministic local pass: no route, no model, no tokens spent.
-    // It runs before route resolution so an unconfigured provider does not make
-    // the cheapest tier fail, and it never takes history (its rules forbid
-    // widening the draft), so `window` plays no part here.
-    if (tier === 'base' && options.context === undefined) {
-      const text = rewriteLocally(options.text)
-      const local: EnhanceResult = { text, provider: 'local', model: 'deterministic', elapsedMs: Date.now() - started }
-      console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(text)} ctx=0 local ${local.elapsedMs}ms ok`)
-      return local
-    }
+    // Every tier (基础 included) goes through the model: 基础's rules already
+    // forbid widening the draft, so it spends a call only to tidy wording and
+    // punctuation. 基础 presets no context window, so `window` is undefined and
+    // the call stays draft-only without a special branch.
     const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx))
     if (route === undefined) {
       // No detail line: the fix instructions are the localized primary copy.

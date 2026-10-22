@@ -12,14 +12,14 @@ English | [简体中文](./README.zh-CN.md)
 
 ## Why
 
-Good agent prompts state *who the model should be*, *what to deliver*, *in what format*, and *how success is judged*. Most drafts don't. This plugin adds a **WorkBuddy-style "enhance" affordance** to the dsh composer: it sends your draft through a low-temperature rewrite pass (via the harness's own LLM service — except the base tier, which tidies locally with no network and no tokens), shows the result next to the original, and lets you apply, copy, or discard it. Undo is one click away, and every failure path leaves your draft exactly as you typed it.
+Good agent prompts state *who the model should be*, *what to deliver*, *in what format*, and *how success is judged*. Most drafts don't. This plugin adds a **WorkBuddy-style "enhance" affordance** to the dsh composer: it sends your draft through a low-temperature rewrite pass (via the harness's own LLM service — including the base tier, which asks only for a light tidy-up), shows the result next to the original, and lets you apply, copy, or discard it. Undo is one click away, and every failure path leaves your draft exactly as you typed it.
 
 ## Features
 
 | | |
 |---|---|
 | ✨ **Composer button** | A small button in the input box's tool row (next to the send button), always at hand |
-| 🎚️ **Four tiers** | A capsule left of ✨ shows the active tier (base / standard / professional / system) and switches it in one click; the rules come from the same `core/rules.md` the Windows hotkey layer reads, and the base tier spends no tokens at all |
+| 🎚️ **Four tiers** | A capsule left of ✨ shows the active tier (base / standard / professional / system) and switches it in one click; the rules come from the same `core/rules.md` the Windows hotkey layer reads, and the base tier only does a light tidy-up |
 | 🧷 **Context toggle** | The dropdown has its own row for "use conversation context"; switching tiers seeds that tier's preset, which you can then override |
 | ⚡ **One-click fill** | The base / standard / professional tiers write the rewrite straight into the composer — no dialog. The system tier still previews first, because an eight-section system prompt rewrites a whole persona |
 | 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time. Opens for the system tier, and whenever your draft moved while the request was in flight |
@@ -105,7 +105,7 @@ dsh plugin --profile web remove dsh-prompt-enhance
 **Composer button / shortcut** — type (or leave) a draft, hit ✨ or `Ctrl+Shift+Alt+A`:
 
 1. Local guards run first: empty drafts, over-length drafts (never auto-truncated — that would change your meaning), images-only drafts, and drafts containing command or file-reference chips are refused with a clear message. Chips are rejected because filling back would destroy them.
-2. Base / standard / professional: the ✨ becomes a real spinner and a dock row above the composer reads **Enhancing… + elapsed seconds + cancel**. The first tokens land in the draft about a second in, typed character by character; when the run settles, that row becomes the one-line "replaced / undo" prompt. No dialog, no interruption. The ticking counter is the proof the call is alive, and **✕ aborts at any point** — an abort is not a failure and never leaves half-written text behind. The base tier needs no network at all.
+2. Base / standard / professional: the ✨ becomes a real spinner and a dock row above the composer reads **Enhancing… + elapsed seconds + cancel**. The first tokens land in the draft about a second in, typed character by character; when the run settles, that row becomes the one-line "replaced / undo" prompt. No dialog, no interruption. The ticking counter is the proof the call is alive, and **✕ aborts at any point** — an abort is not a failure and never leaves half-written text behind. The base tier also calls the model now, but asks only for a light tidy-up and rejects anything longer than 1.5× the draft.
 3. System tier: the preview panel opens with both texts side by side. **Apply** fills the enhanced text back and raises the undo bar; **Copy** puts it on the clipboard; **Cancel** (or `Esc`, or clicking the overlay) discards everything. A direct fill that raced with your typing promotes itself to this same panel instead of overwriting what you wrote. Panel mode shows no "Enhancing…" row — the panel is its own progress indicator.
 4. Undo: the **Undo** link or **`Ctrl+Z`** restores the original. Keep typing and both retire themselves so stale text can never overwrite newer edits — the composer's own character-level undo is left alone. Undo entries live **only in the current page's memory** (up to 3 per session) — a page reload, a web restart, or a session switch clears them.
 
@@ -145,7 +145,7 @@ This fork replaces the upstream single built-in strategy with **four tiers**, wh
 
 | Tier | Output shape |
 |---|---|
-| `base` | **Deterministic local tidy-up, no model call**: protects Skill invocations and code, then normalises spaces, fixes two verbal tics (`咋`→`怎么`, `啥`→`什么`) and adds a terminal mark. No expansion, no restructuring, no added goals/steps/acceptance criteria. Works with no provider configured, and is idempotent |
+| `base` | **Light tidy-up through the model**: smooths word order and connectives, completes missing punctuation/spacing/paragraph breaks, and fixes typos. No expansion, no added goals/steps/acceptance criteria, no new headings or bullets; a length guard rejects output beyond 1.5× the draft |
 | `standard` (default) | **One continuous paragraph**, 80–220 Chinese characters, no headings, numbering, bullets, tables, or code fences |
 | `professional` | Five fixed sections: **任务目标 / 背景与范围 / 执行要求 / 约束条件 / 交付要求**, 250–500 Chinese characters (soft ceiling 700) |
 | `system` | Eight-section system prompt: role, core objective, working principles, rules & constraints, capability boundaries, input handling, output spec, error handling & self-check |
