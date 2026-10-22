@@ -78,18 +78,20 @@ dsh plugin --profile web add dsh-prompt-enhance-cn
 # 重启 dsh web
 ```
 
-从 GitHub(构建产物 `lib/` 已随仓库提交,安装无需本地构建):
+从 Release 的 tarball(构建产物 `lib/` 已在包内,安装无需本地构建):
 
 ```bash
-dsh plugin --profile web add github:qwe3120695033/prompt-enhancer
+dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
 ```
+
+插件在仓库的 `dsh-plugin/` 子目录里,仓库根是 Windows 热键程序,所以 `dsh plugin add github:qwe3120695033/prompt-enhancer` 找不到它,请用上面的 tarball 地址或 npm 包名。
 
 从本地检出(开发用,改代码重建 + 重启即生效):
 
 ```bash
 git clone https://github.com/qwe3120695033/prompt-enhancer.git
 cd prompt-enhancer/dsh-plugin && npm install && npm run build
-dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
+dsh plugin --profile web add link:C:\path\to\prompt-enhancer\dsh-plugin
 ```
 
 卸载:

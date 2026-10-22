@@ -1,12 +1,54 @@
 # Prompt Enhancer
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#快速开始)
-[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#快速开始)
+[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn?label=npm&color=CB3837)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
+[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#热键程序与-skill)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#热键程序与-skill)
 
-一个面向 Windows 的全局热键提示词增强器，同时提供可移植到 Codex 及其他 agent 的提示词增强 Skill。两者可以一起安装，也可以按需单独安装。另有 DeepSeek Harness（DSH）Web GUI 的输入框插件，在本仓库 `dsh-plugin/` 子目录。
+一个提示词增强器，分成两个独立的部分，按需安装，也可以都装：
 
-## 下载哪个包
+| 部分 | 用在哪 | 怎么用 |
+| --- | --- | --- |
+| **DSH 插件** | DeepSeek Harness Web GUI | 输入框旁的 ✨ 按钮、档位胶囊、全局快捷键 |
+| **热键程序 + Skill** | Codex、ChatGPT、Claude Code 等桌面 agent | 全局热键一键替换草稿；`$p` / `$prompt-enhancer` 在对话里直接调用 |
+
+两部分共用同一份 `core/rules.md`，四档措辞不会分叉。
+
+## DSH 插件
+
+插件在 `dsh-plugin/` 子目录，npm 包名是 **`dsh-prompt-enhance-cn`**（npm 上 `dsh-prompt-enhance` 已被上游占用，两者不是同一个包）。
+
+### 用 npm 安装
+
+```bash
+dsh plugin --profile web add dsh-prompt-enhance-cn
+```
+
+装完重启 DSH。升级到新版本重复同一条命令即可，DSH 会按 npm 上的 `latest` 拉取。
+
+### 用 Release tarball 安装
+
+```bash
+dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
+```
+
+两种方式装的是同一个包；tarball 适合锁定版本或内网环境。
+
+### 装完是什么样
+
+输入框左侧出现档位胶囊（基/标/专/系），点 ✨ 直接把草稿替换成增强版；系统档会先开预览面板。行尾的圆点用来设默认档，下拉可以选「结合上下文」。
+
+插件默认快捷键是 `Ctrl+Shift+Alt+A`，热键程序默认是 `Ctrl+Shift+Alt+E`，两者默认不冲突。
+
+> **两个都装且想共用一个键时**：把 `DeepSeek Harness` 从热键程序 `config.json` 的 `allowed_processes` 里删掉。看门狗只在白名单窗口位于前台时才启动增强进程，删掉之后它就不会替 DSH 抢注全局热键，DSH 里交给插件，其它 agent 仍由热键程序处理。反过来只想要热键程序、不装插件，就保持白名单原样。
+
+插件的完整文档（配置项、开发、测试）在 [`dsh-plugin/README.md`](dsh-plugin/README.md) 与 [`dsh-plugin/README.zh-CN.md`](dsh-plugin/README.zh-CN.md)。
+
+## 热键程序与 Skill
+
+另一部分是给桌面 agent 用的：一个 Windows 全局热键程序，加一对可移植到 Codex 等宿主的提示词增强 Skill。两者可以一起装，也可以单独装。
+
+### 下载哪个包
 
 从 [Releases](https://github.com/qwe3120695033/prompt-enhancer/releases) 下载，不需要先下载源码：
 
@@ -15,41 +57,14 @@
 | 只在 agent 对话中用 `$p` / `$prompt-enhancer` | `prompt-enhancer-skill-vX.Y.Z.zip` | 两个 Skill、规则副本、默认档脚本 |
 | 只想在输入框按热键 | `prompt-enhancer-hotkey-windows-vX.Y.Z.zip` | 热键程序、共享规则、安装器 |
 | 两个都要（推荐） | `prompt-enhancer-bundle-vX.Y.Z.zip` | Skill + 热键 + 安装器 |
-| 用 DSH Web GUI 的输入框 ✨ 按钮 | `dsh-prompt-enhance-cn-X.Y.Z.tgz` | DSH 插件（见下方「DSH 插件」） |
 
 下载后核对同一 Release 中的 `SHA256SUMS.txt`。三种 zip 使用同一版本号和同一份 `core/rules.md`。
 
-## 项目范围
+热键程序提供全局热键与白名单窗口检测、基础/标准/专业/系统四类增强、DeepSeek 官方 API 调用、再次优化与 `@iter:` 迭代要求、Skill token 保护、默认档切换和本地配置。
 
-本仓库包含一个独立的 Windows 热键程序、可供 agent 使用的提示词增强 Skill，以及一个 DSH Web GUI 插件（`dsh-plugin/`）：
+`skills/prompt-enhancer` 与 `skills/p` 是对话内提示词增强 Skill 与快捷别名。热键程序和 Skill 共用 `core/rules.md`。输入框中的 `$p 切换默认` 是热键程序支持的本地命令；对话中的 `$p` 则来自 `skills/p`，两者不要混用。
 
-- 全局热键与白名单窗口检测
-- 基础、标准、专业和系统提示词四类增强
-- DeepSeek 官方 API 调用
-- 再次优化、`@iter:` 迭代要求与 Skill token 保护
-- 默认档切换和本地配置
-- `skills/prompt-enhancer` 与 `skills/p`：对话内提示词增强 Skill 与快捷别名
-- `dsh-plugin/`：DSH Web GUI 输入框里的 ✨ 按钮与档位胶囊，走宿主自带的模型服务
-
-热键程序和 Skill 共用 `core/rules.md`。输入框中的 `$p 切换默认` 是热键程序支持的本地命令；对话中的 `$p` 则来自 `skills/p`，两者不要混用。
-
-## DSH 插件
-
-插件在 `dsh-plugin/` 子目录，npm 包名是 `dsh-prompt-enhance-cn`（npm 上 `dsh-prompt-enhance` 已被上游占用，两者不是同一个包）。它和热键程序共用同一份 `core/rules.md`，四档措辞不会分叉。
-
-从 Release 的 tarball 安装：
-
-```bash
-dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
-```
-
-装完重启 DSH。插件默认快捷键是 `Ctrl+Shift+Alt+A`，热键程序默认是 `Ctrl+Shift+Alt+E`，两者默认不冲突。
-
-> **两个都装且想共用一个键时**：把 `DeepSeek Harness` 从热键程序 `config.json` 的 `allowed_processes` 里删掉。看门狗只在白名单窗口位于前台时才启动增强进程，删掉之后它就不会替 DSH 抢注全局热键，DSH 里交给插件，其它 agent 仍由热键程序处理。反过来只想要热键程序、不装插件，就保持白名单原样。
-
-插件自己的文档（安装、配置、开发、测试）在 `dsh-plugin/README.md` 与 `dsh-plugin/README.zh-CN.md`。
-
-## 安装 Skill-only
+### 安装 Skill-only
 
 **前置条件**：任意可读取 Skill 文件的 agent 宿主；如需持久切换默认档，还要 Python 3.10+。
 
@@ -76,7 +91,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Mode Skill -Uninstall
 ```
 
-## 安装 Hotkey-only
+### 安装 Hotkey-only
 
 **前置条件**：Windows 10/11、Python 3.10+（含 `pythonw.exe`）、一个兼容 OpenAI Chat Completions 的 API Key。
 
@@ -110,7 +125,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 python .\enhance_hotkey.py --doctor
 ```
 
-## 安装 Bundle
+### 安装 Bundle
 
 **前置条件**：Windows 10/11、Python 3.10+、API Key，以及一个支持 Skill 的 agent 宿主（默认适配 Codex）。
 
