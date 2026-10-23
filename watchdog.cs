@@ -318,6 +318,9 @@ internal static class PromptEnhancerWatchdog
             info.WorkingDirectory = BaseDir;
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
+            // 启动链可能丢了用户级环境变量（例如从服务/计划任务/旧 shell 拉起），
+            // 拉起前把 HKCU\Environment 合并进环境块，密钥等变量以注册表为准。
+            MergeUserEnvironment(info);
             Process.Start(info);
             return true;
         }
@@ -325,6 +328,40 @@ internal static class PromptEnhancerWatchdog
         {
             Log("start enhancer failed: " + ex.Message);
             return false;
+        }
+    }
+
+    private static void MergeUserEnvironment(ProcessStartInfo info)
+    {
+        try
+        {
+            using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Environment"))
+            {
+                if (key == null) return;
+                foreach (var name in key.GetValueNames())
+                {
+                    if (String.IsNullOrEmpty(name)) continue; // 忽略未展开的 REG_EXPAND_SZ 默认值
+                    var value = key.GetValue(name, null, Microsoft.Win32.RegistryValueOptions.DoNotExpandEnvironmentNames) as string;
+                    if (String.IsNullOrWhiteSpace(value)) continue;
+                    // PATH 这类累积变量：注册表值追加在现有值后面，避免覆盖系统 PATH
+                    if (String.Equals(name, "PATH", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var current = info.EnvironmentVariables["PATH"];
+                        info.EnvironmentVariables["PATH"] = String.IsNullOrEmpty(current)
+                            ? value
+                            : current.TrimEnd(';') + ";" + value;
+                    }
+                    else
+                    {
+                        info.EnvironmentVariables[name] = value;
+                    }
+                }
+            }
+            Log("user environment merged from registry");
+        }
+        catch (Exception ex)
+        {
+            Log("merge user environment failed: " + ex.Message);
         }
     }
 
