@@ -2,6 +2,10 @@
 
 All notable changes are documented here. Versions follow [npm](https://www.npmjs.com/package/dsh-prompt-enhance-cn); GitHub Release notes live in the [prompt-enhancer repository](https://github.com/qwe3120695033/prompt-enhancer/releases). Entries before 0.3.0 describe the upstream package dsh-prompt-enhance this one was forked from (**rongxingda/dsh-prompt-enhance@0.2.7**, Apache-2.0; licence and attribution kept).
 
+## 0.3.1
+
+仅文档修订，代码与依赖均未变：把两个组件的默认键写清楚（插件 `ctrl+shift+alt+a`、热键程序 `ctrl+shift+alt+e`，故意错开以免在 DSH 里按一次触发两次），并修正 0.3.0 条目里把「插件默认键」错写成已改 E 的那句话；首段简介补上它到底做什么、四档名字前置。
+
 ## 0.3.0
 
 首个公开发布版。包名换成 `dsh-prompt-enhance-cn`：npm 上 `dsh-prompt-enhance` 与 `dsh-prompt-enhancer` 都已被功能无关的其它包占用，只能另起名。仓库也从上游 fork 地址搬到 [qwe3120695033/prompt-enhancer](https://github.com/qwe3120695033/prompt-enhancer)，本插件位于该仓库 `dsh-plugin/` 子目录。
