@@ -24,7 +24,7 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚡ **One-click fill** | The base / standard / professional tiers write the rewrite straight into the composer — no dialog. The system tier still previews first, because an eight-section system prompt rewrites a whole persona |
 | 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time. Opens for the system tier, and whenever your draft moved while the request was in flight |
 | ↩️ **Undo / `Ctrl+Z`** | After a fill, a quiet bar above the composer restores the original draft — or just press `Ctrl+Z`. Once you edit the filled text, both stand down and the browser's own character undo takes over |
-| ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in |
+| ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in. The Windows hotkey program shipped in the same repository is a separate component with its own default, `Ctrl+Shift+Alt+E` — deliberately different so installing both never fires twice |
 | 💬 **`/enhance` command** | Rewrite any text from the slash-command plane; the result never enters model history |
 | 🧠 **Model routing** | Settings pair → current session model → harness default model, in that order |
 | 🔑 **Zero credential setup** | Calls ride the harness LLM service; keys come from the harness credential store |

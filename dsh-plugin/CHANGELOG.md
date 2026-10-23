@@ -6,7 +6,7 @@ All notable changes are documented here. Versions follow [npm](https://www.npmjs
 
 首个公开发布版。包名换成 `dsh-prompt-enhance-cn`：npm 上 `dsh-prompt-enhance` 与 `dsh-prompt-enhancer` 都已被功能无关的其它包占用，只能另起名。仓库也从上游 fork 地址搬到 [qwe3120695033/prompt-enhancer](https://github.com/qwe3120695033/prompt-enhancer)，本插件位于该仓库 `dsh-plugin/` 子目录。
 
-默认快捷键从 `ctrl+shift+alt+a` 改成 **`ctrl+shift+alt+e`**：Windows 热键程序和这个插件默认会抢同一个组合键，两个都装的人只有错开才都能用；想让所有 agent 共用一个键的，按 README 里那一段把 `DeepSeek Harness` 移出热键白名单即可。
+默认快捷键是错开的一对：**本插件保持 `ctrl+shift+alt+a`，同一仓库发布的 Windows 热键程序默认 `ctrl+shift+alt+e`**。热键程序的白名单里含 `DeepSeek Harness`，两边同键的话在 DSH 里按一次会同时触发插件和外部程序，所以默认值必须不同。想让所有 agent 共用一个键的，按 README 那一段把 `DeepSeek Harness` 移出热键白名单即可。
 
 功能层面这一版就是下面「本地分支」全部内容的定稿：四档位（基础 / 标准 / 专业 / 系统）、输入框档位胶囊与「结合上下文」开关、一键直填与 `Ctrl+Z` 撤销、面板预览、按档位取上下文。其中**基础档走模型做轻度整理**是最后一次调整——原先的纯本地规则管线只能归一空格、改两个口头禅，遇到病句和语序错乱无能为力，现在改由 `[BASE]` 段约束模型：理顺语序与连接词、补全标点与分段、修错别字，不扩写、不新增任务要求。
 

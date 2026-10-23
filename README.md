@@ -5,14 +5,14 @@
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#热键程序与-skill)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#热键程序与-skill)
 
-一个提示词增强器，分成两个独立的部分，按需安装，也可以都装：
+一个提示词增强器：把随手写的草稿改写成结构清楚、可以直接发给模型的提示词。它分成两个独立的部分，按需安装，也可以都装：
 
 | 部分 | 用在哪 | 怎么用 |
 | --- | --- | --- |
 | **DSH 插件** | DeepSeek Harness Web GUI | 输入框旁的 ✨ 按钮、档位胶囊、全局快捷键 |
 | **热键程序 + Skill** | Codex、ChatGPT、Claude Code 等桌面 agent | 全局热键一键替换草稿；`$p` / `$prompt-enhancer` 在对话里直接调用 |
 
-两部分共用同一份 `core/rules.md`，四档措辞不会分叉。
+两部分共用同一份 `core/rules.md`，四档（基础 / 标准 / 专业 / 系统）的措辞不会分叉。
 
 ## DSH 插件
 
@@ -38,7 +38,7 @@ dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/re
 
 输入框左侧出现档位胶囊（基/标/专/系），点 ✨ 直接把草稿替换成增强版；系统档会先开预览面板。行尾的圆点用来设默认档，下拉可以选「结合上下文」。
 
-插件默认快捷键是 `Ctrl+Shift+Alt+A`，热键程序默认是 `Ctrl+Shift+Alt+E`，两者默认不冲突。
+两个组件的默认键是故意错开的：**插件 `Ctrl+Shift+Alt+A`，热键程序 `Ctrl+Shift+Alt+E`**。热键程序的 `allowed_processes` 里有 `DeepSeek Harness`，两边同键的话在 DSH 里按一次会同时触发插件和外部程序，所以插件这份始终留在 A。
 
 > **两个都装且想共用一个键时**：把 `DeepSeek Harness` 从热键程序 `config.json` 的 `allowed_processes` 里删掉。看门狗只在白名单窗口位于前台时才启动增强进程，删掉之后它就不会替 DSH 抢注全局热键，DSH 里交给插件，其它 agent 仍由热键程序处理。反过来只想要热键程序、不装插件，就保持白名单原样。
 
