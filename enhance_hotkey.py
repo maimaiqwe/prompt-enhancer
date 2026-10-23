@@ -68,7 +68,7 @@ DEFAULTS = {
     "model": "deepseek-flash",
     "reasoning_effort": "none",
     "api_key_env": "DEEPSEEK_API_KEY",
-    "hotkey": "ctrl+shift+alt+e",
+    "hotkey": "ctrl+shift+alt+a",
     "allowed_processes": [
         "ChatGPT.exe",
         "codex.exe",
@@ -178,9 +178,13 @@ SYSTEM_STRONG_SIGNALS = (
     "能力边界",
 )
 URL_PATTERN = re.compile(r"https?://[^\s<>'\"`]+", re.IGNORECASE)
-WIN_PATH_PATTERN = re.compile(r"(?<![A-Za-z0-9])(?:[A-Za-z]:\\|\\\\)[^\s<>'\"`|]+")
+WIN_PATH_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])(?:[A-Za-z]:\\|\\\\)"
+    r"[^\s<>'\"`|*?:;,.!?()，。；：、！？（）“”‘’]*"
+)
 UNIX_PATH_PATTERN = re.compile(r"(?<![\w/])/(?:[^\s<>'\"`/]+/)*[^\s<>'\"`/]+")
 NUMBER_PATTERN = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")
+DATE_PATTERN = re.compile(r"\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b|\b\d{1,2}[:：]\d{2}\b")
 BASE_REQUESTING_PHRASES = (
     "发给我",
     "请提供",
@@ -823,7 +827,7 @@ def only_skill_tokens(text):
 def literals(text):
     """提取必须原样保留的 URL、路径和数字，用于替换前安全检查。"""
     groups = []
-    for pattern in (URL_PATTERN, WIN_PATH_PATTERN, UNIX_PATH_PATTERN, NUMBER_PATTERN):
+    for pattern in (URL_PATTERN, WIN_PATH_PATTERN, UNIX_PATH_PATTERN, DATE_PATTERN, NUMBER_PATTERN):
         groups.extend(pattern.findall(text))
     return groups
 
@@ -843,8 +847,18 @@ def validate_output(source, output, mode, iteration, tokens, tier="standard"):
     output_plain = restore_skills(output, tokens)
     missing = []
     for item in literals(source_plain):
-        if item not in output_plain and item not in missing:
-            missing.append(item)
+        if item in output_plain or item in missing:
+            continue
+        # 路径类字面量允许分隔符被规范化（反斜杠↔正斜杠）、允许改写时
+        # 去掉或补上扩展名，只要目录骨架和文件名仍在就不算丢失。
+        parts = [p for p in re.split(r"[/\\]", item) if p]
+        if ("\\" in item or item.startswith(("/", "~/"))) and len(parts) >= 2:
+            skeleton = "[/\\\\]".join(re.escape(p) for p in parts)
+            if re.search(skeleton, output_plain):
+                continue
+            if parts[-1] and parts[-1] in output_plain:
+                continue
+        missing.append(item)
     if missing:
         preview = "、".join(missing[:3])
         problems.append("丢失关键内容：%s" % preview)
@@ -1718,7 +1732,7 @@ def toast_loop(events, cfg):
             pass
         root.after(120, poll)
 
-    threading.Thread(target=system_hotkey_thread, args=(events, cfg), daemon=True).start()
+    threading.Thread(target=hotkey_thread, args=(events, cfg), daemon=True).start()
     threading.Thread(target=warm_process_cache, daemon=True).start()
     root.after(120, poll)
     root.mainloop()
