@@ -30,6 +30,16 @@ const DEFAULT_PROFILE =
 const profile = resolve(process.argv[2] ?? DEFAULT_PROFILE)
 const target = join(profile, 'node_modules', 'dsh-prompt-enhance')
 
+// the desktop profile now installs dsh-prompt-enhance-cn via pnpm; the manual
+// copy this script fingerprints is gone, so retire instead of reporting noise
+await lstat(join(profile, 'node_modules', 'dsh-prompt-enhance-cn')).then(
+  () => {
+    console.error('profile installs dsh-prompt-enhance-cn via pnpm — this manual-copy verifier is retired for it')
+    process.exit(1)
+  },
+  () => {},
+)
+
 /** Everything the host actually loads plus the markers we fingerprint. */
 const ENTRIES = ['lib/index.js', 'lib/client.js', 'package.json', 'cordis.patch.yml']
 

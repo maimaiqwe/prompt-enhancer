@@ -31,6 +31,13 @@ async function exists(path) {
   }
 }
 
+// the desktop profile now installs dsh-prompt-enhance-cn via pnpm; a manual
+// copy would shadow it with a second plugin directory
+if (await exists(join(profile, 'node_modules', 'dsh-prompt-enhance-cn'))) {
+  console.error('profile installs dsh-prompt-enhance-cn via pnpm — manual copy retired; publish and bump the dependency instead')
+  process.exit(1)
+}
+
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 
 if (!(await exists(join(root, 'lib', 'index.js')))) {

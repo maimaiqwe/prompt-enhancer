@@ -11,6 +11,8 @@
 
 热键层运行版位于 `MEMORY\skills\prompt-enhancer\hotkey\`（`Ctrl+Shift+Alt+A`，白名单 15 个进程，不含 `DeepSeek Harness.exe`——DSH 内改用插件自带热键）。
 
+npm 与市场上有近名包：上游 `dsh-prompt-enhance`（rongxingda）、第三方 `dsh-prompt-enhancer`；本仓库发布包是 `dsh-prompt-enhance-cn`，认准全名。
+
 ## 两个入口的分工
 
 - **DSH 插件**：输入框 ✨ 左侧的档位胶囊（基 / 标 / 专 / 系）+ 「结合上下文」开关，点 ✨ 或按 `Ctrl+Shift+Alt+A` 原地增强，预览面板可回填 / 复制 / 撤销。
@@ -26,12 +28,13 @@ npm install --registry=https://registry.npmjs.org   # npmmirror 上 @deepseek-ai
 npm run typecheck
 npm test
 npm run build              # 规则生成校验 + tsc + esbuild 双半区
-npm run install:profile    # 同步进 DSH profile 的 node_modules
 ```
 
 改了 `core/rules.md` 要先 `npm run gen:tiers` 重新生成 `src/generated/tier-rules.ts`；`npm run build` 里的 `--check` 会在生成物落后时失败。
 
 改完生效方式：客户端半区刷新页面，宿主半区重启 DSH。
+
+本机 desktop profile 已正式依赖 npm 包 `dsh-prompt-enhance-cn`（pnpm 按依赖恢复），`install:profile` / `verify:profile` 已废弃——脚本检测到该依赖会直接退出。本机验证插件改动须发布新版并升级依赖，或临时手拷 `node_modules/dsh-prompt-enhance-cn`（下次 pnpm install 会还原为发布版）。
 
 ## 许可证
 

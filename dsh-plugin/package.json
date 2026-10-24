@@ -1,7 +1,7 @@
 {
-  "name": "dsh-prompt-enhance",
-  "description": "Prompt enhancement for the dsh web GUI: rewrite the composer draft into a well-structured prompt through the harness LLM service, preview the before/after, then fill back, copy, or undo. Original draft is always preserved.",
-  "version": "0.2.7",
+  "name": "dsh-prompt-enhance-cn",
+  "description": "Four-tier prompt enhancement for the dsh web GUI: base / standard / professional / system. Rewrites the composer draft through the harness LLM service, previews or fills back in place, and always keeps the original draft recoverable.",
+  "version": "0.3.2",
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
@@ -90,12 +90,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rongxingda/dsh-prompt-enhance.git"
+    "url": "git+https://github.com/qwe3120695033/prompt-enhancer.git"
   },
   "bugs": {
-    "url": "https://github.com/rongxingda/dsh-prompt-enhance/issues"
+    "url": "https://github.com/qwe3120695033/prompt-enhancer/issues"
   },
-  "homepage": "https://github.com/rongxingda/dsh-prompt-enhance#readme",
+  "homepage": "https://github.com/qwe3120695033/prompt-enhancer#readme",
   "scripts": {
     "gen:tiers": "node scripts/generate-tiers.mjs",
     "build": "node scripts/generate-tiers.mjs --check && tsc -p . && node scripts/build.mjs",

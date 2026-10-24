@@ -111,7 +111,7 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
     const messages = [
       createUserMessage({
         content: [{ type: 'text', text: frameUserPrompt(options.text, options.context) }],
-        source: { kind: 'plugin', plugin: 'dsh-prompt-enhance' },
+        source: { kind: 'plugin', plugin: 'dsh-prompt-enhance-cn' },
       }),
     ]
     const generate: GenerateOptions = {
