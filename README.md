@@ -1,6 +1,6 @@
 # prompt-enhancer
 
-提示词增强器：把口语草稿改写成结构清晰、约束完整、可直接发给 AI 的提示词。同一份规则真源同时服务两个入口——Windows 全局热键，和 DeepSeek Harness（DSH）输入框里的插件按钮。
+提示词增强器：把口语草稿改写成结构清晰、约束完整、可直接发给 AI 的提示词。同一份规则真源同时服务三个入口——DeepSeek Harness（DSH）输入框里的插件按钮、Windows 全局热键，以及任何 agent 对话里可用的 `$p` Skill。
 
 ## 仓库结构
 
@@ -13,12 +13,13 @@
 
 npm 与市场上有近名包：上游 `dsh-prompt-enhance`（rongxingda）、第三方 `dsh-prompt-enhancer`；本仓库发布包是 `dsh-prompt-enhance-cn`，认准全名。
 
-## 两个入口的分工
+## 三个入口的分工
 
 - **DSH 插件**：输入框 ✨ 左侧的档位胶囊（基 / 标 / 专 / 系）+ 「结合上下文」开关，点 ✨ 或按 `Ctrl+Shift+Alt+A` 原地增强，预览面板可回填 / 复制 / 撤销。
 - **Windows 热键**：在任何其它白名单客户端的输入框里按 `Ctrl+Shift+Alt+A`，走同一套档位规则。
+- **对话 Skill**：`$p` / `$prompt-enhancer` 在装了这两个 skill 的 agent 对话里直接调用（档位前缀、`@iter:` 迭代、默认档切换）。
 
-两边共用 `core/rules.md`，所以规则改一次，两个入口同时生效。
+三个入口共用 `core/rules.md`，所以规则改一次，三处同时生效。
 
 ## dsh-plugin 开发
 
