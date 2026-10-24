@@ -21,7 +21,7 @@ description: 提示词增强：把口语草稿改写成结构清晰、约束完�
 - `$p 切换默认 <档位>`：与 `$p 默认 <档位>` 等价；热键侧只识别不带档位的 `$p 切换默认` 来弹选择器。
 - 收到 `$p 默认 <档位>` / `$p default <tier>` 时，先进入本 Skill 根目录，再执行 `python scripts/set_default.py <tier> --json`；脚本在仓库内写根配置，独立安装时写用户配置。成功只回一行“默认档已切换为 X”，不要改写草稿或回显配置全文。
 - 只收到 `$p 切换默认`（无档位）时，这是对话内的切换请求：询问用户要选 `基础 / 标准 / 专业` 哪一档；带选择框的交互只属于本地热键，不在聊天中伪造弹窗。
-- `$p <档位> <草稿>`：首词是 `基础/base`、`轻量/lite`、`标准/standard`、`专家/smart`、`发布/publish`、`专业/pro/professional` 才剥离；不是档位就整段都算草稿。
+- `$p <档位> <草稿>`：首词是档位才剥离，不是档位就整段都算草稿。档位词映射：`基础/base`→基础；`标准/standard/std`→标准；`轻量/lite`→标准；`专业/pro/professional`、`专家/smart`、`发布/publish`→专业。
 - `$p 继续` / `$p iter <草稿>`：在上一次增强结果上保守迭代，只补缺口，不重写。
 - `$p <草稿>` 后另起一行写 `@iter: <要求>`：以当前稿为基准迭代，并按该要求调整方向或细节；`@iter:` 不进入最终提示词。
 - `--no-copy`：本次不写剪贴板。
@@ -91,10 +91,10 @@ Set-Clipboard -Value @'
 
 - 目录：本仓库根目录
 - 启动：双击 `run.cmd`，或运行 `install.ps1 -NoStartup`
-- 快捷键：`Ctrl+Shift+Alt+E`，只在 `config.json` 的 `allowed_processes` 内生效
+- 快捷键：`Ctrl+Shift+Alt+A`，只在 `config.json` 的 `allowed_processes` 内生效
 - 模型：默认 DeepSeek 官方 `deepseek-flash`，密钥只读环境变量 `DEEPSEEK_API_KEY`
 - 输入框内可用 `sys:` / `user:` 强制类型；增强后再按一次自动迭代，或在末尾加 `@iter: <要求>` 定向迭代
-- 默认档切换：输入框只写 `$p 切换默认` 后按 `Ctrl+Shift+Alt+E` 弹选择器；或发送 `$p 默认 <档位>` 持久切换
+- 默认档切换：输入框只写 `$p 切换默认` 后按 `Ctrl+Shift+Alt+A` 弹选择器；或发送 `$p 默认 <档位>` 持久切换
 - 费用、历史与配置说明：根目录 `README.md`
 
 ## 适配其他 agent

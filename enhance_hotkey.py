@@ -1738,26 +1738,6 @@ def toast_loop(events, cfg):
     root.mainloop()
 
 
-def standalone_listener(events, cfg):
-    """在独立进程里监听，避免 Tk/Windows 应用消息循环影响低级钩子。"""
-    listener = os.path.join(BASE, "listener.py")
-    if not os.path.exists(listener):
-        return False
-    try:
-        import subprocess
-
-        log("启动独立监听进程")
-        subprocess.Popen(
-            [sys.executable.replace("pythonw.exe", "python.exe"), listener],
-            cwd=BASE,
-            creationflags=0x08000000,
-        )
-        return True
-    except Exception as e:
-        log("独立监听启动失败: %r" % e)
-        return False
-
-
 def parse_cli_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--test", metavar="DRAFT", help="只调接口，打印增强结果")
