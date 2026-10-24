@@ -16,7 +16,7 @@
 
 ## DSH 插件
 
-插件在 `dsh-plugin/` 子目录，npm 包名是 **`dsh-prompt-enhance-cn`**（npm 上 `dsh-prompt-enhance` 已被上游占用，两者不是同一个包）。
+插件在 `dsh-plugin/` 子目录，npm 包名是 **`dsh-prompt-enhance-cn`**（npm 上 `dsh-prompt-enhance` 已被上游占用，两者不是同一个包；另有第三方 `dsh-prompt-enhancer`，也不是本包——安装时认准全名）。
 
 ### 用 npm 安装
 

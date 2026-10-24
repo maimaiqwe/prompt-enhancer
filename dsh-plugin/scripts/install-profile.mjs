@@ -9,7 +9,6 @@
  * @module scripts/install-profile
  */
 import { cp, lstat, mkdir, realpath, rm, stat, readFile } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,10 +19,8 @@ const DEFAULT_PROFILE =
   process.env.DSH_PROFILE_DIR ??
   'E:/aaaWorkspace/WorkSpace/dsh/.dsh/profiles/desktop'
 
-const NEW_NAME = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name
-
 const profile = resolve(process.argv[2] ?? DEFAULT_PROFILE)
-const target = join(profile, 'node_modules', NEW_NAME)
+const target = join(profile, 'node_modules', 'dsh-prompt-enhance')
 
 async function exists(path) {
   try {
@@ -32,6 +29,13 @@ async function exists(path) {
   } catch {
     return false
   }
+}
+
+// the desktop profile now installs dsh-prompt-enhance-cn via pnpm; a manual
+// copy would shadow it with a second plugin directory
+if (await exists(join(profile, 'node_modules', 'dsh-prompt-enhance-cn'))) {
+  console.error('profile installs dsh-prompt-enhance-cn via pnpm — manual copy retired; publish and bump the dependency instead')
+  process.exit(1)
 }
 
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))

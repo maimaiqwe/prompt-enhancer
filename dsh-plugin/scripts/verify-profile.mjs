@@ -17,7 +17,6 @@
  */
 import { createHash } from 'node:crypto'
 import { lstat, readFile, realpath } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,10 +27,18 @@ const DEFAULT_PROFILE =
   process.env.DSH_PROFILE_DIR ??
   'E:/aaaWorkspace/WorkSpace/dsh/.dsh/profiles/desktop'
 
-const NEW_NAME = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name
-
 const profile = resolve(process.argv[2] ?? DEFAULT_PROFILE)
-const target = join(profile, 'node_modules', NEW_NAME)
+const target = join(profile, 'node_modules', 'dsh-prompt-enhance')
+
+// the desktop profile now installs dsh-prompt-enhance-cn via pnpm; the manual
+// copy this script fingerprints is gone, so retire instead of reporting noise
+await lstat(join(profile, 'node_modules', 'dsh-prompt-enhance-cn')).then(
+  () => {
+    console.error('profile installs dsh-prompt-enhance-cn via pnpm — this manual-copy verifier is retired for it')
+    process.exit(1)
+  },
+  () => {},
+)
 
 /** Everything the host actually loads plus the markers we fingerprint. */
 const ENTRIES = ['lib/index.js', 'lib/client.js', 'package.json', 'cordis.patch.yml']
