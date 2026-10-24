@@ -1,10 +1,12 @@
 # Changelog
 
-All notable changes are documented here. Versions follow [npm](https://www.npmjs.com/package/dsh-prompt-enhance); releases from **0.2.3** onward also have a [GitHub Release](https://github.com/rongxingda/dsh-prompt-enhance/releases) page with notes (0.2.0–0.2.2 are tagged but have no Release page — see this file for their notes).
+All notable changes are documented here. Versions follow [npm](https://www.npmjs.com/package/dsh-prompt-enhance-cn); GitHub Release notes live in the [prompt-enhancer repository](https://github.com/qwe3120695033/prompt-enhancer/releases). Entries before 0.3.0 describe the upstream package dsh-prompt-enhance this one was forked from (**rongxingda/dsh-prompt-enhance@0.2.7**, Apache-2.0; licence and attribution kept).
 
-## 本地分支（未发布，基于 0.2.7）
+## 本地分支（已发布为 dsh-prompt-enhance-cn，基于 0.2.7）
 
 本地分支：把上游的单套内置策略换成**四档位**（基础 / 标准 / 专业 / 系统），并把档位做成输入框里的常驻控件。基于 `rongxingda/dsh-prompt-enhance@0.2.7`（Apache-2.0，保留授权与署名）。
+
+**复验收尾（2026-10-24）。** ① `local-rewrite.ts` 连同测试与 `index.ts` 导出整体删除——基础档走模型后它已无引用；② 包身份与发布线对齐：repository/bugs/homepage 统一指向 qwe3120695033/prompt-enhancer 的 `dsh-plugin` 子目录，`enhancer.ts` 消息 source 同步 `-cn`；③ 通用 system prompt 的 `1x–3x` 篇幅硬规则改为「以当前档位长度契约为准」，不再与 `[BASE]` 的 1.3 倍上限对撞；④ `install:profile` / `verify:profile` 加守卫退役：desktop profile 已正式依赖 npm 包（pnpm 按依赖恢复），手工拷贝流不再适用；⑤ README 补近名包警示（上游 `dsh-prompt-enhance`、第三方 `dsh-prompt-enhancer`）。同轮热键层：SKILL.md 补档位词映射表、删除零调用的 `standalone_listener`、修复两条存量测试。
 
 **基础档回归模型（本轮，回退上一轮的本地整理）。** 上一轮把 `基础` 做成了 `src/local-rewrite.ts` 的确定性管线（不调模型、不占限流与并发位、provider 没配也能用）。实际用下来这不成立：「理顺语序」本身就是模型的工作，纯规则只能归一空格加两个口头禅，遇到病句、缺主语、连接词错乱一概无能为力，反倒把「基础」做成了一个比原稿还僵的版本。现在四档一律走模型，基础档靠 `[BASE]` 段约束成**轻度整理**——理顺语序与连接词、补全缺失标点与空格与分段、修错别字，不扩写、不新增任务要求、不主动加标题与分点。配套三处：① `enhance-routes.ts` 删掉 `localOnly`，全部请求走准入闸门与并发计数（不再有免检通道）；② `orchestrate.ts` 删掉基础档短路，`local-rewrite` 在本插件内只剩对外导出，不再参与增强；③ `validate_output` 侧（热键层）新增 1.5 倍篇幅护栏，扛住模型擅自扩写。`[COMMON]` 里「短指令应当展开」那句加了「标准档及以上」限定，否则基础档会被这两条规则对撞。
 
@@ -18,7 +20,7 @@ All notable changes are documented here. Versions follow [npm](https://www.npmjs
 
 **默认快捷键改为 `ctrl+shift+alt+a`**，与本机 Windows 热键层一致；档位真源仍共用 `core/rules.md`，两者不会在措辞上分叉。
 
-**新增脚本。** `npm run install:profile` 把 `lib/ src/ package.json cordis.patch.yml …` 同步进 DSH profile 的 `node_modules/dsh-prompt-enhance`（profile 里是实体目录而非软链，改完必须同步）。`npm run verify:profile` 逐文件比对仓库构建物与 profile 拷贝的 sha256，不一致退出 1 并说明两种可能：忘了同步，或 profile 里跑过一次 `pnpm install` 把上游 0.2.7 装了回来。宿主半区改动重启 DSH 生效，客户端改动刷新页面生效。
+**新增脚本。** `npm run install:profile` 把 `lib/ src/ package.json cordis.patch.yml …` 同步进 DSH profile 的 `node_modules/dsh-prompt-enhance`（profile 里是实体目录而非软链，改完必须同步）。`npm run verify:profile` 逐文件比对仓库构建物与 profile 拷贝的 sha256，不一致退出 1 并说明两种可能：忘了同步，或 profile 里跑过一次 `pnpm install` 把上游 0.2.7 装了回来。宿主半区改动重启 DSH 生效，客户端改动刷新页面生效。**2026-10-24 起退役**：desktop profile 已正式依赖 npm 包，两脚本检测到该依赖即直接退出，见「复验收尾」。
 
 **复验修复（同轮）。** ① 插件设置里的「上下文感知」恢复为真正的总开关：关掉后宿主拒绝所有按次传入的 `useContext`，胶囊上的勾选状态也随之显示为关并禁用；② 基础档的上下文行一并锁住并给出档位专属说明（该档规则禁止扩写，读取历史会让它和规则打架），不再出现「勾上却无效果」；③ 档位列表由 `role="menu"` 改为 `role="radiogroup"` + `role="radio"`——同一个弹层里还有复选框和按钮，`menu` 容器不允许这些子元素；④ 弹层改为贴右边缘展开（`right: 0`），胶囊位于输入框右端，向左展开才不会溢出视口；⑤ 没有绑定 settings 服务时不再假装写入成功（本版改为：默认档仍记在本地 `localStorage`，只是不写宿主那份 `defaultTier`）；⑥ `install-profile.mjs` 识别 `link:` 依赖，遇到软链不覆盖（并注明不要改成 `link:`：那会让 `@deepseek-ai/dsh-llm` 解析到本仓库 devDependencies 的另一份实例，cordis 服务身份会冲突）。
 
