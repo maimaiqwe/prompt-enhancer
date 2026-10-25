@@ -80,6 +80,7 @@ describe('IterationPanel', () => {
     await waitFor(() => { expect(lastBody()).toBeTruthy() })
     expect(lastBody().text).toBe('DRAFT')
     expect(lastBody().iterRequirement).toBe('把方向改为复验并优化')
+    expect(lastBody().useContext).toBe(true)
     await waitFor(() => { expect(outputPane().value).toBe('ITER_OUT') })
     expect(onClose).not.toHaveBeenCalled()
   })

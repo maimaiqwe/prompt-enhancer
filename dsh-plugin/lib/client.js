@@ -1263,7 +1263,8 @@ function IterationPanel(props) {
     const controller = new AbortController();
     controllerRef.current = controller;
     const sid = wireId !== void 0 ? { sessionId: wireId } : {};
-    const body = positive ? { text: input, tier, ...sid } : { text: base, tier, ...sid, ...input.trim() !== "" ? { iterRequirement: input } : {} };
+    const useContext = effectiveUseContext(uiKey);
+    const body = positive ? { text: input, tier, useContext, ...sid } : { text: base, tier, useContext, ...sid, ...input.trim() !== "" ? { iterRequirement: input } : {} };
     try {
       const result = await requestEnhanceStream(body, {
         signal: controller.signal,

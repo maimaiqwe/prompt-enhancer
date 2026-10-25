@@ -20,7 +20,7 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EnhanceRequestBody } from '../shared/protocol'
 import { EnhanceClientError, requestEnhanceStream } from './enhance-client'
 import { localizedErrorMessage } from './ResultPanel'
-import { effectiveTier, getVersion, subscribe as subscribeTier } from './tier-store'
+import { effectiveTier, effectiveUseContext, getVersion, subscribe as subscribeTier } from './tier-store'
 import { clearIterPanel, lastEnhancedOf, loadIterPanel, recordLastEnhanced, saveIterPanel } from './iter-state'
 
 /** Minimal surface of the composer actions the panel needs. */
@@ -100,9 +100,13 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
     const controller = new AbortController()
     controllerRef.current = controller
     const sid = wireId !== undefined ? { sessionId: wireId } : {}
+    // The context toggle travels with the request: omitting it would let the
+    // host fall back to the master switch and pull conversation history into
+    // the panel's run even when the composer toggle is off.
+    const useContext = effectiveUseContext(uiKey)
     const body: EnhanceRequestBody = positive
-      ? { text: input, tier, ...sid }
-      : { text: base, tier, ...sid, ...(input.trim() !== '' ? { iterRequirement: input } : {}) }
+      ? { text: input, tier, useContext, ...sid }
+      : { text: base, tier, useContext, ...sid, ...(input.trim() !== '' ? { iterRequirement: input } : {}) }
     try {
       const result = await requestEnhanceStream(body, {
         signal: controller.signal,
