@@ -1417,6 +1417,16 @@ function IterationPanel(props) {
   (0, import_react5.useEffect)(() => () => {
     controllerRef.current?.abort();
   }, []);
+  (0, import_react5.useEffect)(() => {
+    const onKey = (event) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (event.key !== "Escape" || busy) return;
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [busy, onClose]);
   const run = async () => {
     if (busy) return;
     if (input.trim() === "") {
@@ -1529,16 +1539,16 @@ function IterationButton(props) {
   const wireId = serverSessionId(sources);
   const draft = useInput((state) => stringOf2(state.draft));
   const [open, setOpen] = (0, import_react6.useState)(false);
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "dsh-pe-cluster", children: [
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
       "button",
       {
         type: "button",
+        className: "dsh-pe-btn",
         title: t("iter.button.title"),
         "aria-label": t("iter.button.title"),
         onClick: () => setOpen(true),
-        style: { border: "none", background: "transparent", cursor: "pointer", fontSize: 15, padding: "0 4px", lineHeight: 1 },
-        children: "\u21BB"
+        children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": "true", children: "\u21BB" })
       }
     ),
     open ? (0, import_react_dom3.createPortal)(

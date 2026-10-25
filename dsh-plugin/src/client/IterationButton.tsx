@@ -24,15 +24,15 @@ export function IterationButton(props: EnhanceButtonProps): ReactNode {
   const draft = useInput((state) => stringOf((state as { draft?: unknown }).draft))
   const [open, setOpen] = useState(false)
   return (
-    <>
+    <span className="dsh-pe-cluster">
       <button
         type="button"
+        className="dsh-pe-btn"
         title={t('iter.button.title')}
         aria-label={t('iter.button.title')}
         onClick={() => setOpen(true)}
-        style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15, padding: '0 4px', lineHeight: 1 }}
       >
-        ↻
+        <span className="dsh-pe-btn-icon" aria-hidden="true">↻</span>
       </button>
       {open
         ? createPortal(
@@ -47,6 +47,6 @@ export function IterationButton(props: EnhanceButtonProps): ReactNode {
           document.body,
         )
         : null}
-    </>
+    </span>
   )
 }
