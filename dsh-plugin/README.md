@@ -1,6 +1,6 @@
 # dsh-prompt-enhance-cn
 
-[![CI](https://github.com/qwe3120695033/prompt-enhancer/actions/workflows/tests.yml/badge.svg)](https://github.com/qwe3120695033/prompt-enhancer/actions/workflows/tests.yml)
+[![CI](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml/badge.svg)](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml)
 [![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
@@ -31,7 +31,7 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚙️ **Live settings** | Every knob (model override, temperature, budgets, system prompt, shortcut) hot-applies from Settings → 插件配置 |
 | 🛡️ **Draft safety** | Empty, over-length, images-only, and command-chip inputs are rejected locally; upstream failures are mapped to readable messages; the draft is never mutated on failure |
 
-![The preview panel running in dsh web: original and enhanced prompt side by side with model info, fill-back and copy actions](https://raw.githubusercontent.com/qwe3120695033/prompt-enhancer/main/docs/evidence-prompt-enhance-panel.png)
+![The preview panel running in dsh web: original and enhanced prompt side by side with model info, fill-back and copy actions](https://raw.githubusercontent.com/maimaiqwe/prompt-enhancer/main/docs/evidence-prompt-enhance-panel.png)
 
 ## How it works
 
@@ -81,16 +81,16 @@ dsh plugin --profile web add dsh-prompt-enhance-cn
 From the release tarball (the built `lib/` is inside, so no local build happens):
 
 ```bash
-dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
+dsh plugin --profile web add https://github.com/maimaiqwe/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
 # restart dsh web
 ```
 
-The plugin sits in the `dsh-plugin/` subdirectory of that repository — the repo root is the Windows hotkey program, so `dsh plugin add github:qwe3120695033/prompt-enhancer` will not find it. Use the tarball URL above (or the npm package name).
+The plugin sits in the `dsh-plugin/` subdirectory of that repository — the repo root is the Windows hotkey program, so `dsh plugin add github:maimaiqwe/prompt-enhancer` will not find it. Use the tarball URL above (or the npm package name).
 
 From a local checkout (for development — changes rebuild + restart take effect):
 
 ```bash
-git clone https://github.com/qwe3120695033/prompt-enhancer.git
+git clone https://github.com/maimaiqwe/prompt-enhancer.git
 cd prompt-enhancer/dsh-plugin && npm install && npm run build
 dsh plugin --profile web add link:C:\path\to\prompt-enhancer\dsh-plugin
 ```

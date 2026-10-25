@@ -1,6 +1,6 @@
 # dsh-prompt-enhance-cn
 
-[![CI](https://github.com/qwe3120695033/prompt-enhancer/actions/workflows/tests.yml/badge.svg)](https://github.com/qwe3120695033/prompt-enhancer/actions/workflows/tests.yml)
+[![CI](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml/badge.svg)](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml)
 [![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
@@ -31,7 +31,7 @@
 | ⚙️ **配置热生效** | 模型覆盖、温度、预算、系统提示词、快捷键,全部在 设置 → 插件配置 即改即用 |
 | 🛡️ **草稿安全** | 空输入、超长、仅图片、含命令块在本地拦截;上游失败映射为可读提示;失败绝不改动草稿 |
 
-![dsh web 中实机运行的预览面板:原文与增强结果并排,含模型信息与回填/复制操作](https://raw.githubusercontent.com/qwe3120695033/prompt-enhancer/main/docs/evidence-prompt-enhance-panel.png)
+![dsh web 中实机运行的预览面板:原文与增强结果并排,含模型信息与回填/复制操作](https://raw.githubusercontent.com/maimaiqwe/prompt-enhancer/main/docs/evidence-prompt-enhance-panel.png)
 
 ## 工作原理
 
@@ -81,15 +81,15 @@ dsh plugin --profile web add dsh-prompt-enhance-cn
 从 Release 的 tarball(构建产物 `lib/` 已在包内,安装无需本地构建):
 
 ```bash
-dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
+dsh plugin --profile web add https://github.com/maimaiqwe/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
 ```
 
-插件在仓库的 `dsh-plugin/` 子目录里,仓库根是 Windows 热键程序,所以 `dsh plugin add github:qwe3120695033/prompt-enhancer` 找不到它,请用上面的 tarball 地址或 npm 包名。
+插件在仓库的 `dsh-plugin/` 子目录里,仓库根是 Windows 热键程序,所以 `dsh plugin add github:maimaiqwe/prompt-enhancer` 找不到它,请用上面的 tarball 地址或 npm 包名。
 
 从本地检出(开发用,改代码重建 + 重启即生效):
 
 ```bash
-git clone https://github.com/qwe3120695033/prompt-enhancer.git
+git clone https://github.com/maimaiqwe/prompt-enhancer.git
 cd prompt-enhancer/dsh-plugin && npm install && npm run build
 dsh plugin --profile web add link:C:\path\to\prompt-enhancer\dsh-plugin
 ```
