@@ -1,16 +1,16 @@
 /**
- * The iteration overlay: a two-pane workbench opened from the composer's
- * iterate button. Left pane takes the directional requirement (or the draft
- * itself when there is nothing to iterate on), right pane shows the output
- * and stays editable. Three actions: run the iteration, replace the composer
- * draft with the (possibly hand-edited) output, clear both panes.
+ * The iteration overlay: a two-column workbench opened from the composer's
+ * iterate button. The left column stacks the editable base pane (prefilled
+ * from the composer draft, or the last enhanced result when the box is empty)
+ * and a smaller requirement box below it; the right column is the output.
+ * Three actions: run the iteration, replace the composer draft with the
+ * (possibly hand-edited) output, clear all panes.
  *
- * Base resolution follows the composer-first rule: what the box holds is what
- * the user sees and controls, so a non-empty draft is always the base and the
- * session's last enhanced result is used only when the box is empty. The left
- * pane is a requirement, not the base: empty means "plain enhancement of the
- * base", and with no base at all it becomes a fresh draft. Panel contents
- * persist per session and reset when the composer draft changed in between.
+ * Base lifecycle: the panel persists its panes per session and restores them
+ * only while the composer draft is unchanged — once the draft changes, the
+ * base re-inherits the composer (or the last result when the box is empty).
+ * An empty requirement means a plain enhancement of the base; with no base at
+ * all the requirement box becomes the fresh draft.
  * @module dsh-prompt-enhance/client/IterationPanel
  */
 
@@ -38,10 +38,15 @@ export interface IterationPanelProps {
   onClose: () => void
 }
 
-/** The two-pane iterate workbench, rendered as a body portal. */
+/** The two-column iterate workbench, rendered as a body portal. */
 export function IterationPanel(props: IterationPanelProps): ReactNode {
   const { t, uiKey, wireId, inputActions, draft, onClose } = props
+  const last = lastEnhancedOf(uiKey)
+  // Base resolution at open time: the persisted panes win while the composer
+  // draft is unchanged; a changed draft re-inherits the composer, falling back
+  // to the last enhanced result only when the box is empty.
   const restored = useRef(loadIterPanel(uiKey, draft)).current
+  const [base, setBase] = useState(restored?.base ?? (draft.trim() !== '' ? draft : last ?? ''))
   const [input, setInput] = useState(restored?.input ?? '')
   const [output, setOutput] = useState(restored?.output ?? '')
   const [busy, setBusy] = useState(false)
@@ -51,25 +56,17 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
   // the next run, never text already typed into the panes.
   useSyncExternalStore(subscribeTier, getVersion)
   const tier = effectiveTier(uiKey)
-  // Composer-first base: the box is the source of truth. A stale last result
-  // must never hijack a draft the user typed afterwards — that demotion turned
-  // a fresh draft into a "requirement" against the old output.
-  const last = lastEnhancedOf(uiKey)
-  const base = draft.trim() !== '' ? draft : last ?? ''
   const positive = base.trim() === ''
+  // Provenance of the current base text, judged against its possible origins.
   const baseSource = positive
     ? t('iter.panel.base.none')
-    : draft.trim() !== '' ? t('iter.panel.base.draft') : t('iter.panel.base.last')
-  // The base line quotes a short excerpt so a stale base is visible at a
-  // glance instead of hiding behind a generic label.
-  const condensed = base.trim().replace(/\s+/g, ' ')
-  const baseExcerpt = positive
-    ? ''
-    : ' · ' + t('iter.panel.base.quote', { text: condensed.length > 60 ? condensed.slice(0, 60) + '…' : condensed })
+    : base === draft ? t('iter.panel.base.draft')
+    : last !== undefined && base === last ? t('iter.panel.base.last')
+    : t('iter.panel.base.custom')
 
   useEffect(() => {
-    saveIterPanel(uiKey, { input, output, draft })
-  }, [uiKey, input, output, draft])
+    saveIterPanel(uiKey, { base, input, output, draft })
+  }, [uiKey, base, input, output, draft])
 
   useEffect(() => () => {
     controllerRef.current?.abort()
@@ -92,8 +89,8 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
 
   const run = async (): Promise<void> => {
     if (busy) return
-    // Empty input is only fatal when there is no base to fall back on; with a
-    // base present an empty requirement pane means "plain enhancement".
+    // Empty panes are only fatal when there is nothing to work on at all; with
+    // a base present an empty requirement means "plain enhancement of the base".
     if (positive && input.trim() === '') {
       setError(t('iter.error.empty'))
       return
@@ -139,6 +136,7 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
   }
 
   const clear = (): void => {
+    setBase('')
     setInput('')
     setOutput('')
     setError('')
@@ -151,21 +149,36 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
         <header className="dsh-pe-iter-head">
           <div>
             <h3 className="dsh-pe-iter-title">{t('iter.panel.title')}</h3>
-            <p className="dsh-pe-iter-base">{t('iter.panel.base', { source: baseSource })}{baseExcerpt}</p>
+            <p className="dsh-pe-iter-base">{t('iter.panel.base', { source: baseSource })}</p>
           </div>
           <button type="button" className="dsh-pe-iter-close" aria-label={t('panel.close')} disabled={busy} onClick={onClose}>✕</button>
         </header>
         <div className="dsh-pe-iter-body">
-          <label className="dsh-pe-iter-pane">
-            <span className="dsh-pe-iter-pane-label">{t('iter.panel.input.label')}</span>
-            <textarea
-              className="dsh-pe-iter-area"
-              value={input}
-              placeholder={t('iter.panel.input.placeholder')}
-              autoFocus
-              onChange={(event) => setInput(event.target.value)}
-            />
-          </label>
+          <div className="dsh-pe-iter-left">
+            <label className="dsh-pe-iter-pane">
+              <span className="dsh-pe-iter-pane-label">
+                {t('iter.panel.base.label')}
+                <span className="dsh-pe-iter-hint">{t('iter.panel.base.hint')}</span>
+              </span>
+              <textarea
+                className="dsh-pe-iter-area"
+                aria-label={t('iter.panel.base.label')}
+                value={base}
+                placeholder={t('iter.panel.base.placeholder')}
+                onChange={(event) => setBase(event.target.value)}
+              />
+            </label>
+            <label className="dsh-pe-iter-pane is-req">
+              <span className="dsh-pe-iter-pane-label">{t('iter.panel.input.label')}</span>
+              <textarea
+                className="dsh-pe-iter-area is-req"
+                aria-label={t('iter.panel.input.label')}
+                value={input}
+                placeholder={t('iter.panel.input.placeholder')}
+                onChange={(event) => setInput(event.target.value)}
+              />
+            </label>
+          </div>
           <span className="dsh-pe-iter-flow" aria-hidden="true">→</span>
           <div className="dsh-pe-iter-pane">
             <span className="dsh-pe-iter-pane-label">

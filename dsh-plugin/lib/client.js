@@ -1166,7 +1166,7 @@ function serverSessionId(sources) {
 
 // src/client/iter-state.ts
 var LAST_PREFIX = "dsh-prompt-enhance:iter-last:v1:";
-var PANEL_PREFIX = "dsh-prompt-enhance:iter-panel:v1:";
+var PANEL_PREFIX = "dsh-prompt-enhance:iter-panel:v2:";
 function read(key) {
   try {
     return globalThis.sessionStorage?.getItem(key) ?? null;
@@ -1198,7 +1198,11 @@ function loadIterPanel(key, currentDraft) {
     if (parsed === null || typeof parsed !== "object") return void 0;
     if (parsed.draft !== currentDraft) return void 0;
     if (typeof parsed.input !== "string" || typeof parsed.output !== "string") return void 0;
-    return { input: parsed.input, output: parsed.output };
+    return {
+      base: typeof parsed.base === "string" ? parsed.base : void 0,
+      input: parsed.input,
+      output: parsed.output
+    };
   } catch {
     return void 0;
   }
@@ -1220,7 +1224,9 @@ var import_react_dom = require("react-dom");
 var import_jsx_runtime3 = require("react/jsx-runtime");
 function IterationPanel(props) {
   const { t, uiKey, wireId, inputActions, draft, onClose } = props;
+  const last = lastEnhancedOf(uiKey);
   const restored = (0, import_react4.useRef)(loadIterPanel(uiKey, draft)).current;
+  const [base, setBase] = (0, import_react4.useState)(restored?.base ?? (draft.trim() !== "" ? draft : last ?? ""));
   const [input, setInput] = (0, import_react4.useState)(restored?.input ?? "");
   const [output, setOutput] = (0, import_react4.useState)(restored?.output ?? "");
   const [busy, setBusy] = (0, import_react4.useState)(false);
@@ -1228,15 +1234,11 @@ function IterationPanel(props) {
   const controllerRef = (0, import_react4.useRef)(null);
   (0, import_react4.useSyncExternalStore)(subscribe, getVersion);
   const tier = effectiveTier(uiKey);
-  const last = lastEnhancedOf(uiKey);
-  const base = draft.trim() !== "" ? draft : last ?? "";
   const positive = base.trim() === "";
-  const baseSource = positive ? t("iter.panel.base.none") : draft.trim() !== "" ? t("iter.panel.base.draft") : t("iter.panel.base.last");
-  const condensed = base.trim().replace(/\s+/g, " ");
-  const baseExcerpt = positive ? "" : " \xB7 " + t("iter.panel.base.quote", { text: condensed.length > 60 ? condensed.slice(0, 60) + "\u2026" : condensed });
+  const baseSource = positive ? t("iter.panel.base.none") : base === draft ? t("iter.panel.base.draft") : last !== void 0 && base === last ? t("iter.panel.base.last") : t("iter.panel.base.custom");
   (0, import_react4.useEffect)(() => {
-    saveIterPanel(uiKey, { input, output, draft });
-  }, [uiKey, input, output, draft]);
+    saveIterPanel(uiKey, { base, input, output, draft });
+  }, [uiKey, base, input, output, draft]);
   (0, import_react4.useEffect)(() => () => {
     controllerRef.current?.abort();
   }, []);
@@ -1293,6 +1295,7 @@ ${detail.message}` : "";
     onClose();
   };
   const clear = () => {
+    setBase("");
     setInput("");
     setOutput("");
     setError("");
@@ -1305,26 +1308,41 @@ ${detail.message}` : "";
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("header", { className: "dsh-pe-iter-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
           /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h3", { className: "dsh-pe-iter-title", children: t("iter.panel.title") }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("p", { className: "dsh-pe-iter-base", children: [
-            t("iter.panel.base", { source: baseSource }),
-            baseExcerpt
-          ] })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "dsh-pe-iter-base", children: t("iter.panel.base", { source: baseSource }) })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dsh-pe-iter-close", "aria-label": t("panel.close"), disabled: busy, onClick: onClose, children: "\u2715" })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-pe-iter-body", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dsh-pe-iter-pane", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-pane-label", children: t("iter.panel.input.label") }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-            "textarea",
-            {
-              className: "dsh-pe-iter-area",
-              value: input,
-              placeholder: t("iter.panel.input.placeholder"),
-              autoFocus: true,
-              onChange: (event) => setInput(event.target.value)
-            }
-          )
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-pe-iter-left", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dsh-pe-iter-pane", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-pe-iter-pane-label", children: [
+              t("iter.panel.base.label"),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-hint", children: t("iter.panel.base.hint") })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              "textarea",
+              {
+                className: "dsh-pe-iter-area",
+                "aria-label": t("iter.panel.base.label"),
+                value: base,
+                placeholder: t("iter.panel.base.placeholder"),
+                onChange: (event) => setBase(event.target.value)
+              }
+            )
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dsh-pe-iter-pane is-req", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-pane-label", children: t("iter.panel.input.label") }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              "textarea",
+              {
+                className: "dsh-pe-iter-area is-req",
+                "aria-label": t("iter.panel.input.label"),
+                value: input,
+                placeholder: t("iter.panel.input.placeholder"),
+                onChange: (event) => setInput(event.target.value)
+              }
+            )
+          ] })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-flow", "aria-hidden": "true", children: "\u2192" }),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-pe-iter-pane", children: [
@@ -1812,11 +1830,14 @@ var zh = {
   "tier.current": "\u5F53\u524D\u6863\u4F4D\uFF1A{tier}",
   "iter.button.title": "\u8FED\u4EE3\u589E\u5F3A\uFF08\u4EE5\u8F93\u5165\u6846\u5185\u5BB9\u4E3A\u57FA\u51C6\u6539\u5199\uFF1B\u6E05\u7A7A\u540E\u7528\u4E0A\u6B21\u589E\u5F3A\u7ED3\u679C\uFF09",
   "iter.panel.title": "\u8FED\u4EE3\u589E\u5F3A",
-  "iter.panel.base": "\u57FA\u51C6\uFF1A{source}",
+  "iter.panel.base": "\u57FA\u51C6\u6765\u6E90\uFF1A{source}",
   "iter.panel.base.last": "\u4E0A\u6B21\u589E\u5F3A\u7ED3\u679C",
   "iter.panel.base.draft": "\u5F53\u524D\u8F93\u5165\u6846\u5185\u5BB9",
-  "iter.panel.base.none": "\u65E0\uFF08\u5DE6\u6846\u8F93\u5165\u5373\u4E3A\u8349\u7A3F\uFF09",
-  "iter.panel.base.quote": "\u300C{text}\u300D",
+  "iter.panel.base.none": "\u65E0\uFF08\u8FED\u4EE3\u8981\u6C42\u5373\u4E3A\u8349\u7A3F\uFF09",
+  "iter.panel.base.custom": "\u81EA\u5B9A\u4E49\u57FA\u51C6",
+  "iter.panel.base.label": "\u8FED\u4EE3\u57FA\u51C6",
+  "iter.panel.base.hint": "\u53EF\u76F4\u63A5\u4FEE\u6539",
+  "iter.panel.base.placeholder": "\u8981\u8FED\u4EE3\u7684\u57FA\u51C6\u6587\u672C\uFF1B\u7559\u7A7A\u65F6\u7531\u8FED\u4EE3\u8981\u6C42\u5145\u5F53\u8349\u7A3F",
   "iter.panel.input.label": "\u8FED\u4EE3\u8981\u6C42",
   "iter.panel.input.placeholder": "\u8F93\u5165\u8FD9\u6B21\u8981\u6539\u7684\u65B9\u5411\u6216\u8981\u6C42\u2026",
   "iter.panel.output.label": "\u8F93\u51FA",
@@ -1832,11 +1853,14 @@ var zh = {
 var en = {
   "iter.button.title": "Iterate (rewrite the composer draft \u2014 or the last result when the box is empty)",
   "iter.panel.title": "Iterate",
-  "iter.panel.base": "Base: {source}",
+  "iter.panel.base": "Base source: {source}",
   "iter.panel.base.last": "last enhanced result",
   "iter.panel.base.draft": "current composer draft",
-  "iter.panel.base.none": "none \u2014 the left box is the draft itself",
-  "iter.panel.base.quote": '"{text}"',
+  "iter.panel.base.none": "none \u2014 the requirement box is the draft itself",
+  "iter.panel.base.custom": "custom base",
+  "iter.panel.base.label": "Iteration base",
+  "iter.panel.base.hint": "editable",
+  "iter.panel.base.placeholder": "The text to iterate on; when empty the requirement box becomes the draft",
   "iter.panel.input.label": "Iteration requirement",
   "iter.panel.input.placeholder": "Direction or requirement for this pass\u2026",
   "iter.panel.output.label": "Output",
@@ -2907,6 +2931,22 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
   padding: 6px 20px 0;
   flex: 1 1 auto;
   min-height: 0;
+}
+.dsh-pe-iter-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+}
+.dsh-pe-iter-left .dsh-pe-iter-pane { flex: 1 1 auto; }
+.dsh-pe-iter-left .dsh-pe-iter-pane.is-req { flex: 0 0 auto; }
+.dsh-pe-iter-area.is-req {
+  flex: none;
+  min-height: 0;
+  height: 64px;
+  line-height: 1.5;
 }
 .dsh-pe-iter-pane {
   display: flex;

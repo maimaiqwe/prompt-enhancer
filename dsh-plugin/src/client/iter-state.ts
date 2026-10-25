@@ -1,14 +1,14 @@
 /**
  * Client state of the iteration panel: the last enhanced text per composer
- * session (the default iterate base) plus the panel's own input/output,
- * persisted per session and invalidated the moment the composer draft
- * changes — closing and reopening the panel keeps what was typed only when
- * the box still holds the draft it was typed against.
+ * session (the fallback base) plus the panel's own panes, persisted per
+ * session and invalidated the moment the composer draft changes — closing and
+ * reopening the panel keeps what was typed only when the box still holds the
+ * draft it was typed against.
  * @module dsh-prompt-enhance/client/iter-state
  */
 
 const LAST_PREFIX = 'dsh-prompt-enhance:iter-last:v1:'
-const PANEL_PREFIX = 'dsh-prompt-enhance:iter-panel:v1:'
+const PANEL_PREFIX = 'dsh-prompt-enhance:iter-panel:v2:'
 
 /** Session storage behind try/catch: a blocked store degrades to "nothing saved". */
 function read(key: string): string | null {
@@ -48,15 +48,20 @@ export function lastEnhancedOf(key: string): string | undefined {
 
 /** What the panel persists between open/close cycles. */
 export interface IterPanelState {
+  /** The editable base pane (may diverge from the draft once hand-edited). */
+  base: string
+  /** The requirement pane. */
   input: string
+  /** The output pane. */
   output: string
+  /** The composer draft the panes were typed against. */
   draft: string
 }
 
 /**
  * Save the panel contents together with the draft they were typed against.
  * @param key - the composer session key.
- * @param state - inputs, output, and the current composer draft.
+ * @param state - base, requirement, output, and the current composer draft.
  */
 export function saveIterPanel(key: string, state: IterPanelState): void {
   write(PANEL_PREFIX + key, JSON.stringify(state))
@@ -66,10 +71,11 @@ export function saveIterPanel(key: string, state: IterPanelState): void {
  * Restore the panel contents, but only against an unchanged draft.
  * @param key - the composer session key.
  * @param currentDraft - the composer draft at open time.
- * @returns the saved input/output, or undefined when nothing was saved or the
- *   draft has changed since the save.
+ * @returns the saved panes, or undefined when nothing was saved or the draft
+ *   has changed since the save. `base` is optional: saves from the previous
+ *   storage layout carry no base pane.
  */
-export function loadIterPanel(key: string, currentDraft: string): { input: string; output: string } | undefined {
+export function loadIterPanel(key: string, currentDraft: string): { base?: string; input: string; output: string } | undefined {
   const raw = read(PANEL_PREFIX + key)
   if (raw === null) return undefined
   try {
@@ -77,7 +83,11 @@ export function loadIterPanel(key: string, currentDraft: string): { input: strin
     if (parsed === null || typeof parsed !== 'object') return undefined
     if (parsed.draft !== currentDraft) return undefined
     if (typeof parsed.input !== 'string' || typeof parsed.output !== 'string') return undefined
-    return { input: parsed.input, output: parsed.output }
+    return {
+      base: typeof parsed.base === 'string' ? parsed.base : undefined,
+      input: parsed.input,
+      output: parsed.output,
+    }
   } catch {
     return undefined
   }
