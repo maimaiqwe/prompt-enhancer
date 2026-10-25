@@ -31,6 +31,7 @@ export const CSS = `
 .dsh-pe-cluster,
 .dsh-pe-tier,
 .dsh-pe-panel,
+.dsh-pe-iter-panel,
 .dsh-pe-undo,
 .dsh-pe-working,
 .dsh-pe-notice {
@@ -915,10 +916,192 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
 @media (prefers-reduced-motion: reduce) {
   .dsh-pe-tier-menu,
   .dsh-pe-overlay,
+  .dsh-pe-iter-overlay,
+  .dsh-pe-iter-panel,
   .dsh-pe-panel { animation: none; }
   .dsh-pe-tier-caret { transition: none; }
   .dsh-pe-ring { animation-duration: 2s; }
 }
+
+/* ---- iteration panel -------------------------------------------------------
+   A two-pane workbench opened from the composer iterate button. Quiet white
+   surfaces, exactly one accent action, the rest ghost and outline. Shares the
+   palette above so the dark scheme follows for free. */
+.dsh-pe-iter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(9, 11, 15, 0.45);
+  animation: dsh-pe-fade-in var(--pe-ease);
+}
+.dsh-pe-iter-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(860px, 100%);
+  max-height: min(580px, 88vh);
+  background: var(--pe-surface);
+  border: 1px solid var(--pe-line);
+  border-radius: var(--pe-radius-lg);
+  box-shadow: var(--pe-shadow-panel);
+  font-family: var(--pe-font);
+  color: var(--pe-fg);
+  overflow: hidden;
+  animation: dsh-pe-lift-in var(--pe-ease);
+}
+.dsh-pe-iter-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 10px;
+}
+.dsh-pe-iter-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.dsh-pe-iter-base {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pe-fg-2);
+}
+.dsh-pe-iter-close {
+  flex: none;
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--pe-radius-sm);
+  background: transparent;
+  color: var(--pe-fg-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--pe-ease), color var(--pe-ease);
+}
+.dsh-pe-iter-close:hover:not(:disabled) {
+  background: var(--pe-hover);
+  color: var(--pe-fg);
+}
+.dsh-pe-iter-close:disabled { opacity: 0.45; cursor: default; }
+.dsh-pe-iter-body {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 6px 20px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dsh-pe-iter-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+.dsh-pe-iter-pane-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--pe-fg-2);
+}
+.dsh-pe-iter-hint {
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--pe-fg-3);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--pe-surface-2);
+  border: 1px solid var(--pe-line);
+}
+.dsh-pe-iter-flow {
+  flex: none;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--pe-surface-2);
+  border: 1px solid var(--pe-line);
+  color: var(--pe-fg-3);
+  font-size: 12px;
+}
+.dsh-pe-iter-area {
+  flex: 1 1 auto;
+  min-height: 150px;
+  resize: none;
+  padding: 10px 12px;
+  border: 1px solid var(--pe-line);
+  border-radius: var(--pe-radius-md);
+  background: var(--pe-surface-2);
+  color: var(--pe-fg);
+  font-family: var(--pe-font);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  transition: background var(--pe-ease), border-color var(--pe-ease), box-shadow var(--pe-ease);
+}
+.dsh-pe-iter-area::placeholder { color: var(--pe-fg-3); }
+.dsh-pe-iter-area:focus {
+  background: var(--pe-surface);
+  border-color: var(--pe-accent-line);
+  box-shadow: 0 0 0 3px var(--pe-accent-soft);
+}
+.dsh-pe-iter-area.is-output { background: var(--pe-surface); }
+.dsh-pe-iter-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px 16px;
+}
+.dsh-pe-iter-error {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--pe-danger);
+}
+.dsh-pe-iter-spacer { flex: 1 1 auto; }
+.dsh-pe-iter-action {
+  height: 32px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--pe-font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--pe-ease), border-color var(--pe-ease), color var(--pe-ease);
+}
+.dsh-pe-iter-action:disabled { opacity: 0.5; cursor: default; }
+.dsh-pe-iter-action.ghost { background: transparent; color: var(--pe-fg-2); }
+.dsh-pe-iter-action.ghost:hover:not(:disabled) { background: var(--pe-hover); color: var(--pe-fg); }
+.dsh-pe-iter-action.line {
+  background: var(--pe-surface);
+  border-color: var(--pe-line-2);
+  color: var(--pe-fg);
+}
+.dsh-pe-iter-action.line:hover:not(:disabled) { border-color: var(--pe-accent-line); color: var(--pe-accent); }
+.dsh-pe-iter-action.solid { background: var(--pe-accent); color: var(--pe-on-ink); }
+.dsh-pe-iter-action.solid:hover:not(:disabled) { filter: brightness(0.96); }
 `
 
 /**
