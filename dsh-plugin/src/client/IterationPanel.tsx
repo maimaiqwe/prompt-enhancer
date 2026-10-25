@@ -5,9 +5,11 @@
  * and stays editable. Three actions: run the iteration, replace the composer
  * draft with the (possibly hand-edited) output, clear both panes.
  *
- * Base resolution follows the agreed precedence: the session's last enhanced
- * result, else the current composer draft, else nothing (left pane becomes a
- * fresh draft and the call degrades to a plain enhancement). Panel contents
+ * Base resolution follows the composer-first rule: what the box holds is what
+ * the user sees and controls, so a non-empty draft is always the base and the
+ * session's last enhanced result is used only when the box is empty. The left
+ * pane is a requirement, not the base: empty means "plain enhancement of the
+ * base", and with no base at all it becomes a fresh draft. Panel contents
  * persist per session and reset when the composer draft changed in between.
  * @module dsh-prompt-enhance/client/IterationPanel
  */
@@ -40,7 +42,7 @@ export interface IterationPanelProps {
 export function IterationPanel(props: IterationPanelProps): ReactNode {
   const { t, uiKey, wireId, inputActions, draft, onClose } = props
   const restored = useRef(loadIterPanel(uiKey, draft)).current
-  const [input, setInput] = useState(restored?.input ?? draft)
+  const [input, setInput] = useState(restored?.input ?? '')
   const [output, setOutput] = useState(restored?.output ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -49,12 +51,21 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
   // the next run, never text already typed into the panes.
   useSyncExternalStore(subscribeTier, getVersion)
   const tier = effectiveTier(uiKey)
+  // Composer-first base: the box is the source of truth. A stale last result
+  // must never hijack a draft the user typed afterwards — that demotion turned
+  // a fresh draft into a "requirement" against the old output.
   const last = lastEnhancedOf(uiKey)
-  const base = last !== undefined && last.trim() !== '' ? last : draft
+  const base = draft.trim() !== '' ? draft : last ?? ''
   const positive = base.trim() === ''
   const baseSource = positive
     ? t('iter.panel.base.none')
-    : last !== undefined && last.trim() !== '' ? t('iter.panel.base.last') : t('iter.panel.base.draft')
+    : draft.trim() !== '' ? t('iter.panel.base.draft') : t('iter.panel.base.last')
+  // The base line quotes a short excerpt so a stale base is visible at a
+  // glance instead of hiding behind a generic label.
+  const condensed = base.trim().replace(/\s+/g, ' ')
+  const baseExcerpt = positive
+    ? ''
+    : ' · ' + t('iter.panel.base.quote', { text: condensed.length > 60 ? condensed.slice(0, 60) + '…' : condensed })
 
   useEffect(() => {
     saveIterPanel(uiKey, { input, output, draft })
@@ -81,7 +92,9 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
 
   const run = async (): Promise<void> => {
     if (busy) return
-    if (input.trim() === '') {
+    // Empty input is only fatal when there is no base to fall back on; with a
+    // base present an empty requirement pane means "plain enhancement".
+    if (positive && input.trim() === '') {
       setError(t('iter.error.empty'))
       return
     }
@@ -89,9 +102,10 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
     setBusy(true)
     const controller = new AbortController()
     controllerRef.current = controller
+    const sid = wireId !== undefined ? { sessionId: wireId } : {}
     const body: EnhanceRequestBody = positive
-      ? { text: input, tier, ...(wireId !== undefined ? { sessionId: wireId } : {}) }
-      : { text: base, iterRequirement: input, tier, ...(wireId !== undefined ? { sessionId: wireId } : {}) }
+      ? { text: input, tier, ...sid }
+      : { text: base, tier, ...sid, ...(input.trim() !== '' ? { iterRequirement: input } : {}) }
     try {
       const result = await requestEnhanceStream(body, {
         signal: controller.signal,
@@ -137,7 +151,7 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
         <header className="dsh-pe-iter-head">
           <div>
             <h3 className="dsh-pe-iter-title">{t('iter.panel.title')}</h3>
-            <p className="dsh-pe-iter-base">{t('iter.panel.base', { source: baseSource })}</p>
+            <p className="dsh-pe-iter-base">{t('iter.panel.base', { source: baseSource })}{baseExcerpt}</p>
           </div>
           <button type="button" className="dsh-pe-iter-close" aria-label={t('panel.close')} disabled={busy} onClick={onClose}>✕</button>
         </header>

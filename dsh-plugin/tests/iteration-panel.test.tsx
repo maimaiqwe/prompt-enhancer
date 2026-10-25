@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
- * Iteration panel behaviour: base precedence (last enhanced → draft → fresh),
- * request payloads for the iterate vs positive paths, replace applies the
- * hand-edited output, and persisted panel state resets on a changed draft.
+ * Iteration panel behaviour: base precedence (composer draft → last enhanced →
+ * fresh), request payloads for the iterate vs plain-enhancement vs positive
+ * paths, replace applies the hand-edited output, and persisted panel state
+ * resets on a changed draft.
  * @module tests/iteration-panel
  */
 
@@ -65,16 +66,28 @@ afterEach(() => {
 })
 
 describe('IterationPanel', () => {
-  it('sends base + iterRequirement when a last enhanced result exists', async () => {
-    recordLastEnhanced('s1', 'BASE_TEXT')
+  it('sends the composer draft as base even when a stale last result exists', async () => {
+    recordLastEnhanced('s1', 'STALE_ECOMMERCE_TEXT')
     const { onClose } = mount({ draft: 'DRAFT', uiKey: 's1' })
+    // The base line shows the draft (with an excerpt), not the stale result.
+    expect(screen.getByText(/基准：当前输入框内容/).textContent).toContain('DRAFT')
     fireEvent.change(inputPane(), { target: { value: '把方向改为复验并优化' } })
     fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
     await waitFor(() => { expect(lastBody()).toBeTruthy() })
-    expect(lastBody().text).toBe('BASE_TEXT')
+    expect(lastBody().text).toBe('DRAFT')
     expect(lastBody().iterRequirement).toBe('把方向改为复验并优化')
     await waitFor(() => { expect(outputPane().value).toBe('ITER_OUT') })
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the last enhanced result when the box is empty', async () => {
+    recordLastEnhanced('s6', 'BASE_TEXT')
+    mount({ draft: '', uiKey: 's6' })
+    fireEvent.change(inputPane(), { target: { value: '要求 X' } })
+    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
+    await waitFor(() => { expect(lastBody()).toBeTruthy() })
+    expect(lastBody().text).toBe('BASE_TEXT')
+    expect(lastBody().iterRequirement).toBe('要求 X')
   })
 
   it('falls back to the composer draft when no last result exists', async () => {
@@ -84,6 +97,15 @@ describe('IterationPanel', () => {
     await waitFor(() => { expect(lastBody()).toBeTruthy() })
     expect(lastBody().text).toBe('COMPOSER_DRAFT')
     expect(lastBody().iterRequirement).toBe('要求 X')
+  })
+
+  it('sends no iterRequirement when the requirement pane is left empty (plain enhancement of the base)', async () => {
+    recordLastEnhanced('s7', 'STALE_TEXT')
+    mount({ draft: 'DRAFT', uiKey: 's7' })
+    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
+    await waitFor(() => { expect(lastBody()).toBeTruthy() })
+    expect(lastBody().text).toBe('DRAFT')
+    expect(lastBody().iterRequirement).toBeUndefined()
   })
 
   it('degrades to a plain enhancement when base and draft are both empty', async () => {
