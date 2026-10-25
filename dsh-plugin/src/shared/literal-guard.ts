@@ -7,10 +7,10 @@
  * @module dsh-prompt-enhance-cn/shared/literal-guard
  */
 
-const URL_RE = /https?:\/\/[^\s<>'"`]+/g
+const URL_RE = /https?:\/\/[^\s<>'"`，。；：、！？（）“”‘’]+/gi
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
-const WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`]+[\\/])*[^\s<>'"`]+/g
-const UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/]+\/)*[^\s<>'"`/]+/g
+const WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`，。；：、！？（）“”‘’]+[\\/])*[^\s<>'"`，。；：、！？（）“”‘’]+/g
+const UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/，。；：、！？（）“”‘’]+\/)*[^\s<>'"`/，。；：、！？（）“”‘’]+/g
 const FILENAME_RE = /(?<![\w./\\-])[A-Za-z0-9][A-Za-z0-9._-]*\.(?:md|markdown|py|ts|tsx|js|mjs|cjs|json|yml|yaml|toml|ini|cfg|conf|txt|log|ps1|cmd|bat|sh|exe|dll|cs|java|xml|csv|sql|html|htm|css|scss|png|jpe?g|gif|svg|ico|zip|tar|gz|tgz|7z|pdf|docx?|xlsx?|pptx?)\b/gi
 const SKILL_LINK_RE = /\[\$[A-Za-z][A-Za-z0-9_-]*\]\([^()\s]{1,400}\)/g
 const SKILL_TOKEN_RE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/g
@@ -35,8 +35,14 @@ const skillAnchor = (index: number, token: string): string =>
 export function protectDraft(text: string): { guarded: string; guard: DraftGuard } {
   const guard: DraftGuard = { litItems: [], skillTokens: [] }
   const keepLit = (match: string): string => {
-    guard.litItems.push(match)
-    return `__PO_LIT_${pad4(guard.litItems.length)}__`
+    let fragment = match
+    let tail = ''
+    while (fragment.endsWith('.')) {
+      tail += '.'
+      fragment = fragment.slice(0, -1)
+    }
+    guard.litItems.push(fragment)
+    return `__PO_LIT_${pad4(guard.litItems.length)}__${tail}`
   }
   let guarded = text.replace(SKILL_LINK_RE, keepLit)
   guarded = guarded.replace(URL_RE, keepLit)

@@ -432,10 +432,10 @@ function normalizeOutput(raw) {
 }
 
 // src/shared/literal-guard.ts
-var URL_RE = /https?:\/\/[^\s<>'"`]+/g;
+var URL_RE = /https?:\/\/[^\s<>'"`，。；：、！？（）“”‘’]+/gi;
 var EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-var WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`]+[\\/])*[^\s<>'"`]+/g;
-var UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/]+\/)*[^\s<>'"`/]+/g;
+var WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`，。；：、！？（）“”‘’]+[\\/])*[^\s<>'"`，。；：、！？（）“”‘’]+/g;
+var UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/，。；：、！？（）“”‘’]+\/)*[^\s<>'"`/，。；：、！？（）“”‘’]+/g;
 var FILENAME_RE = /(?<![\w./\\-])[A-Za-z0-9][A-Za-z0-9._-]*\.(?:md|markdown|py|ts|tsx|js|mjs|cjs|json|yml|yaml|toml|ini|cfg|conf|txt|log|ps1|cmd|bat|sh|exe|dll|cs|java|xml|csv|sql|html|htm|css|scss|png|jpe?g|gif|svg|ico|zip|tar|gz|tgz|7z|pdf|docx?|xlsx?|pptx?)\b/gi;
 var SKILL_LINK_RE = /\[\$[A-Za-z][A-Za-z0-9_-]*\]\([^()\s]{1,400}\)/g;
 var SKILL_TOKEN_RE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/g;
@@ -446,8 +446,14 @@ var skillAnchor = (index, token) => `__PO_SKILL_${pad4(index + 1)}_${token.slice
 function protectDraft(text) {
   const guard = { litItems: [], skillTokens: [] };
   const keepLit = (match) => {
-    guard.litItems.push(match);
-    return `__PO_LIT_${pad4(guard.litItems.length)}__`;
+    let fragment = match;
+    let tail = "";
+    while (fragment.endsWith(".")) {
+      tail += ".";
+      fragment = fragment.slice(0, -1);
+    }
+    guard.litItems.push(fragment);
+    return `__PO_LIT_${pad4(guard.litItems.length)}__${tail}`;
   };
   let guarded = text.replace(SKILL_LINK_RE, keepLit);
   guarded = guarded.replace(URL_RE, keepLit);

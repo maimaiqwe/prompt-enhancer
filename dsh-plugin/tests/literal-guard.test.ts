@@ -40,6 +40,14 @@ describe('protectDraft', () => {
     expect(out).to.contain('a.b@example.com')
   })
 
+  it('does not swallow CJK prose after a path or url', () => {
+    const text = '看 E:/a/b/c.md，然后改 rules.md。参考 https://x.io/a，最后收尾'
+    const { guarded, guard } = protectDraft(text)
+    expect(guarded).to.contain('，然后改')
+    expect(guarded).to.contain('，最后收尾')
+    expect(restoreResult(guarded, guard)).toBe(text)
+  })
+
   it('round-trips untouched prose', () => {
     const text = '帮我把这个文章继续优化。'
     const { guarded, guard } = protectDraft(text)
