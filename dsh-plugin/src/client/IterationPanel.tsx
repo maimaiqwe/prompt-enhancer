@@ -157,7 +157,12 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
         <header className="dsh-pe-iter-head">
           <div>
             <h3 className="dsh-pe-iter-title">{t('iter.panel.title')}</h3>
-            <p className="dsh-pe-iter-base">{t('iter.panel.base', { source: baseSource })}</p>
+            <p className="dsh-pe-iter-base">
+              {t('iter.panel.base', { source: baseSource })}
+              <span className={`dsh-pe-iter-hint${effectiveUseContext(uiKey) ? '' : ' is-off'}`}>
+                {effectiveUseContext(uiKey) ? t('iter.panel.context.on') : t('iter.panel.context.off')}
+              </span>
+            </p>
           </div>
           <button type="button" className="dsh-pe-iter-close" aria-label={t('panel.close')} disabled={busy} onClick={onClose}>✕</button>
         </header>

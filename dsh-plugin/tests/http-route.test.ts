@@ -233,7 +233,7 @@ describe('POST /prompt-enhance/enhance failure mapping (real http)', () => {
     const stall = (): AsyncIterable<StreamChunk> => ({
       [Symbol.asyncIterator]: () => ({ next: (): Promise<never> => new Promise(() => {}) }),
     })
-    const server = mount(makeLlm(stall), { ...CONFIG, timeoutMs: 5000 })
+    const server = mount(makeLlm(stall), { ...CONFIG, timeoutMs: 1500 })
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     try {
       const { status, json } = await call(server, 'POST', JSON.stringify({ text: '写个脚本' }))

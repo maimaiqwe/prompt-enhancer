@@ -1016,6 +1016,8 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
   height: 64px;
   line-height: 1.5;
 }
+.dsh-pe-iter-base .dsh-pe-iter-hint { margin-left: 8px; }
+.dsh-pe-iter-base .dsh-pe-iter-hint.is-off { color: var(--pe-fg-3); }
 .dsh-pe-iter-pane {
   display: flex;
   flex-direction: column;

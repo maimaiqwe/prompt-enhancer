@@ -1310,7 +1310,10 @@ ${detail.message}` : "";
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("header", { className: "dsh-pe-iter-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
           /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h3", { className: "dsh-pe-iter-title", children: t("iter.panel.title") }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "dsh-pe-iter-base", children: t("iter.panel.base", { source: baseSource }) })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("p", { className: "dsh-pe-iter-base", children: [
+            t("iter.panel.base", { source: baseSource }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: `dsh-pe-iter-hint${effectiveUseContext(uiKey) ? "" : " is-off"}`, children: effectiveUseContext(uiKey) ? t("iter.panel.context.on") : t("iter.panel.context.off") })
+          ] })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dsh-pe-iter-close", "aria-label": t("panel.close"), disabled: busy, onClick: onClose, children: "\u2715" })
       ] }),
@@ -1840,6 +1843,8 @@ var zh = {
   "iter.panel.base.label": "\u8FED\u4EE3\u57FA\u51C6",
   "iter.panel.base.hint": "\u53EF\u76F4\u63A5\u4FEE\u6539",
   "iter.panel.base.placeholder": "\u8981\u8FED\u4EE3\u7684\u57FA\u51C6\u6587\u672C\uFF1B\u7559\u7A7A\u65F6\u7531\u8FED\u4EE3\u8981\u6C42\u5145\u5F53\u8349\u7A3F",
+  "iter.panel.context.on": "\u4E0A\u4E0B\u6587\uFF1A\u5F00",
+  "iter.panel.context.off": "\u4E0A\u4E0B\u6587\uFF1A\u5173",
   "iter.panel.input.label": "\u8FED\u4EE3\u8981\u6C42",
   "iter.panel.input.placeholder": "\u8F93\u5165\u8FD9\u6B21\u8981\u6539\u7684\u65B9\u5411\u6216\u8981\u6C42\u2026",
   "iter.panel.output.label": "\u8F93\u51FA",
@@ -1863,6 +1868,8 @@ var en = {
   "iter.panel.base.label": "Iteration base",
   "iter.panel.base.hint": "editable",
   "iter.panel.base.placeholder": "The text to iterate on; when empty the requirement box becomes the draft",
+  "iter.panel.context.on": "context: on",
+  "iter.panel.context.off": "context: off",
   "iter.panel.input.label": "Iteration requirement",
   "iter.panel.input.placeholder": "Direction or requirement for this pass\u2026",
   "iter.panel.output.label": "Output",
@@ -2950,6 +2957,8 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
   height: 64px;
   line-height: 1.5;
 }
+.dsh-pe-iter-base .dsh-pe-iter-hint { margin-left: 8px; }
+.dsh-pe-iter-base .dsh-pe-iter-hint.is-off { color: var(--pe-fg-3); }
 .dsh-pe-iter-pane {
   display: flex;
   flex-direction: column;
