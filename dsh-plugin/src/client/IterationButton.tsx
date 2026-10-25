@@ -1,30 +1,40 @@
 /**
- * The composer iterate button (conversation.input.right, left of ✨): opens
- * the iteration overlay. It never runs anything by itself — the panel owns
- * the base resolution, the call, and the persistence.
+ * The composer iterate trigger, rendered between the tier capsule and ✨:
+ * opens the iteration overlay. It never runs anything by itself — the panel
+ * owns the base resolution, the call, and the persistence.
  * @module dsh-prompt-enhance/client/IterationButton
  */
 
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import type { EnhanceButtonProps } from './EnhanceButton'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { IterationPanel } from './IterationPanel'
 import { useSessionKey, serverSessionId } from './session-key'
+
+/** Narrow props: only what the trigger and panel actually consume. */
+export interface IterationTriggerProps {
+  t: TranslateNS<'prompt-enhance'>
+  sessionId?: unknown
+  session?: { sessionId?: unknown } | undefined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useInput: (selector: (state: any) => any) => any
+  inputActions: { setDraft: (text: string) => void }
+}
 
 function stringOf(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
 /** One composer's iterate trigger. */
-export function IterationButton(props: EnhanceButtonProps): ReactNode {
+export function IterationButton(props: IterationTriggerProps): ReactNode {
   const { t, sessionId, session, useInput, inputActions } = props
   const sources = { sessionId, session }
   const uiKey = useSessionKey(sources, inputActions)
   const wireId = serverSessionId(sources)
-  const draft = useInput((state) => stringOf((state as { draft?: unknown }).draft))
+  const draft = String(useInput((state: { draft?: unknown }) => stringOf(state?.draft)) ?? '')
   const [open, setOpen] = useState(false)
   return (
-    <span className="dsh-pe-cluster">
+    <>
       <button
         type="button"
         className="dsh-pe-btn"
@@ -40,13 +50,13 @@ export function IterationButton(props: EnhanceButtonProps): ReactNode {
             t={t}
             uiKey={uiKey}
             wireId={wireId}
-            inputActions={{ setDraft: (text: string) => inputActions.setDraft(text) }}
+            inputActions={inputActions}
             draft={draft}
             onClose={() => setOpen(false)}
           />,
           document.body,
         )
         : null}
-    </span>
+    </>
   )
 }
