@@ -247,7 +247,13 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
     // forbid widening the draft, so it spends a call only to tidy wording and
     // punctuation. 基础 presets no context window, so `window` is undefined and
     // the call stays draft-only without a special branch.
-    const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx))
+    // Priority: explicit config > real-time agent-default-model selection >
+    // the session's last-request route. The agentDefaultModel service tracks
+    // the CURRENT picker selection in real time, while the session route is
+    // whatever the last chat message happened to use — often stale after a
+    // model switch. Preferring the live selection makes the plugin follow
+    // what the user sees in the picker.
+    const route = resolveRoute(config, defaultRouteOf(ctx), options.sessionRoute)
     if (route === undefined) {
       // No detail line: the fix instructions are the localized primary copy.
       throw new EnhanceFailure({ code: 'unconfigured' })
