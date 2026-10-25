@@ -1439,7 +1439,11 @@ function IterationPanel(props) {
     controllerRef.current = controller;
     const body = positive ? { text: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} } : { text: base, iterRequirement: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} };
     try {
-      const result = await requestEnhance(body, controller.signal);
+      const result = await requestEnhanceStream(body, {
+        signal: controller.signal,
+        onDelta: () => {
+        }
+      });
       setOutput(result.text);
       recordLastEnhanced(uiKey, result.text);
     } catch (error2) {

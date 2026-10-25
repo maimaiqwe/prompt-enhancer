@@ -16,7 +16,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { createPortal } from 'react-dom'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EnhanceRequestBody } from '../shared/protocol'
-import { EnhanceClientError, requestEnhance } from './enhance-client'
+import { EnhanceClientError, requestEnhanceStream } from './enhance-client'
 import { localizedErrorMessage } from './ResultPanel'
 import { effectiveTier, getVersion, subscribe as subscribeTier } from './tier-store'
 import { clearIterPanel, lastEnhancedOf, loadIterPanel, recordLastEnhanced, saveIterPanel } from './iter-state'
@@ -93,7 +93,10 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
       ? { text: input, tier, ...(wireId !== undefined ? { sessionId: wireId } : {}) }
       : { text: base, iterRequirement: input, tier, ...(wireId !== undefined ? { sessionId: wireId } : {}) }
     try {
-      const result = await requestEnhance(body, controller.signal)
+      const result = await requestEnhanceStream(body, {
+        signal: controller.signal,
+        onDelta: () => {},
+      })
       setOutput(result.text)
       recordLastEnhanced(uiKey, result.text)
     } catch (error) {
