@@ -10,6 +10,7 @@ import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, FinishReason, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { EnhanceError, EnhanceResult } from './shared/protocol'
 import { normalizeOutput } from './shared/normalize'
+import { protectDraft, restoreResult } from './shared/literal-guard'
 import { frameUserPrompt } from './prompts'
 /** Structural LLM face so tests stub the stream without a Cordis runtime. */
 export interface LlmStreamFace {
@@ -108,9 +109,10 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
   }
   try {
     signal.throwIfAborted()
+    const { guarded, guard } = protectDraft(options.text)
     const messages = [
       createUserMessage({
-        content: [{ type: 'text', text: frameUserPrompt(options.text, options.context) }],
+        content: [{ type: 'text', text: frameUserPrompt(guarded, options.context) }],
         source: { kind: 'plugin', plugin: 'dsh-prompt-enhance-cn' },
       }),
     ]
@@ -179,10 +181,11 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
       fail({ code: 'upstream', params: { reason: 'tool-call' } })
     }
     const joined = blocks.filter((block) => block.type === 'text').map((block) => block.text).join('\n')
-    const text = normalizeOutput(joined)
-    if (text === '') {
+    const normalized = normalizeOutput(joined)
+    if (normalized === '') {
       fail({ code: 'upstream', params: { reason: 'empty' } })
     }
+    const text = restoreResult(normalized, guard)
     return { text, provider: options.route.provider, model: options.route.model, elapsedMs: Date.now() - started }
   } catch (error) {
     if (error instanceof EnhanceFailure) throw error
