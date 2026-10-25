@@ -12,7 +12,7 @@
  * @module dsh-prompt-enhance/client/IterationPanel
  */
 
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { EnhanceRequestBody } from '../shared/protocol'
@@ -110,45 +110,54 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
     clearIterPanel(uiKey)
   }
 
-  const overlayStyle: React.CSSProperties = {
-    position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(0,0,0,0.35)',
-  }
-  const cardStyle: React.CSSProperties = {
-    display: 'flex', flexDirection: 'column', gap: 8, minWidth: 520, maxWidth: '80vw', maxHeight: '80vh',
-    padding: 16, borderRadius: 12, background: 'var(--dsh-pe-panel-bg, #fff)', color: 'inherit',
-    boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
-  }
-  const paneStyle: React.CSSProperties = {
-    flex: 1, minHeight: 120, resize: 'vertical', padding: 8, borderRadius: 8, border: '1px solid rgba(128,128,128,0.4)',
-    fontFamily: 'inherit', fontSize: 13, lineHeight: 1.5,
-  }
-
   return createPortal(
-    <div style={overlayStyle} onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
-      <div style={cardStyle} role="dialog" aria-label={t('iter.panel.title')}>
-        <strong>{t('iter.panel.title')}</strong>
-        <span style={{ fontSize: 12, opacity: 0.75 }}>{t('iter.panel.base', { source: baseSource })}</span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-            <span style={{ fontSize: 12 }}>{t('iter.panel.input.label')}</span>
-            <textarea style={paneStyle} value={input} placeholder={t('iter.panel.input.placeholder')} onChange={(event) => setInput(event.target.value)} />
+    <div className="dsh-pe-iter-overlay" onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
+      <section className="dsh-pe-iter-panel" role="dialog" aria-modal="true" aria-label={t('iter.panel.title')}>
+        <header className="dsh-pe-iter-head">
+          <div>
+            <h3 className="dsh-pe-iter-title">{t('iter.panel.title')}</h3>
+            <p className="dsh-pe-iter-base">{t('iter.panel.base', { source: baseSource })}</p>
+          </div>
+          <button type="button" className="dsh-pe-iter-close" aria-label={t('panel.close')} disabled={busy} onClick={onClose}>✕</button>
+        </header>
+        <div className="dsh-pe-iter-body">
+          <label className="dsh-pe-iter-pane">
+            <span className="dsh-pe-iter-pane-label">{t('iter.panel.input.label')}</span>
+            <textarea
+              className="dsh-pe-iter-area"
+              value={input}
+              placeholder={t('iter.panel.input.placeholder')}
+              autoFocus
+              onChange={(event) => setInput(event.target.value)}
+            />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-            <span style={{ fontSize: 12 }}>{t('iter.panel.output.label')}</span>
-            <textarea style={paneStyle} value={output} onChange={(event) => setOutput(event.target.value)} />
-          </label>
+          <span className="dsh-pe-iter-flow" aria-hidden="true">→</span>
+          <div className="dsh-pe-iter-pane">
+            <span className="dsh-pe-iter-pane-label">
+              {t('iter.panel.output.label')}
+              <span className="dsh-pe-iter-hint">{t('iter.panel.output.hint')}</span>
+            </span>
+            <textarea
+              className="dsh-pe-iter-area is-output"
+              aria-label={t('iter.panel.output.label')}
+              value={output}
+              spellCheck={false}
+              onChange={(event) => setOutput(event.target.value)}
+            />
+          </div>
         </div>
-        {error !== '' ? <span style={{ fontSize: 12, color: '#c0392b' }} role="alert">{error}</span> : null}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" disabled={busy} onClick={() => { void run() }}>{busy ? t('iter.panel.loading') : t('iter.panel.run')}</button>
-          {busy ? <button type="button" onClick={() => controllerRef.current?.abort()}>{t('iter.panel.cancel')}</button> : null}
-          <button type="button" disabled={busy} onClick={replace}>{t('iter.panel.replace')}</button>
-          <button type="button" disabled={busy} onClick={clear}>{t('iter.panel.clear')}</button>
-          <span style={{ flex: 1 }} />
-          <button type="button" disabled={busy} onClick={onClose}>{t('panel.close')}</button>
-        </div>
-      </div>
+        <footer className="dsh-pe-iter-foot">
+          {error !== '' ? <span className="dsh-pe-iter-error" role="alert">{error}</span> : null}
+          <span className="dsh-pe-iter-spacer" />
+          {busy ? <button type="button" className="dsh-pe-iter-action ghost" onClick={() => controllerRef.current?.abort()}>{t('iter.panel.cancel')}</button> : null}
+          <button type="button" className="dsh-pe-iter-action ghost" disabled={busy} onClick={clear}>{t('iter.panel.clear')}</button>
+          <button type="button" className="dsh-pe-iter-action line" disabled={busy} onClick={replace}>{t('iter.panel.replace')}</button>
+          <button type="button" className="dsh-pe-iter-action solid" disabled={busy} onClick={() => { void run() }}>
+            {busy ? <span className="dsh-pe-ring dsh-pe-ring-sm" aria-hidden="true" /> : null}
+            {busy ? t('iter.panel.loading') : t('iter.panel.run')}
+          </button>
+        </footer>
+      </section>
     </div>,
     document.body,
   )

@@ -1456,65 +1456,61 @@ function IterationPanel(props) {
     setError("");
     clearIterPanel(uiKey);
   };
-  const overlayStyle = {
-    position: "fixed",
-    inset: 0,
-    zIndex: 60,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "rgba(0,0,0,0.35)"
-  };
-  const cardStyle = {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    minWidth: 520,
-    maxWidth: "80vw",
-    maxHeight: "80vh",
-    padding: 16,
-    borderRadius: 12,
-    background: "var(--dsh-pe-panel-bg, #fff)",
-    color: "inherit",
-    boxShadow: "0 12px 40px rgba(0,0,0,0.25)"
-  };
-  const paneStyle = {
-    flex: 1,
-    minHeight: 120,
-    resize: "vertical",
-    padding: 8,
-    borderRadius: 8,
-    border: "1px solid rgba(128,128,128,0.4)",
-    fontFamily: "inherit",
-    fontSize: 13,
-    lineHeight: 1.5
-  };
   return (0, import_react_dom2.createPortal)(
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: overlayStyle, onClick: (event) => {
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "dsh-pe-iter-overlay", onClick: (event) => {
       if (event.target === event.currentTarget && !busy) onClose();
-    }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: cardStyle, role: "dialog", "aria-label": t("iter.panel.title"), children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("strong", { children: t("iter.panel.title") }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, opacity: 0.75 }, children: t("iter.panel.base", { source: baseSource }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "stretch" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("label", { style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12 }, children: t("iter.panel.input.label") }),
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("textarea", { style: paneStyle, value: input, placeholder: t("iter.panel.input.placeholder"), onChange: (event) => setInput(event.target.value) })
+    }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("section", { className: "dsh-pe-iter-panel", role: "dialog", "aria-modal": "true", "aria-label": t("iter.panel.title"), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("header", { className: "dsh-pe-iter-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h3", { className: "dsh-pe-iter-title", children: t("iter.panel.title") }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "dsh-pe-iter-base", children: t("iter.panel.base", { source: baseSource }) })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("label", { style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12 }, children: t("iter.panel.output.label") }),
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("textarea", { style: paneStyle, value: output, onChange: (event) => setOutput(event.target.value) })
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-close", "aria-label": t("panel.close"), disabled: busy, onClick: onClose, children: "\u2715" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-iter-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("label", { className: "dsh-pe-iter-pane", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-pane-label", children: t("iter.panel.input.label") }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "textarea",
+            {
+              className: "dsh-pe-iter-area",
+              value: input,
+              placeholder: t("iter.panel.input.placeholder"),
+              autoFocus: true,
+              onChange: (event) => setInput(event.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-flow", "aria-hidden": "true", children: "\u2192" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-iter-pane", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-pe-iter-pane-label", children: [
+            t("iter.panel.output.label"),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-hint", children: t("iter.panel.output.hint") })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "textarea",
+            {
+              className: "dsh-pe-iter-area is-output",
+              "aria-label": t("iter.panel.output.label"),
+              value: output,
+              spellCheck: false,
+              onChange: (event) => setOutput(event.target.value)
+            }
+          )
         ] })
       ] }),
-      error !== "" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, color: "#c0392b" }, role: "alert", children: error }) : null,
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: () => {
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("footer", { className: "dsh-pe-iter-foot", children: [
+        error !== "" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-error", role: "alert", children: error }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-spacer" }),
+        busy ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-action ghost", onClick: () => controllerRef.current?.abort(), children: t("iter.panel.cancel") }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-action ghost", disabled: busy, onClick: clear, children: t("iter.panel.clear") }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-action line", disabled: busy, onClick: replace, children: t("iter.panel.replace") }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("button", { type: "button", className: "dsh-pe-iter-action solid", disabled: busy, onClick: () => {
           void run();
-        }, children: busy ? t("iter.panel.loading") : t("iter.panel.run") }),
-        busy ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", onClick: () => controllerRef.current?.abort(), children: t("iter.panel.cancel") }) : null,
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: replace, children: t("iter.panel.replace") }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: clear, children: t("iter.panel.clear") }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: onClose, children: t("panel.close") })
+        }, children: [
+          busy ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-ring dsh-pe-ring-sm", "aria-hidden": "true" }) : null,
+          busy ? t("iter.panel.loading") : t("iter.panel.run")
+        ] })
       ] })
     ] }) }),
     document.body
@@ -1787,9 +1783,10 @@ var zh = {
   "iter.panel.base.draft": "\u5F53\u524D\u8F93\u5165\u6846\u5185\u5BB9",
   "iter.panel.base.none": "\u65E0\uFF08\u5DE6\u6846\u8F93\u5165\u5373\u4E3A\u8349\u7A3F\uFF09",
   "iter.panel.input.label": "\u8FED\u4EE3\u8981\u6C42",
-  "iter.panel.input.placeholder": "\u8F93\u5165\u8FD9\u6B21\u8981\u6539\u7684\u65B9\u5411\u6216\u8981\u6C42\u2026\uFF08\u6CA1\u6709\u53EF\u8FED\u4EE3\u5185\u5BB9\u65F6\uFF0C\u8FD9\u91CC\u5C31\u662F\u8981\u589E\u5F3A\u7684\u8349\u7A3F\uFF09",
-  "iter.panel.output.label": "\u8F93\u51FA\uFF08\u53EF\u76F4\u63A5\u4FEE\u6539\uFF09",
-  "iter.panel.run": "\u76F4\u63A5\u8FED\u4EE3",
+  "iter.panel.input.placeholder": "\u8F93\u5165\u8FD9\u6B21\u8981\u6539\u7684\u65B9\u5411\u6216\u8981\u6C42\u2026",
+  "iter.panel.output.label": "\u8F93\u51FA",
+  "iter.panel.output.hint": "\u53EF\u76F4\u63A5\u4FEE\u6539",
+  "iter.panel.run": "\u8FED\u4EE3",
   "iter.panel.replace": "\u66FF\u6362",
   "iter.panel.clear": "\u6E05\u7A7A",
   "iter.panel.loading": "\u6B63\u5728\u8FED\u4EE3\u2026",
@@ -1805,9 +1802,10 @@ var en = {
   "iter.panel.base.draft": "current composer draft",
   "iter.panel.base.none": "none \u2014 the left box is the draft itself",
   "iter.panel.input.label": "Iteration requirement",
-  "iter.panel.input.placeholder": "Type the direction or requirement for this pass\u2026 (with nothing to iterate on, this box is the draft itself)",
-  "iter.panel.output.label": "Output (editable)",
-  "iter.panel.run": "Iterate now",
+  "iter.panel.input.placeholder": "Direction or requirement for this pass\u2026",
+  "iter.panel.output.label": "Output",
+  "iter.panel.output.hint": "editable",
+  "iter.panel.run": "Iterate",
   "iter.panel.replace": "Replace",
   "iter.panel.clear": "Clear",
   "iter.panel.loading": "Iterating\u2026",
@@ -1905,6 +1903,7 @@ var CSS = `
 .dsh-pe-cluster,
 .dsh-pe-tier,
 .dsh-pe-panel,
+.dsh-pe-iter-panel,
 .dsh-pe-undo,
 .dsh-pe-working,
 .dsh-pe-notice {
@@ -2789,10 +2788,192 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
 @media (prefers-reduced-motion: reduce) {
   .dsh-pe-tier-menu,
   .dsh-pe-overlay,
+  .dsh-pe-iter-overlay,
+  .dsh-pe-iter-panel,
   .dsh-pe-panel { animation: none; }
   .dsh-pe-tier-caret { transition: none; }
   .dsh-pe-ring { animation-duration: 2s; }
 }
+
+/* ---- iteration panel -------------------------------------------------------
+   A two-pane workbench opened from the composer iterate button. Quiet white
+   surfaces, exactly one accent action, the rest ghost and outline. Shares the
+   palette above so the dark scheme follows for free. */
+.dsh-pe-iter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(9, 11, 15, 0.45);
+  animation: dsh-pe-fade-in var(--pe-ease);
+}
+.dsh-pe-iter-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(860px, 100%);
+  max-height: min(580px, 88vh);
+  background: var(--pe-surface);
+  border: 1px solid var(--pe-line);
+  border-radius: var(--pe-radius-lg);
+  box-shadow: var(--pe-shadow-panel);
+  font-family: var(--pe-font);
+  color: var(--pe-fg);
+  overflow: hidden;
+  animation: dsh-pe-lift-in var(--pe-ease);
+}
+.dsh-pe-iter-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 10px;
+}
+.dsh-pe-iter-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.dsh-pe-iter-base {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pe-fg-2);
+}
+.dsh-pe-iter-close {
+  flex: none;
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--pe-radius-sm);
+  background: transparent;
+  color: var(--pe-fg-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--pe-ease), color var(--pe-ease);
+}
+.dsh-pe-iter-close:hover:not(:disabled) {
+  background: var(--pe-hover);
+  color: var(--pe-fg);
+}
+.dsh-pe-iter-close:disabled { opacity: 0.45; cursor: default; }
+.dsh-pe-iter-body {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 6px 20px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dsh-pe-iter-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+.dsh-pe-iter-pane-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--pe-fg-2);
+}
+.dsh-pe-iter-hint {
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--pe-fg-3);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--pe-surface-2);
+  border: 1px solid var(--pe-line);
+}
+.dsh-pe-iter-flow {
+  flex: none;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--pe-surface-2);
+  border: 1px solid var(--pe-line);
+  color: var(--pe-fg-3);
+  font-size: 12px;
+}
+.dsh-pe-iter-area {
+  flex: 1 1 auto;
+  min-height: 150px;
+  resize: none;
+  padding: 10px 12px;
+  border: 1px solid var(--pe-line);
+  border-radius: var(--pe-radius-md);
+  background: var(--pe-surface-2);
+  color: var(--pe-fg);
+  font-family: var(--pe-font);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  transition: background var(--pe-ease), border-color var(--pe-ease), box-shadow var(--pe-ease);
+}
+.dsh-pe-iter-area::placeholder { color: var(--pe-fg-3); }
+.dsh-pe-iter-area:focus {
+  background: var(--pe-surface);
+  border-color: var(--pe-accent-line);
+  box-shadow: 0 0 0 3px var(--pe-accent-soft);
+}
+.dsh-pe-iter-area.is-output { background: var(--pe-surface); }
+.dsh-pe-iter-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px 16px;
+}
+.dsh-pe-iter-error {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--pe-danger);
+}
+.dsh-pe-iter-spacer { flex: 1 1 auto; }
+.dsh-pe-iter-action {
+  height: 32px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--pe-font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--pe-ease), border-color var(--pe-ease), color var(--pe-ease);
+}
+.dsh-pe-iter-action:disabled { opacity: 0.5; cursor: default; }
+.dsh-pe-iter-action.ghost { background: transparent; color: var(--pe-fg-2); }
+.dsh-pe-iter-action.ghost:hover:not(:disabled) { background: var(--pe-hover); color: var(--pe-fg); }
+.dsh-pe-iter-action.line {
+  background: var(--pe-surface);
+  border-color: var(--pe-line-2);
+  color: var(--pe-fg);
+}
+.dsh-pe-iter-action.line:hover:not(:disabled) { border-color: var(--pe-accent-line); color: var(--pe-accent); }
+.dsh-pe-iter-action.solid { background: var(--pe-accent); color: var(--pe-on-ink); }
+.dsh-pe-iter-action.solid:hover:not(:disabled) { filter: brightness(0.96); }
 `;
 function ensureStyles() {
   if (document.getElementById(STYLE_ID) !== null) return false;
