@@ -34,6 +34,7 @@ import { getClientSettings, subscribeClientSettings } from './settings'
 import { effectiveTier, effectiveUseContext, getVersion, subscribe as subscribeTier } from './tier-store'
 import { useSessionKey, serverSessionId } from './session-key'
 import { recordLastEnhanced } from './iter-state'
+import { IterationButton } from './IterationButton'
 
 /** Props of the input.right entry: the InputZone owner share + session kit + locale seat. */
 export type EnhanceButtonProps = PropsRuntime<'conversation.input.right'> & PropsLocale<'prompt-enhance'>
@@ -275,11 +276,18 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
   const owned = panel !== undefined && panel.sessionId === uiKey && panel.mode !== 'direct' ? panel : undefined
   return (
     <>
-      {/* The picker sits left of ✨: pick a tier first, then enhance. Both live
-          in one inline-flex row so the composer's own spacing keeps them
-          together regardless of what else occupies the right slot. */}
+      {/* The picker sits left of ✨, the iterate trigger between them: pick a
+          tier, iterate on the last result, or enhance fresh. All live in one
+          inline-flex row so the composer's own spacing keeps them together. */}
       <span className="dsh-pe-cluster">
         <TierMenu sessionKey={uiKey} t={t} />
+        <IterationButton
+          t={t}
+          sessionId={sessionId}
+          session={session}
+          useInput={useInput}
+          inputActions={inputActions}
+        />
         <button
           ref={rootRef}
           type="button"

@@ -34,8 +34,8 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // src/client/EnhanceButton.tsx
-var import_react4 = require("react");
-var import_react_dom = require("react-dom");
+var import_react6 = require("react");
+var import_react_dom3 = require("react-dom");
 
 // src/shared/validate.ts
 function isInvisibleCodePoint(cp) {
@@ -1210,12 +1210,195 @@ function clearIterPanel(key) {
   }
 }
 
-// src/client/EnhanceButton.tsx
+// src/client/IterationButton.tsx
+var import_react5 = require("react");
+var import_react_dom2 = require("react-dom");
+
+// src/client/IterationPanel.tsx
+var import_react4 = require("react");
+var import_react_dom = require("react-dom");
 var import_jsx_runtime3 = require("react/jsx-runtime");
+function IterationPanel(props) {
+  const { t, uiKey, wireId, inputActions, draft, onClose } = props;
+  const restored = (0, import_react4.useRef)(loadIterPanel(uiKey, draft)).current;
+  const [input, setInput] = (0, import_react4.useState)(restored?.input ?? draft);
+  const [output, setOutput] = (0, import_react4.useState)(restored?.output ?? "");
+  const [busy, setBusy] = (0, import_react4.useState)(false);
+  const [error, setError] = (0, import_react4.useState)("");
+  const controllerRef = (0, import_react4.useRef)(null);
+  (0, import_react4.useSyncExternalStore)(subscribe, getVersion);
+  const tier = effectiveTier(uiKey);
+  const last = lastEnhancedOf(uiKey);
+  const base = last !== void 0 && last.trim() !== "" ? last : draft;
+  const positive = base.trim() === "";
+  const baseSource = positive ? t("iter.panel.base.none") : last !== void 0 && last.trim() !== "" ? t("iter.panel.base.last") : t("iter.panel.base.draft");
+  (0, import_react4.useEffect)(() => {
+    saveIterPanel(uiKey, { input, output, draft });
+  }, [uiKey, input, output, draft]);
+  (0, import_react4.useEffect)(() => () => {
+    controllerRef.current?.abort();
+  }, []);
+  (0, import_react4.useEffect)(() => {
+    const onKey = (event) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (event.key !== "Escape" || busy) return;
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [busy, onClose]);
+  const run = async () => {
+    if (busy) return;
+    if (input.trim() === "") {
+      setError(t("iter.error.empty"));
+      return;
+    }
+    setError("");
+    setBusy(true);
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const body = positive ? { text: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} } : { text: base, iterRequirement: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} };
+    try {
+      const result = await requestEnhanceStream(body, {
+        signal: controller.signal,
+        onDelta: () => {
+        }
+      });
+      setOutput(result.text);
+      recordLastEnhanced(uiKey, result.text);
+    } catch (error2) {
+      if (!controller.signal.aborted) {
+        setError(error2 instanceof EnhanceClientError ? localizedErrorMessage(t, error2.detail.code, error2.detail.params) : error2 instanceof Error ? error2.message : String(error2));
+      }
+    } finally {
+      setBusy(false);
+      controllerRef.current = null;
+    }
+  };
+  const replace = () => {
+    if (output.trim() === "") {
+      setError(t("iter.error.output"));
+      return;
+    }
+    inputActions.setDraft(output);
+    recordLastEnhanced(uiKey, output);
+    onClose();
+  };
+  const clear = () => {
+    setInput("");
+    setOutput("");
+    setError("");
+    clearIterPanel(uiKey);
+  };
+  return (0, import_react_dom.createPortal)(
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "dsh-pe-iter-overlay", onClick: (event) => {
+      if (event.target === event.currentTarget && !busy) onClose();
+    }, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { className: "dsh-pe-iter-panel", role: "dialog", "aria-modal": "true", "aria-label": t("iter.panel.title"), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("header", { className: "dsh-pe-iter-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h3", { className: "dsh-pe-iter-title", children: t("iter.panel.title") }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "dsh-pe-iter-base", children: t("iter.panel.base", { source: baseSource }) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dsh-pe-iter-close", "aria-label": t("panel.close"), disabled: busy, onClick: onClose, children: "\u2715" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-pe-iter-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "dsh-pe-iter-pane", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-pane-label", children: t("iter.panel.input.label") }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+            "textarea",
+            {
+              className: "dsh-pe-iter-area",
+              value: input,
+              placeholder: t("iter.panel.input.placeholder"),
+              autoFocus: true,
+              onChange: (event) => setInput(event.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-flow", "aria-hidden": "true", children: "\u2192" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "dsh-pe-iter-pane", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-pe-iter-pane-label", children: [
+            t("iter.panel.output.label"),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-hint", children: t("iter.panel.output.hint") })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+            "textarea",
+            {
+              className: "dsh-pe-iter-area is-output",
+              "aria-label": t("iter.panel.output.label"),
+              value: output,
+              spellCheck: false,
+              onChange: (event) => setOutput(event.target.value)
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("footer", { className: "dsh-pe-iter-foot", children: [
+        error !== "" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-error", role: "alert", children: error }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-iter-spacer" }),
+        busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dsh-pe-iter-action ghost", onClick: () => controllerRef.current?.abort(), children: t("iter.panel.cancel") }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dsh-pe-iter-action ghost", disabled: busy, onClick: clear, children: t("iter.panel.clear") }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "dsh-pe-iter-action line", disabled: busy, onClick: replace, children: t("iter.panel.replace") }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { type: "button", className: "dsh-pe-iter-action solid", disabled: busy, onClick: () => {
+          void run();
+        }, children: [
+          busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-ring dsh-pe-ring-sm", "aria-hidden": "true" }) : null,
+          busy ? t("iter.panel.loading") : t("iter.panel.run")
+        ] })
+      ] })
+    ] }) }),
+    document.body
+  );
+}
+
+// src/client/IterationButton.tsx
+var import_jsx_runtime4 = require("react/jsx-runtime");
+function stringOf(value) {
+  return typeof value === "string" ? value : "";
+}
+function IterationButton(props) {
+  const { t, sessionId, session, useInput, inputActions } = props;
+  const sources = { sessionId, session };
+  const uiKey = useSessionKey(sources, inputActions);
+  const wireId = serverSessionId(sources);
+  const draft = String(useInput((state) => stringOf(state?.draft)) ?? "");
+  const [open, setOpen] = (0, import_react5.useState)(false);
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      "button",
+      {
+        type: "button",
+        className: "dsh-pe-btn",
+        title: t("iter.button.title"),
+        "aria-label": t("iter.button.title"),
+        onClick: () => setOpen(true),
+        children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": "true", children: "\u21BB" })
+      }
+    ),
+    open ? (0, import_react_dom2.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        IterationPanel,
+        {
+          t,
+          uiKey,
+          wireId,
+          inputActions,
+          draft,
+          onClose: () => setOpen(false)
+        }
+      ),
+      document.body
+    ) : null
+  ] });
+}
+
+// src/client/EnhanceButton.tsx
+var import_jsx_runtime5 = require("react/jsx-runtime");
 function countOf(value) {
   return Array.isArray(value) ? value.length : 0;
 }
-function stringOf(value) {
+function stringOf2(value) {
   return typeof value === "string" ? value : "";
 }
 function EnhanceButton(props) {
@@ -1223,25 +1406,25 @@ function EnhanceButton(props) {
   const sources = { sessionId, session };
   const uiKey = useSessionKey(sources, inputActions);
   const wireId = serverSessionId(sources);
-  const draft = useInput((state) => stringOf(state.draft));
+  const draft = useInput((state) => stringOf2(state.draft));
   const phase = useInput((state) => state.phase);
   const occurrenceCount = useInput((state) => countOf(state.occurrences));
   const imageCount = useInput((state) => countOf(state.imageIds));
-  const settings = (0, import_react4.useSyncExternalStore)(subscribeClientSettings, getClientSettings);
-  const panel = (0, import_react4.useSyncExternalStore)(subscribe2, getPanel);
-  (0, import_react4.useSyncExternalStore)(subscribe, getVersion);
+  const settings = (0, import_react6.useSyncExternalStore)(subscribeClientSettings, getClientSettings);
+  const panel = (0, import_react6.useSyncExternalStore)(subscribe2, getPanel);
+  (0, import_react6.useSyncExternalStore)(subscribe, getVersion);
   const tier = effectiveTier(uiKey);
   const useContext = effectiveUseContext(uiKey);
-  const rootRef = (0, import_react4.useRef)(null);
-  const draftRef = (0, import_react4.useRef)(draft);
-  (0, import_react4.useEffect)(() => {
+  const rootRef = (0, import_react6.useRef)(null);
+  const draftRef = (0, import_react6.useRef)(draft);
+  (0, import_react6.useEffect)(() => {
     draftRef.current = draft;
   });
   const busy = panel !== void 0 && panel.sessionId === uiKey && panel.phase === "loading";
   const direct = tier !== "system";
   const anyBusy = panel !== void 0 && panel.phase === "loading";
   const otherBusy = anyBusy && !busy;
-  const start = (0, import_react4.useCallback)(() => {
+  const start = (0, import_react6.useCallback)(() => {
     if (anyBusy) return;
     const reject = (message) => {
       if (direct) {
@@ -1320,11 +1503,11 @@ function EnhanceButton(props) {
     }
     requestEnhance(body, controller.signal).then(settle, fail);
   }, [anyBusy, draft, direct, imageCount, occurrenceCount, phase, settings, uiKey, wireId, t, tier, useContext, inputActions]);
-  const runRef = (0, import_react4.useRef)(start);
-  (0, import_react4.useEffect)(() => {
+  const runRef = (0, import_react6.useRef)(start);
+  (0, import_react6.useEffect)(() => {
     runRef.current = start;
   });
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     const entry = {
       root: rootRef.current,
       run: () => runRef.current(),
@@ -1342,12 +1525,12 @@ function EnhanceButton(props) {
     };
     return registerSession(uiKey, entry);
   }, [inputActions, uiKey]);
-  (0, import_react4.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (panel !== void 0 && panel.sessionId === uiKey && panel.phase === "result") {
       setStale(uiKey, draft !== panel.original);
     }
   }, [draft, panel, uiKey]);
-  const apply2 = (0, import_react4.useCallback)(() => {
+  const apply2 = (0, import_react6.useCallback)(() => {
     if (panel === void 0 || panel.phase !== "result" || panel.result === void 0) return;
     pushUndo(uiKey, { original: draft, applied: panel.result.text });
     inputActions.setDraft(panel.result.text);
@@ -1355,10 +1538,20 @@ function EnhanceButton(props) {
   }, [draft, inputActions, panel, uiKey]);
   if (!settings.enabled) return null;
   const owned = panel !== void 0 && panel.sessionId === uiKey && panel.mode !== "direct" ? panel : void 0;
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "dsh-pe-cluster", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(TierMenu, { sessionKey: uiKey, t }),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "dsh-pe-cluster", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TierMenu, { sessionKey: uiKey, t }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        IterationButton,
+        {
+          t,
+          sessionId,
+          session,
+          useInput,
+          inputActions
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         "button",
         {
           ref: rootRef,
@@ -1368,12 +1561,12 @@ function EnhanceButton(props) {
           "aria-label": otherBusy ? t("button.otherBusy") : t("button.title"),
           "aria-disabled": otherBusy || void 0,
           onClick: start,
-          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": true, children: busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dsh-pe-ring dsh-pe-ring-sm" }) : "\u2728" })
+          children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": true, children: busy ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-pe-ring dsh-pe-ring-sm" }) : "\u2728" })
         }
       )
     ] }),
-    owned !== void 0 && (0, import_react_dom.createPortal)(
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    owned !== void 0 && (0, import_react_dom3.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         ResultPanel,
         {
           state: owned,
@@ -1386,189 +1579,6 @@ function EnhanceButton(props) {
       ),
       document.body
     )
-  ] });
-}
-
-// src/client/IterationButton.tsx
-var import_react6 = require("react");
-var import_react_dom3 = require("react-dom");
-
-// src/client/IterationPanel.tsx
-var import_react5 = require("react");
-var import_react_dom2 = require("react-dom");
-var import_jsx_runtime4 = require("react/jsx-runtime");
-function IterationPanel(props) {
-  const { t, uiKey, wireId, inputActions, draft, onClose } = props;
-  const restored = (0, import_react5.useRef)(loadIterPanel(uiKey, draft)).current;
-  const [input, setInput] = (0, import_react5.useState)(restored?.input ?? draft);
-  const [output, setOutput] = (0, import_react5.useState)(restored?.output ?? "");
-  const [busy, setBusy] = (0, import_react5.useState)(false);
-  const [error, setError] = (0, import_react5.useState)("");
-  const controllerRef = (0, import_react5.useRef)(null);
-  (0, import_react5.useSyncExternalStore)(subscribe, getVersion);
-  const tier = effectiveTier(uiKey);
-  const last = lastEnhancedOf(uiKey);
-  const base = last !== void 0 && last.trim() !== "" ? last : draft;
-  const positive = base.trim() === "";
-  const baseSource = positive ? t("iter.panel.base.none") : last !== void 0 && last.trim() !== "" ? t("iter.panel.base.last") : t("iter.panel.base.draft");
-  (0, import_react5.useEffect)(() => {
-    saveIterPanel(uiKey, { input, output, draft });
-  }, [uiKey, input, output, draft]);
-  (0, import_react5.useEffect)(() => () => {
-    controllerRef.current?.abort();
-  }, []);
-  (0, import_react5.useEffect)(() => {
-    const onKey = (event) => {
-      if (event.defaultPrevented || event.isComposing) return;
-      if (event.key !== "Escape" || busy) return;
-      event.stopPropagation();
-      onClose();
-    };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  }, [busy, onClose]);
-  const run = async () => {
-    if (busy) return;
-    if (input.trim() === "") {
-      setError(t("iter.error.empty"));
-      return;
-    }
-    setError("");
-    setBusy(true);
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    const body = positive ? { text: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} } : { text: base, iterRequirement: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} };
-    try {
-      const result = await requestEnhanceStream(body, {
-        signal: controller.signal,
-        onDelta: () => {
-        }
-      });
-      setOutput(result.text);
-      recordLastEnhanced(uiKey, result.text);
-    } catch (error2) {
-      if (!controller.signal.aborted) {
-        setError(error2 instanceof EnhanceClientError ? localizedErrorMessage(t, error2.detail.code, error2.detail.params) : error2 instanceof Error ? error2.message : String(error2));
-      }
-    } finally {
-      setBusy(false);
-      controllerRef.current = null;
-    }
-  };
-  const replace = () => {
-    if (output.trim() === "") {
-      setError(t("iter.error.output"));
-      return;
-    }
-    inputActions.setDraft(output);
-    recordLastEnhanced(uiKey, output);
-    onClose();
-  };
-  const clear = () => {
-    setInput("");
-    setOutput("");
-    setError("");
-    clearIterPanel(uiKey);
-  };
-  return (0, import_react_dom2.createPortal)(
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "dsh-pe-iter-overlay", onClick: (event) => {
-      if (event.target === event.currentTarget && !busy) onClose();
-    }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("section", { className: "dsh-pe-iter-panel", role: "dialog", "aria-modal": "true", "aria-label": t("iter.panel.title"), children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("header", { className: "dsh-pe-iter-head", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h3", { className: "dsh-pe-iter-title", children: t("iter.panel.title") }),
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { className: "dsh-pe-iter-base", children: t("iter.panel.base", { source: baseSource }) })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-close", "aria-label": t("panel.close"), disabled: busy, onClick: onClose, children: "\u2715" })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-iter-body", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("label", { className: "dsh-pe-iter-pane", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-pane-label", children: t("iter.panel.input.label") }),
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-            "textarea",
-            {
-              className: "dsh-pe-iter-area",
-              value: input,
-              placeholder: t("iter.panel.input.placeholder"),
-              autoFocus: true,
-              onChange: (event) => setInput(event.target.value)
-            }
-          )
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-flow", "aria-hidden": "true", children: "\u2192" }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-iter-pane", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "dsh-pe-iter-pane-label", children: [
-            t("iter.panel.output.label"),
-            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-hint", children: t("iter.panel.output.hint") })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-            "textarea",
-            {
-              className: "dsh-pe-iter-area is-output",
-              "aria-label": t("iter.panel.output.label"),
-              value: output,
-              spellCheck: false,
-              onChange: (event) => setOutput(event.target.value)
-            }
-          )
-        ] })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("footer", { className: "dsh-pe-iter-foot", children: [
-        error !== "" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-error", role: "alert", children: error }) : null,
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-iter-spacer" }),
-        busy ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-action ghost", onClick: () => controllerRef.current?.abort(), children: t("iter.panel.cancel") }) : null,
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-action ghost", disabled: busy, onClick: clear, children: t("iter.panel.clear") }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-iter-action line", disabled: busy, onClick: replace, children: t("iter.panel.replace") }),
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("button", { type: "button", className: "dsh-pe-iter-action solid", disabled: busy, onClick: () => {
-          void run();
-        }, children: [
-          busy ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-ring dsh-pe-ring-sm", "aria-hidden": "true" }) : null,
-          busy ? t("iter.panel.loading") : t("iter.panel.run")
-        ] })
-      ] })
-    ] }) }),
-    document.body
-  );
-}
-
-// src/client/IterationButton.tsx
-var import_jsx_runtime5 = require("react/jsx-runtime");
-function stringOf2(value) {
-  return typeof value === "string" ? value : "";
-}
-function IterationButton(props) {
-  const { t, sessionId, session, useInput, inputActions } = props;
-  const sources = { sessionId, session };
-  const uiKey = useSessionKey(sources, inputActions);
-  const wireId = serverSessionId(sources);
-  const draft = useInput((state) => stringOf2(state.draft));
-  const [open, setOpen] = (0, import_react6.useState)(false);
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "dsh-pe-cluster", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-      "button",
-      {
-        type: "button",
-        className: "dsh-pe-btn",
-        title: t("iter.button.title"),
-        "aria-label": t("iter.button.title"),
-        onClick: () => setOpen(true),
-        children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "dsh-pe-btn-icon", "aria-hidden": "true", children: "\u21BB" })
-      }
-    ),
-    open ? (0, import_react_dom3.createPortal)(
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-        IterationPanel,
-        {
-          t,
-          uiKey,
-          wireId,
-          inputActions: { setDraft: (text) => inputActions.setDraft(text) },
-          draft,
-          onClose: () => setOpen(false)
-        }
-      ),
-      document.body
-    ) : null
   ] });
 }
 
@@ -3068,20 +3078,6 @@ function apply(ctx) {
         return slots.register(
           { name: "conversation.input.right", id: "prompt-enhance", order: 60, locale: NS },
           EnhanceButton
-        );
-      } catch {
-        return () => {
-        };
-      }
-    });
-  });
-  ctx.inject(["slots"], (slotsCtx) => {
-    const slots = slotsCtx.slots;
-    return slots.inject("conversation.input.right", () => {
-      try {
-        return slots.register(
-          { name: "conversation.input.right", id: "prompt-enhance-iterate", order: 65, locale: NS },
-          IterationButton
         );
       } catch {
         return () => {
