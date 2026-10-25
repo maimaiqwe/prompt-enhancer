@@ -29,6 +29,17 @@ describe('protectDraft', () => {
     expect(guard.skillTokens).toEqual(['$grill-me'])
   })
 
+  it('strips bare filenames and emails', () => {
+    const { guarded, guard } = protectDraft('先读 rules.md 再联系 a.b@example.com')
+    expect(guarded).not.to.contain('rules.md')
+    expect(guarded).not.to.contain('example.com')
+    expect(guarded).to.contain('先读')
+    expect(guard.litItems).toHaveLength(2)
+    const out = restoreResult('请先读__PO_LIT_0001__，再联系__PO_LIT_0002__。', guard)
+    expect(out).to.contain('rules.md')
+    expect(out).to.contain('a.b@example.com')
+  })
+
   it('round-trips untouched prose', () => {
     const text = '帮我把这个文章继续优化。'
     const { guarded, guard } = protectDraft(text)

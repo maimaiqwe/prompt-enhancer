@@ -8,8 +8,10 @@
  */
 
 const URL_RE = /https?:\/\/[^\s<>'"`]+/g
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
 const WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`]+[\\/])*[^\s<>'"`]+/g
 const UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/]+\/)*[^\s<>'"`/]+/g
+const FILENAME_RE = /(?<![\w./\\-])[A-Za-z0-9][A-Za-z0-9._-]*\.(?:md|markdown|py|ts|tsx|js|mjs|cjs|json|yml|yaml|toml|ini|cfg|conf|txt|log|ps1|cmd|bat|sh|exe|dll|cs|java|xml|csv|sql|html|htm|css|scss|png|jpe?g|gif|svg|ico|zip|tar|gz|tgz|7z|pdf|docx?|xlsx?|pptx?)\b/gi
 const SKILL_LINK_RE = /\[\$[A-Za-z][A-Za-z0-9_-]*\]\([^()\s]{1,400}\)/g
 const SKILL_TOKEN_RE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/g
 const SKILL_ANCHOR_RE = /__PO_SKILL_(\d{4})_[A-Za-z0-9_]+__/g
@@ -38,8 +40,10 @@ export function protectDraft(text: string): { guarded: string; guard: DraftGuard
   }
   let guarded = text.replace(SKILL_LINK_RE, keepLit)
   guarded = guarded.replace(URL_RE, keepLit)
+  guarded = guarded.replace(EMAIL_RE, keepLit)
   guarded = guarded.replace(WIN_PATH_RE, keepLit)
   guarded = guarded.replace(UNIX_PATH_RE, keepLit)
+  guarded = guarded.replace(FILENAME_RE, keepLit)
   guarded = guarded.replace(SKILL_TOKEN_RE, (match) => {
     guard.skillTokens.push(match)
     return skillAnchor(guard.skillTokens.length - 1, match)
