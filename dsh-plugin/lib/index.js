@@ -25,7 +25,9 @@ var RULE_SECTIONS = {
 2. \u7981\u6B62\u4EFB\u4F55\u524D\u540E\u7F00\uFF0C\u4F8B\u5982\u201C\u4EE5\u4E0B\u662F\u201D\u201C\u4F18\u5316\u7ED3\u679C\u5982\u4E0B\u201D\u201C\u4FEE\u6539\u540E\u7684\u5185\u5BB9\u201D\u3002
 3. \u7981\u6B62\u89E3\u91CA\u3001\u603B\u7ED3\u3001\u5BA2\u5957\u3001\u4FEE\u6539\u7406\u7531\u3001\u81EA\u8BC4\u548C Markdown \u4EE3\u7801\u5757\u5305\u88F9\uFF1B\u6863\u4F4D\u89C4\u5219\u660E\u786E\u8981\u6C42\u7684\u6B63\u6587\u6807\u9898\u9664\u5916\u3002
 4. \u7981\u6B62\u590D\u8FF0\u672C\u89C4\u5219\u3001\u7CFB\u7EDF\u63D0\u793A\u6216\u7528\u6237\u539F\u6587\u3002
-5. \u4E0D\u5F97\u8F93\u51FA\u201C\u6A21\u5F0F\u201D\u201C\u6863\u4F4D\u201D\u201C\u5360\u4F4D\u7B26\u201D\u7B49\u5185\u90E8\u5143\u4FE1\u606F\u3002`,
+5. \u4E0D\u5F97\u8F93\u51FA\u201C\u6A21\u5F0F\u201D\u201C\u6863\u4F4D\u201D\u201C\u5360\u4F4D\u7B26\u201D\u7B49\u5185\u90E8\u5143\u4FE1\u606F\u3002
+
+- \u5E76\u5217\u52A8\u8BCD\u77ED\u8BED\uFF08\u5982\u300C\u590D\u9A8C\u4F18\u5316\u300D\u300C\u68C0\u67E5\u5E76\u4FEE\u590D\u300D\uFF09\u5FC5\u987B\u4FDD\u6301\u5E76\u5217\u8BED\u4E49\uFF0C\u4E0D\u5F97\u6539\u5199\u6210\u4FEE\u9970\u5173\u7CFB\uFF08\u5982\u300C\u590D\u9A8C\u5DF2\u4F18\u5316\u7684\u5185\u5BB9\u300D\uFF09\u3002`,
   /** `[BASE]` — 基础整理 */
   BASE: `### \u57FA\u7840\u6574\u7406
 
@@ -118,7 +120,25 @@ var RULE_SECTIONS = {
 7. \u8F93\u51FA\u89C4\u8303\uFF1A\u683C\u5F0F\u3001\u957F\u5EA6\u3001\u8BED\u8A00\u3001\u7ED3\u6784\u3001\u5F15\u7528\u8981\u6C42\u3002
 8. \u5F02\u5E38\u5904\u7406\u4E0E\u81EA\u68C0\uFF1A\u5931\u8D25\u3001\u6B67\u4E49\u3001\u51B2\u7A81\u3001\u8D85\u8303\u56F4\u65F6\u600E\u4E48\u529E\u3002
 
-\u4FDD\u7559\u539F\u6587\u6240\u6709\u5DF2\u6709\u89C4\u5219\u3001\u4F18\u5148\u7EA7\u548C\u5426\u5B9A\u7EA6\u675F\uFF0C\u4E0D\u5F97\u5F31\u5316\u6216\u5220\u9664\u3002\u539F\u6587\u6CA1\u5199\u7684\u4E1A\u52A1\u89C4\u5219\u7528\u201C\u5982\u65E0\u7279\u522B\u8BF4\u660E\u201D\u6216\u901A\u7528\u5B89\u5168\u8868\u8FF0\u7559\u767D\uFF0C\u4E0D\u51ED\u7A7A\u8865\u9886\u57DF\u77E5\u8BC6\u3002\u6D88\u9664\u660E\u663E\u77DB\u76FE\uFF1B\u65E0\u6CD5\u6D88\u9664\u65F6\u660E\u786E\u6807\u6CE8\u51B2\u7A81\u70B9\u3002`
+\u4FDD\u7559\u539F\u6587\u6240\u6709\u5DF2\u6709\u89C4\u5219\u3001\u4F18\u5148\u7EA7\u548C\u5426\u5B9A\u7EA6\u675F\uFF0C\u4E0D\u5F97\u5F31\u5316\u6216\u5220\u9664\u3002\u539F\u6587\u6CA1\u5199\u7684\u4E1A\u52A1\u89C4\u5219\u7528\u201C\u5982\u65E0\u7279\u522B\u8BF4\u660E\u201D\u6216\u901A\u7528\u5B89\u5168\u8868\u8FF0\u7559\u767D\uFF0C\u4E0D\u51ED\u7A7A\u8865\u9886\u57DF\u77E5\u8BC6\u3002\u6D88\u9664\u660E\u663E\u77DB\u76FE\uFF1B\u65E0\u6CD5\u6D88\u9664\u65F6\u660E\u786E\u6807\u6CE8\u51B2\u7A81\u70B9\u3002`,
+  /** `[ITERATE]` — 再次优化 */
+  ITERATE: `### \u518D\u6B21\u4F18\u5316
+
+\u8F93\u5165\u5DF2\u7ECF\u662F\u4E00\u7248\u589E\u5F3A\u540E\u7684\u63D0\u793A\u8BCD\u3002\u57FA\u4E8E\u73B0\u6709\u7248\u672C\u7EE7\u7EED\u6539\u8FDB\uFF0C\u4E0D\u505A\u6574\u7BC7\u91CD\u5199\u3002
+
+- \u7EE7\u627F\u4E0A\u4E00\u7248\u6863\u4F4D\uFF1B\u53EA\u6709\u7528\u6237\u663E\u5F0F\u6307\u5B9A\u65B0\u6863\u4F4D\u65F6\u624D\u5207\u6362\u3002
+- \u5148\u5224\u65AD\u5F53\u524D\u7A3F\u662F\u5426\u771F\u7684\u5DF2\u7ECF\u662F\u4E00\u7248\u5B8C\u6574\u3001\u53EF\u6267\u884C\u7684\u63D0\u793A\u8BCD\u3002\u82E5\u5F53\u524D\u7A3F\u4ECD\u662F\u77ED\u6307\u4EE4\uFF0C\u6216\u4E0A\u4E00\u8F6E\u660E\u663E\u53EA\u505A\u4E86\u63AA\u8F9E\u6574\u7406\u3001\u6807\u70B9\u4FEE\u8865\uFF0C\u5219\u6309\u5BF9\u5E94\u7684 \`[BASE]\` / \`[STANDARD]\` / \`[PROFESSIONAL]\` / \`[SYSTEM]\` \u89C4\u5219\u91CD\u65B0\u5B8C\u6574\u5C55\u5F00\uFF0C\u4E0D\u5F97\u7EE7\u7EED\u505A\u201C\u6700\u5C0F\u4FEE\u6B63\u201D\u3002
+- \u4FDD\u7559\u6838\u5FC3\u610F\u56FE\u3001\u5DF2\u6709\u7EA6\u675F\u3001\u672F\u8BED\u3001\u8DEF\u5F84\u3001\u6570\u5B57\u548C\u7ED3\u6784\u3002
+- \u53EA\u4FEE\u7F3A\u53E3\uFF1A\u6B67\u4E49\u3001\u9057\u6F0F\u7684\u9A8C\u6536\u6807\u51C6\u3001\u4F18\u5148\u7EA7\u51B2\u7A81\u3001\u8F93\u51FA\u89C4\u8303\u4E0D\u6E05\u3001\u5931\u8D25\u5904\u7406\u7F3A\u5931\u3002
+- \u5DF2\u6709\u5185\u5BB9\u786E\u5B9E\u5B8C\u6574\u65F6\uFF0C\u53EA\u505A\u6700\u5C0F\u5FC5\u8981\u4FEE\u6B63\uFF0C\u4E0D\u4E3A\u663E\u5F97\u4E0D\u540C\u800C\u6539\u5199\u3002
+- \u603B\u7BC7\u5E45\u901A\u5E38\u4E0D\u8D85\u8FC7\u539F\u7A3F\u7684 1.25 \u500D\uFF1B\u4E0D\u5F97\u9760\u91CD\u590D\u548C\u5957\u8BDD\u6269\u5199\u3002
+- \u8F93\u51FA\u5B8C\u6574\u7684\u66F4\u65B0\u7248\u63D0\u793A\u8BCD\u672C\u4F53\uFF0C\u4E0D\u53EA\u8F93\u51FA diff \u6216\u4FEE\u6539\u8BF4\u660E\u3002
+
+\u7528\u6237\u5728\u672B\u5C3E\u7528 \`@iter:\` \u63D0\u4F9B\u672C\u6B21\u8FED\u4EE3\u8981\u6C42\u65F6\uFF0C\u89E3\u6790\u5668\u4F1A\u628A\u5B83\u5355\u72EC\u4F20\u5165 \`<iteration_request>\`\u3002\u8BE5\u8981\u6C42\u53EA\u4F5C\u7528\u4E8E\u672C\u6B21\u8FED\u4EE3\uFF1A
+
+- \u6309\u7528\u6237\u8981\u6C42\u8C03\u6574\u65B9\u5411\u6216\u7EC6\u8282\uFF0C\u4F46\u4E0D\u5F97\u8FDD\u80CC\u4FDD\u771F\u5E95\u7EBF\u548C Skill token \u4FDD\u62A4\u3002
+- \u8981\u6C42\u4E0E\u5DF2\u6709\u5185\u5BB9\u51B2\u7A81\u65F6\uFF0C\u4EE5\u672C\u6B21\u660E\u786E\u8981\u6C42\u4E3A\u51C6\uFF1B\u65E0\u6CD5\u540C\u65F6\u6EE1\u8DB3\u65F6\u4F18\u5148\u4FDD\u7559\u539F\u6587\u4E8B\u5B9E\u548C\u5426\u5B9A\u7EA6\u675F\uFF0C\u5E76\u5728\u7ED3\u679C\u4E2D\u663E\u5F0F\u6807\u6CE8\u51B2\u7A81\u3002
+- \`@iter:\` \u662F\u5185\u90E8\u5143\u6307\u4EE4\uFF0C\u4E0D\u5F97\u539F\u6837\u51FA\u73B0\u5728\u6700\u7EC8\u63D0\u793A\u8BCD\u4E2D\uFF1B\u5176\u957F\u671F\u6709\u6548\u7684\u7EA6\u675F\u5E94\u81EA\u7136\u878D\u5165\u76F8\u5E94\u7AE0\u8282\u3002`
 };
 
 // src/tiers.ts
@@ -151,6 +171,11 @@ ${RULE_SECTIONS[TIER_SECTION[tier]]}
 ${FRAMING_NOTE}`;
   tierPrompts.set(tier, composed);
   return composed;
+}
+function iterateSystemPrompt(tier) {
+  return `${tierSystemPrompt(tier)}
+
+${RULE_SECTIONS.ITERATE}`;
 }
 function normalizeTier(value, fallback = DEFAULT_TIER) {
   if (typeof value !== "string") return fallback;
@@ -431,6 +456,59 @@ function normalizeOutput(raw) {
   return text.trim();
 }
 
+// src/shared/literal-guard.ts
+var URL_RE = /https?:\/\/[^\s<>'"`，。；：、！？（）“”‘’]+/gi;
+var EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+var WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`，。；：、！？（）“”‘’]+[\\/])*[^\s<>'"`，。；：、！？（）“”‘’]+/g;
+var UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/，。；：、！？（）“”‘’]+\/)*[^\s<>'"`/，。；：、！？（）“”‘’]+/g;
+var FILENAME_RE = /(?<![\w./\\-])[A-Za-z0-9][A-Za-z0-9._-]*\.(?:md|markdown|py|ts|tsx|js|mjs|cjs|json|yml|yaml|toml|ini|cfg|conf|txt|log|ps1|cmd|bat|sh|exe|dll|cs|java|xml|csv|sql|html|htm|css|scss|png|jpe?g|gif|svg|ico|zip|tar|gz|tgz|7z|pdf|docx?|xlsx?|pptx?)\b/gi;
+var SKILL_LINK_RE = /\[\$[A-Za-z][A-Za-z0-9_-]*\]\([^()\s]{1,400}\)/g;
+var SKILL_TOKEN_RE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/g;
+var SKILL_ANCHOR_RE = /__PO_SKILL_(\d{4})_[A-Za-z0-9_]+__/g;
+var LIT_ANCHOR_RE = /__PO_LIT_(\d{4})__/g;
+var pad4 = (n) => String(n).padStart(4, "0");
+var skillAnchor = (index, token) => `__PO_SKILL_${pad4(index + 1)}_${token.slice(1).replace(/[^A-Za-z0-9]/g, "_")}__`;
+function protectDraft(text) {
+  const guard = { litItems: [], skillTokens: [] };
+  const keepLit = (match) => {
+    let fragment = match;
+    let tail = "";
+    while (fragment.endsWith(".")) {
+      tail += ".";
+      fragment = fragment.slice(0, -1);
+    }
+    guard.litItems.push(fragment);
+    return `__PO_LIT_${pad4(guard.litItems.length)}__${tail}`;
+  };
+  let guarded = text.replace(SKILL_LINK_RE, keepLit);
+  guarded = guarded.replace(URL_RE, keepLit);
+  guarded = guarded.replace(EMAIL_RE, keepLit);
+  guarded = guarded.replace(WIN_PATH_RE, keepLit);
+  guarded = guarded.replace(UNIX_PATH_RE, keepLit);
+  guarded = guarded.replace(FILENAME_RE, keepLit);
+  guarded = guarded.replace(SKILL_TOKEN_RE, (match) => {
+    guard.skillTokens.push(match);
+    return skillAnchor(guard.skillTokens.length - 1, match);
+  });
+  return { guarded, guard };
+}
+function restoreResult(text, guard) {
+  const missing = [];
+  guard.skillTokens.forEach((token, i) => {
+    const anchor = skillAnchor(i, token);
+    if (!text.includes(anchor)) missing.push(anchor);
+  });
+  guard.litItems.forEach((item, i) => {
+    const anchor = `__PO_LIT_${pad4(i + 1)}__`;
+    if (!text.includes(anchor)) missing.push(anchor);
+  });
+  let out = missing.length > 0 ? `${text.replace(/\s+$/, "")}
+${missing.join("\n")}` : text;
+  out = out.replace(SKILL_ANCHOR_RE, (anchor) => guard.skillTokens[Number(anchor.slice(11, 15)) - 1] ?? "");
+  out = out.replace(LIT_ANCHOR_RE, (anchor) => guard.litItems[Number(anchor.slice(9, 13)) - 1] ?? "");
+  return out.replace(/\s+$/, "");
+}
+
 // src/prompts.ts
 var DEFAULT_SYSTEM_PROMPT = [
   "You are an expert prompt engineer. The user gives you a raw, often vague prompt intended for an AI assistant. Rewrite it into a well-structured, immediately usable prompt.",
@@ -463,6 +541,19 @@ function frameUserPrompt(text, context) {
 ${head}<raw_prompt>
 ${safe}
 </raw_prompt>`;
+}
+function frameIteratePrompt(base, requirement) {
+  const safeBase = base.replace(/<\/?(iter_base)>/gi, "<\\/$1>");
+  const safeReq = requirement.replace(/<\/?(iter_requirement)>/gi, "<\\/$1>");
+  return [
+    "\u8BF7\u6309\u8FED\u4EE3\u8981\u6C42\u6539\u5199\u4EE5\u4E0B\u63D0\u793A\u8BCD\uFF08\u53EA\u6539\u8981\u6C42\u6D89\u53CA\u7684\u90E8\u5206\uFF0C\u5176\u4F59\u5185\u5BB9\u539F\u6837\u4FDD\u7559\uFF09\uFF1A",
+    "<iter_base>",
+    safeBase,
+    "</iter_base>",
+    "<iter_requirement>",
+    safeReq,
+    "</iter_requirement>"
+  ].join("\n");
 }
 var CONTEXT_SYSTEM_ADDITION = [
   "",
@@ -522,9 +613,14 @@ async function enhanceText(llm, options) {
   };
   try {
     signal.throwIfAborted();
+    const baseGuard = protectDraft(options.text);
+    const requirementGuard = options.iterRequirement !== void 0 ? protectDraft(options.iterRequirement) : void 0;
     const messages = [
       createUserMessage({
-        content: [{ type: "text", text: frameUserPrompt(options.text, options.context) }],
+        content: [{
+          type: "text",
+          text: requirementGuard !== void 0 ? frameIteratePrompt(baseGuard.guarded, requirementGuard.guarded) : frameUserPrompt(baseGuard.guarded, options.context)
+        }],
         source: { kind: "plugin", plugin: "dsh-prompt-enhance-cn" }
       })
     ];
@@ -583,10 +679,11 @@ async function enhanceText(llm, options) {
       fail({ code: "upstream", params: { reason: "tool-call" } });
     }
     const joined = blocks.filter((block) => block.type === "text").map((block) => block.text).join("\n");
-    const text = normalizeOutput(joined);
-    if (text === "") {
+    const normalized = normalizeOutput(joined);
+    if (normalized === "") {
       fail({ code: "upstream", params: { reason: "empty" } });
     }
+    const text = requirementGuard !== void 0 ? restoreResult(restoreResult(normalized, requirementGuard.guard), baseGuard.guard) : restoreResult(normalized, baseGuard.guard);
     return { text, provider: options.route.provider, model: options.route.model, elapsedMs: Date.now() - started };
   } catch (error) {
     if (error instanceof EnhanceFailure) throw error;
@@ -866,8 +963,10 @@ async function runEnhance(ctx, config, options) {
       route,
       // The tier rules are the base strategy; the context rules ride along ONLY
       // when there is context to reason about, so a context-free call keeps
-      // byte-identical instructions.
-      system: effectiveSystemPrompt(config, context === void 0 ? tierSystemPrompt(tier) : withContextRules(tierSystemPrompt(tier))),
+      // byte-identical instructions. An iteration swaps the strategy for the
+      // tier rules plus the shared [ITERATE] contract, and never carries
+      // conversation context — its evidence is the base text in the request.
+      system: effectiveSystemPrompt(config, options.iterRequirement !== void 0 ? iterateSystemPrompt(tier) : context === void 0 ? tierSystemPrompt(tier) : withContextRules(tierSystemPrompt(tier))),
       text: options.text,
       temperature: config.temperature,
       maxTokens: config.maxOutputTokens,
@@ -875,7 +974,8 @@ async function runEnhance(ctx, config, options) {
       signal: options.signal,
       ...context !== void 0 ? { context } : {},
       ...options.onDelta !== void 0 ? { onDelta: options.onDelta } : {},
-      ...options.sessionId !== void 0 ? { sessionId: options.sessionId } : {}
+      ...options.sessionId !== void 0 ? { sessionId: options.sessionId } : {},
+      ...options.iterRequirement !== void 0 ? { iterRequirement: options.iterRequirement } : {}
     });
     console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === void 0 ? 0 : 1} ${result.elapsedMs}ms ok`);
     return result;
@@ -992,12 +1092,13 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
   }
   const record = body;
   if (record === null || typeof record !== "object" || typeof record.text !== "string") {
-    writeJson(res, 422, { ok: false, error: { code: "rejected", message: "\u8BF7\u6C42\u4F53\u5FC5\u987B\u662F { sessionId?, text, tier?, useContext? } JSON\u3002" } });
+    writeJson(res, 422, { ok: false, error: { code: "rejected", message: "\u8BF7\u6C42\u4F53\u5FC5\u987B\u662F { sessionId?, text, tier?, useContext?, iterRequirement? } JSON\u3002" } });
     return;
   }
   const sessionId = typeof record.sessionId === "string" && record.sessionId !== "" ? record.sessionId : void 0;
   const tier = typeof record.tier === "string" ? record.tier.trim().toLowerCase() : void 0;
   const useContext = typeof record.useContext === "boolean" ? record.useContext : void 0;
+  const iterRequirement = typeof record.iterRequirement === "string" && record.iterRequirement.trim() !== "" ? record.iterRequirement.trim() : void 0;
   const check = checkInputText(record.text, config.maxInputChars);
   if (!check.ok) {
     writeJson(res, 422, {
@@ -1042,7 +1143,8 @@ async function serveEnhance(ctx, readConfig, gate, pathname, req, res, stream) {
       signal: callerAbort.signal,
       ...sessionId !== void 0 ? { sessionId } : {},
       ...tier !== void 0 ? { tier } : {},
-      ...useContext !== void 0 ? { useContext } : {}
+      ...useContext !== void 0 ? { useContext } : {},
+      ...iterRequirement !== void 0 ? { iterRequirement } : {}
     };
     if (stream) {
       const sse = createSseWriter(res);

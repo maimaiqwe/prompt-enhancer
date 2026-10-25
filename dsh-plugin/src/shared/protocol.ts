@@ -41,6 +41,13 @@ export interface EnhanceRequestBody {
    * which is what the composer's "结合上下文" checkbox sends.
    */
   useContext?: boolean
+  /**
+   * Directional iteration requirement. When present, `text` is the BASE to
+   * iterate on rather than a fresh draft: the call frames base + requirement
+   * and appends the shared [ITERATE] contract to the system prompt. Absent or
+   * empty keeps the plain enhance behaviour.
+   */
+  iterRequirement?: string
 }
 
 /** One successful enhancement. */

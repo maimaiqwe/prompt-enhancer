@@ -73,6 +73,17 @@ export function tierSystemPrompt(tier: Tier): string {
 }
 
 /**
+ * The system prompt of one directional iteration: the tier rules plus the
+ * shared [ITERATE] contract (conservative rewrite — only what the requirement
+ * touches changes, everything else stays verbatim).
+ * @param tier - the tier whose wording depth applies.
+ * @returns the composed system prompt of an iteration call.
+ */
+export function iterateSystemPrompt(tier: Tier): string {
+  return `${tierSystemPrompt(tier)}\n\n${RULE_SECTIONS.ITERATE}`
+}
+
+/**
  * Narrow an untrusted tier token. Unknown or absent values fall back to the
  * given tier instead of failing the request: the tier only changes wording,
  * so a stale client or a hand-typed request must still be served.

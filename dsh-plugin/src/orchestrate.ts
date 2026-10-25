@@ -10,7 +10,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from 'node:crypto'
 import { effectiveSystemPrompt, type Config } from './config'
 import { withContextRules } from './prompts'
-import { contextWindowFor, normalizeTier, tierSystemPrompt } from './tiers'
+import { contextWindowFor, iterateSystemPrompt, normalizeTier, tierSystemPrompt } from './tiers'
 import { buildConversationContext } from './context'
 import { EnhanceFailure, enhanceText, resolveRoute, toEnhanceError, type RoutePair } from './enhancer'
 import type { EnhanceResult } from './shared/protocol'
@@ -221,6 +221,8 @@ export interface RunEnhanceOptions {
    * tier preset intersected with the configured caps) and readable history.
    */
   useContext?: boolean
+  /** Directional iteration requirement; when present, `text` is the iterate base. */
+  iterRequirement?: string
 }
 
 /**
@@ -261,8 +263,12 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
       route,
       // The tier rules are the base strategy; the context rules ride along ONLY
       // when there is context to reason about, so a context-free call keeps
-      // byte-identical instructions.
-      system: effectiveSystemPrompt(config, context === undefined ? tierSystemPrompt(tier) : withContextRules(tierSystemPrompt(tier))),
+      // byte-identical instructions. An iteration swaps the strategy for the
+      // tier rules plus the shared [ITERATE] contract, and never carries
+      // conversation context — its evidence is the base text in the request.
+      system: effectiveSystemPrompt(config, options.iterRequirement !== undefined
+        ? iterateSystemPrompt(tier)
+        : context === undefined ? tierSystemPrompt(tier) : withContextRules(tierSystemPrompt(tier))),
       text: options.text,
       temperature: config.temperature,
       maxTokens: config.maxOutputTokens,
@@ -271,6 +277,7 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
       ...(context !== undefined ? { context } : {}),
       ...(options.onDelta !== undefined ? { onDelta: options.onDelta } : {}),
       ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
+      ...(options.iterRequirement !== undefined ? { iterRequirement: options.iterRequirement } : {}),
     })
     console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === undefined ? 0 : 1} ${result.elapsedMs}ms ok`)
     return result

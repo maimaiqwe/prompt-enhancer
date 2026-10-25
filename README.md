@@ -29,14 +29,14 @@ dsh plugin --profile web add dsh-prompt-enhance-cn
 ### 用 Release tarball 安装
 
 ```bash
-dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
+dsh plugin --profile web add https://github.com/maimaiqwe/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
 ```
 
 两种方式装的是同一个包；tarball 适合锁定版本或内网环境。
 
 ### 装完是什么样
 
-输入框左侧出现档位胶囊（基/标/专/系），点 ✨ 直接把草稿替换成增强版；系统档会先开预览面板。行尾的圆点用来设默认档，下拉可以选「结合上下文」。
+输入框左侧出现档位胶囊（基/标/专/系），点 ✨ 直接把草稿替换成增强版；系统档会先开预览面板。行尾的圆点用来设默认档，下拉可以选「结合上下文」。✨ 旁的 ↻ 打开迭代面板：左栏写迭代要求（没有可迭代内容时就是草稿本体），右栏出结果且可直接修改，「直接迭代 / 替换 / 清空」三键操作。
 
 两个组件的默认键是故意错开的：**插件 `Ctrl+Shift+Alt+A`，热键程序 `Ctrl+Shift+Alt+E`**。热键程序的 `allowed_processes` 里有 `DeepSeek Harness`，两边同键的话在 DSH 里按一次会同时触发插件和外部程序，所以插件这份始终留在 A。
 
@@ -50,7 +50,7 @@ dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/re
 
 ### 下载哪个包
 
-从 [Releases](https://github.com/qwe3120695033/prompt-enhancer/releases) 下载，不需要先下载源码：
+从 [Releases](https://github.com/maimaiqwe/prompt-enhancer/releases) 下载，不需要先下载源码：
 
 | 需求 | 下载 | 包含 |
 | --- | --- | --- |
@@ -69,7 +69,7 @@ dsh plugin --profile web add https://github.com/qwe3120695033/prompt-enhancer/re
 如果你用 DeepSeek Harness，装了 [`@michengai/dsh-skills-manager`](https://github.com/MichengAI/dsh-skills-manager)，可以不走安装器：
 
 1. 打开技能管理器的 **Repositories → Add repository**。
-2. 填仓库地址 `https://github.com/qwe3120695033/prompt-enhancer`，扫描。
+2. 填仓库地址 `https://github.com/maimaiqwe/prompt-enhancer`，扫描。
 3. 勾选 `prompt-enhancer` 和 `p`，安装。
 
 管理器会递归扫描仓库里所有 `SKILL.md`，两个技能都会被找到，装进 `~/.agents/skills` 或你指定的目录。`p` 依赖同级的 `prompt-enhancer`，两个一起装才不会缺文件。
@@ -159,7 +159,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 1. 获取源码：执行：
 
 ```powershell
-git clone https://github.com/qwe3120695033/prompt-enhancer.git
+git clone https://github.com/maimaiqwe/prompt-enhancer.git
 cd prompt-enhancer
 ```
 

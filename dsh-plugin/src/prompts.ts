@@ -55,6 +55,29 @@ export function frameUserPrompt(text: string, context?: string): string {
 }
 
 /**
+ * Frame one directional iteration: the base text plus the requirement, each in
+ * its own tagged block so the model can tell the thing to rewrite from the
+ * direction to apply. A literal closing tag inside either block is neutralized
+ * so the framing cannot be closed early.
+ * @param base - the (already guarded) text to iterate on.
+ * @param requirement - the (already guarded) directional requirement.
+ * @returns the user message body.
+ */
+export function frameIteratePrompt(base: string, requirement: string): string {
+  const safeBase = base.replace(/<\/?(iter_base)>/gi, '<\\/$1>')
+  const safeReq = requirement.replace(/<\/?(iter_requirement)>/gi, '<\\/$1>')
+  return [
+    '请按迭代要求改写以下提示词（只改要求涉及的部分，其余内容原样保留）：',
+    '<iter_base>',
+    safeBase,
+    '</iter_base>',
+    '<iter_requirement>',
+    safeReq,
+    '</iter_requirement>',
+  ].join('\n')
+}
+
+/**
  * Rules appended to the built-in strategy ONLY when a conversation-context
  * snippet actually accompanies the call. Keeping them out of the default
  * prompt means a context-free enhancement — the overwhelming majority, and
