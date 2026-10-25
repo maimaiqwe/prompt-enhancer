@@ -101,9 +101,12 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
       recordLastEnhanced(uiKey, result.text)
     } catch (error) {
       if (!controller.signal.aborted) {
-        setError(error instanceof EnhanceClientError
-          ? localizedErrorMessage(t, error.detail.code, error.detail.params)
-          : error instanceof Error ? error.message : String(error))
+        const detail = error instanceof EnhanceClientError ? error.detail : undefined
+        const primary = detail !== undefined
+          ? localizedErrorMessage(t, detail.code, detail.params)
+          : error instanceof Error ? error.message : String(error)
+        const upstream = detail?.message !== undefined && detail.message !== '' ? `\n${detail.message}` : ''
+        setError(primary + upstream)
       }
     } finally {
       setBusy(false)
