@@ -950,7 +950,7 @@ async function runEnhance(ctx, config, options) {
   const tier = normalizeTier(options.tier, normalizeTier(config.defaultTier));
   const window = contextWindowFor(tier, config, options.useContext ?? config.contextAware);
   try {
-    const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx));
+    const route = resolveRoute(config, defaultRouteOf(ctx), options.sessionRoute);
     if (route === void 0) {
       throw new EnhanceFailure({ code: "unconfigured" });
     }
