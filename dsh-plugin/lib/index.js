@@ -109,6 +109,8 @@ var RULE_SECTIONS = {
 
 \u7CFB\u7EDF\u7C7B\u578B\u662F\u72EC\u7ACB\u7C7B\u522B\uFF0C\u4E0D\u4E0E \`\u57FA\u7840\` / \`\u6807\u51C6\` / \`\u4E13\u4E1A\` \u6863\u53E0\u52A0\u3002\u628A\u8349\u7A3F\u6574\u7406\u6210\u5B8C\u6574\u3001\u53EF\u76F4\u63A5\u6295\u5165\u4F7F\u7528\u7684\u7CFB\u7EDF\u63D0\u793A\u8BCD\uFF1B\u5373\u4F7F\u539F\u6587\u5F88\u77ED\uFF0C\u4E5F\u8981\u8865\u9F50\u5B8C\u6574\u6846\u67B6\uFF0C\u4F46\u4E0D\u5F97\u81C6\u9020\u9886\u57DF\u4E8B\u5B9E\u3002
 
+**\u8F93\u51FA\u672C\u8EAB\u5C31\u662F\u7CFB\u7EDF\u63D0\u793A\u8BCD\uFF0C\u4E0D\u662F\u5173\u4E8E\u7CFB\u7EDF\u63D0\u793A\u8BCD\u7684\u8BF7\u6C42\u6216\u63CF\u8FF0\u3002** \u8F93\u51FA\u5FC5\u987B\u4EE5\u7B2C\u4E8C\u4EBA\u79F0\u5BF9\u89D2\u8272\u4E0B\u8FBE\u8BBE\u5B9A\uFF08\u5982\u300C\u4F60\u662F\u2026\u2026\u300D\u300C\u4F60\u7684\u804C\u8D23\u662F\u2026\u2026\u300D\uFF09\uFF0C\u4E0D\u5F97\u51FA\u73B0\u300C\u8BF7\u4E3A\u6211\u64B0\u5199\u300D\u300C\u5E2E\u6211\u8BBE\u8BA1\u300D\u7B49\u7B2C\u4E00\u4EBA\u79F0\u8BF7\u6C42\u53E5\u5F0F\u2014\u2014\u90A3\u4E9B\u662F\u7ED9\u6A21\u578B\u7684\u6307\u4EE4\uFF0C\u4E0D\u662F\u7CFB\u7EDF\u63D0\u793A\u8BCD\u7684\u5185\u5BB9\u3002
+
 \u4F18\u5148\u4F7F\u7528\u4EE5\u4E0B\u7ED3\u6784\uFF1B\u5982\u679C\u539F\u6587\u5DF2\u6709\u7B49\u4EF7\u7AE0\u8282\uFF0C\u6CBF\u7528\u539F\u7AE0\u8282\u540D\uFF0C\u4E0D\u91CD\u590D\u5806\u53E0\uFF1A
 
 1. \u89D2\u8272\u5B9A\u4F4D\uFF1A\u8EAB\u4EFD\u3001\u804C\u8D23\u3001\u670D\u52A1\u5BF9\u8C61\u3002
@@ -543,16 +545,16 @@ ${safe}
 </raw_prompt>`;
 }
 function frameIteratePrompt(base, requirement) {
-  const safeBase = base.replace(/<\/?(iter_base)>/gi, "<\\/$1>");
-  const safeReq = requirement.replace(/<\/?(iter_requirement)>/gi, "<\\/$1>");
+  const safeBase = base.replace(/<\/?(raw_prompt)>/gi, "<\\/$1>");
+  const safeReq = requirement.replace(/<\/?(iteration_request)>/gi, "<\\/$1>");
   return [
     "\u8BF7\u6309\u8FED\u4EE3\u8981\u6C42\u6539\u5199\u4EE5\u4E0B\u63D0\u793A\u8BCD\uFF08\u53EA\u6539\u8981\u6C42\u6D89\u53CA\u7684\u90E8\u5206\uFF0C\u5176\u4F59\u5185\u5BB9\u539F\u6837\u4FDD\u7559\uFF09\uFF1A",
-    "<iter_base>",
+    "<raw_prompt>",
     safeBase,
-    "</iter_base>",
-    "<iter_requirement>",
+    "</raw_prompt>",
+    "<iteration_request>",
     safeReq,
-    "</iter_requirement>"
+    "</iteration_request>"
   ].join("\n");
 }
 var CONTEXT_SYSTEM_ADDITION = [
@@ -950,7 +952,7 @@ async function runEnhance(ctx, config, options) {
   const tier = normalizeTier(options.tier, normalizeTier(config.defaultTier));
   const window = contextWindowFor(tier, config, options.useContext ?? config.contextAware);
   try {
-    const route = resolveRoute(config, options.sessionRoute, defaultRouteOf(ctx));
+    const route = resolveRoute(config, defaultRouteOf(ctx), options.sessionRoute);
     if (route === void 0) {
       throw new EnhanceFailure({ code: "unconfigured" });
     }
@@ -959,8 +961,7 @@ async function runEnhance(ctx, config, options) {
       throw new EnhanceFailure({ code: "internal" });
     }
     const context = options.context !== void 0 ? options.context : conversationContextOf(ctx, options.sessionId, window, options.text);
-    const result = await enhanceText(llm, {
-      route,
+    const callOptions = {
       // The tier rules are the base strategy; the context rules ride along ONLY
       // when there is context to reason about, so a context-free call keeps
       // byte-identical instructions. An iteration swaps the strategy for the
@@ -976,7 +977,19 @@ async function runEnhance(ctx, config, options) {
       ...options.onDelta !== void 0 ? { onDelta: options.onDelta } : {},
       ...options.sessionId !== void 0 ? { sessionId: options.sessionId } : {},
       ...options.iterRequirement !== void 0 ? { iterRequirement: options.iterRequirement } : {}
-    });
+    };
+    let result;
+    try {
+      result = await enhanceText(llm, { route, ...callOptions });
+    } catch (error) {
+      const fallback = defaultRouteOf(ctx);
+      const isUpstream = error instanceof EnhanceFailure && error.detail.code === "upstream";
+      if (!isUpstream || fallback === void 0 || fallback.provider === route.provider && fallback.model === route.model) {
+        throw error;
+      }
+      console.info(`[prompt-enhance] ${requestId} session route ${route.provider}/${route.model} failed upstream; retrying with default ${fallback.provider}/${fallback.model}`);
+      result = await enhanceText(llm, { route: fallback, ...callOptions });
+    }
     console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === void 0 ? 0 : 1} ${result.elapsedMs}ms ok`);
     return result;
   } catch (error) {
