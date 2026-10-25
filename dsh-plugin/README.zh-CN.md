@@ -1,10 +1,10 @@
-# dsh-prompt-enhance-cn
+# dsh-prompt-enhance
 
-[![CI](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml/badge.svg)](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml)
-[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
+[![CI](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml/badge.svg)](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance)](https://www.npmjs.com/package/dsh-prompt-enhance)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**DeepSeek Harness Web GUI 的「提示词增强」插件** —— 一键把输入框里的草稿改写为结构化提示词:明确的角色与目标、可执行步骤、输出格式、验收标准、边界条件。不改变原意、不凭空编造需求,原文始终保留。
+**DeepSeek Harness Web GUI 的「提示词增强」插件** —— 一键把输入框里的草稿改写为结构化提示词:明确的角色与目标、可执行步骤、输出格式、验收标准、边界条件;系统档则无条件输出 `# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization` 的 LangGPT 结构化系统提示词,人设直接成稿,任务型草稿升格为对应智能体。不改变原意、不凭空编造需求,原文始终保留。
 
 [English](./README.md) | 简体中文
 
@@ -19,19 +19,20 @@
 | | |
 |---|---|
 | ✨ **输入框按钮** | 工具栏内发送键旁的小按钮,随手可及 |
-| 🎚️ **四档位** | ✨ 左侧的胶囊显示当前档位(基础/标准/专业/系统),点开即切;规则与 Windows 热键层共用 `core/rules.md`;基础档只做轻度整理 |
+| 🎚️ **四档位** | ✨ 左侧的胶囊显示当前档位(基础/标准/专业/系统),点开即切;规则与 Windows 热键层共用 `core/rules.md`;基础档只做轻度整理,系统档无条件输出 LangGPT 骨架 |
 | 🧷 **上下文开关** | 下拉里单独一行控制「是否结合上下文」;切档会带上该档的预设值,之后可手动覆盖本会话;行尾那颗圆点把当前状态写成默认,一偏离默认就变空 |
 | ⚡ **一键直填** | 基础 / 标准 / 专业档点 ✨ 直接改写输入框草稿,不弹框;请求期间你又动过草稿时自动转为预览,不覆盖新输入 |
 | 🔀 **对比预览面板** | 系统档(以及被升级的直填)才开:原文与增强结果左右并排,附模型名与耗时 |
+| ↻ **迭代工作台** | ✨ 旁的 ↻ 打开双栏面板:左栏「迭代基准」预填输入框内容、可直接修改,下方小号「迭代要求」(留空＝对基准普通增强);右栏输出可手改后一键替换回输入框;基准持久化跟随输入框草稿,清空后重开自动继承 |
 | ↩️ **一键撤销 / Ctrl+Z** | 直填或回填后输入框上方出现撤销提示,点「撤销」或按 `Ctrl+Z` 恢复原文;草稿被你再改过就让位给浏览器自己的逐字撤销 |
-| ⌨️ **快捷键** | 默认 `Ctrl+Shift+Alt+A` 可配置,作用于你正在使用的输入框。同仓库的 Windows 热键程序是另一个组件,默认 `Ctrl+Shift+Alt+E`——故意错开,两个都装时按一次不会触发两次 |
+| ⌨️ **快捷键** | 默认 `Ctrl+Shift+Alt+A` 可配置,作用于你正在使用的输入框 |
 | 💬 **`/enhance` 命令** | 斜杠面板直接改写任意文本;结果不进入模型历史 |
 | 🧠 **模型路由** | 设置成对覆盖 → 当前会话模型 → 全局默认模型,依次回退 |
 | 🔑 **零凭据配置** | 调用走 harness LLM 服务,密钥来自 harness 凭据存储 |
 | ⚙️ **配置热生效** | 模型覆盖、温度、预算、系统提示词、快捷键,全部在 设置 → 插件配置 即改即用 |
 | 🛡️ **草稿安全** | 空输入、超长、仅图片、含命令块在本地拦截;上游失败映射为可读提示;失败绝不改动草稿 |
 
-![dsh web 中实机运行的预览面板:原文与增强结果并排,含模型信息与回填/复制操作](https://raw.githubusercontent.com/maimaiqwe/prompt-enhancer/main/docs/evidence-prompt-enhance-panel.png)
+![dsh web 中实机运行的预览面板:原文与增强结果并排,含模型信息与回填/复制操作](https://raw.githubusercontent.com/rongxingda/dsh-prompt-enhance/main/docs/evidence-prompt-enhance-panel.png)
 
 ## 工作原理
 
@@ -74,32 +75,30 @@ flowchart LR
 从 npm(推荐):
 
 ```bash
-dsh plugin --profile web add dsh-prompt-enhance-cn
+dsh plugin --profile web add dsh-prompt-enhance
 # 重启 dsh web
 ```
 
-从 Release 的 tarball(构建产物 `lib/` 已在包内,安装无需本地构建):
+从 GitHub(构建产物 `lib/` 已随仓库提交,安装无需本地构建):
 
 ```bash
-dsh plugin --profile web add https://github.com/maimaiqwe/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
+dsh plugin --profile web add github:rongxingda/dsh-prompt-enhance
 ```
-
-插件在仓库的 `dsh-plugin/` 子目录里,仓库根是 Windows 热键程序,所以 `dsh plugin add github:maimaiqwe/prompt-enhancer` 找不到它,请用上面的 tarball 地址或 npm 包名。
 
 从本地检出(开发用,改代码重建 + 重启即生效):
 
 ```bash
-git clone https://github.com/maimaiqwe/prompt-enhancer.git
-cd prompt-enhancer/dsh-plugin && npm install && npm run build
-dsh plugin --profile web add link:C:\path\to\prompt-enhancer\dsh-plugin
+git clone https://github.com/rongxingda/dsh-prompt-enhance.git
+cd dsh-prompt-enhance && npm install && npm run build
+dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
 ```
 
 卸载:
 
 ```bash
-dsh plugin --profile web remove dsh-prompt-enhance-cn
+dsh plugin --profile web remove dsh-prompt-enhance
 # 检查 profile 的 package.json 中 `dsh.profile.bundles` 数组是否残留
-# "dsh-prompt-enhance-cn" 行,有则手动删除,然后重启 dsh web
+# "dsh-prompt-enhance" 行,有则手动删除,然后重启 dsh web
 ```
 
 ## 使用方法

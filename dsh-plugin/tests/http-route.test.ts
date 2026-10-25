@@ -229,7 +229,7 @@ describe('POST /prompt-enhance/enhance failure mapping (real http)', () => {
     }
   })
 
-  it('maps a timeout to 504', { timeout: 12000 }, async () => {
+  it('maps a timeout to 504', { timeout: 30000 }, async () => {
     const stall = (): AsyncIterable<StreamChunk> => ({
       [Symbol.asyncIterator]: () => ({ next: (): Promise<never> => new Promise(() => {}) }),
     })

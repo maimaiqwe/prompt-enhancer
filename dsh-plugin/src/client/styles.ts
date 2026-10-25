@@ -1000,6 +1000,24 @@ html[data-dsh-custom-theme]:not([data-dsh-skin]) [data-phase='active'] [data-slo
   flex: 1 1 auto;
   min-height: 0;
 }
+.dsh-pe-iter-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+}
+.dsh-pe-iter-left .dsh-pe-iter-pane { flex: 1 1 auto; }
+.dsh-pe-iter-left .dsh-pe-iter-pane.is-req { flex: 0 0 auto; }
+.dsh-pe-iter-area.is-req {
+  flex: none;
+  min-height: 0;
+  height: 64px;
+  line-height: 1.5;
+}
+.dsh-pe-iter-base .dsh-pe-iter-hint { margin-left: 8px; }
+.dsh-pe-iter-base .dsh-pe-iter-hint.is-off { color: var(--pe-fg-3); }
 .dsh-pe-iter-pane {
   display: flex;
   flex-direction: column;

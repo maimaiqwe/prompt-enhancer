@@ -1,7 +1,7 @@
-# dsh-prompt-enhance-cn bundle patch: inserts the prompt-enhance plugin row
+# dsh-prompt-enhance bundle patch: inserts the prompt-enhance plugin row
 # into the web profile roster. Applied as a profile bundle layer (the
 # `dsh.bundle.patch` manifest field); install with
-# `dsh plugin --profile web add link:<repo>/dsh-plugin`.
+# `dsh plugin --profile web add link:<repo>/dsh-prompt-enhance`.
 #
 # One package, both halves: the node half (exports ".") runs in the host
 # process and registers the POST /prompt-enhance/enhance route, the
@@ -11,4 +11,4 @@
 # panel, and the undo bar (conversation.input.dock).
 - insert:
     - id: prompt-enhance
-      name: dsh-prompt-enhance-cn
+      name: dsh-prompt-enhance

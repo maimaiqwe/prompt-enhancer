@@ -5,7 +5,7 @@ Thanks for helping improve dsh-prompt-enhance! This is a [DeepSeek Harness](http
 ## Setup
 
 ```bash
-git clone https://github.com/maimaiqwe/prompt-enhancer.git
+git clone https://github.com/rongxingda/dsh-prompt-enhance.git
 cd dsh-prompt-enhance
 npm install
 npm test          # unit + real-http + component suites
@@ -23,7 +23,7 @@ npm run watch                                                     # keep rebuild
 ```
 
 When you're done, switch back to the npm install for daily use:
-`dsh plugin --profile web add dsh-prompt-enhance-cn`.
+`dsh plugin --profile web add dsh-prompt-enhance`.
 
 ## Ground rules
 

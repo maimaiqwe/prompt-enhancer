@@ -5,7 +5,6 @@ skills/**/__pycache__/
 .venv/
 *.tmp
 dist/
-relbuild/
 Thumbs.db
 .DS_Store
 log.txt
@@ -17,3 +16,6 @@ watchdog.exe
 watchdog.log
 enhancer.pid
 pythonw.path
+
+# Node toolchain (dsh-plugin)
+node_modules/

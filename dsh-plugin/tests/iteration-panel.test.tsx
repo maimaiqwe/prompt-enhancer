@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 /**
- * Iteration panel behaviour: base precedence (last enhanced → draft → fresh),
- * request payloads for the iterate vs positive paths, replace applies the
+ * Iteration panel behaviour: base prefill (composer draft → last enhanced →
+ * none), base persistence across reopen cycles, request payloads for the
+ * iterate vs plain-enhancement vs positive paths, replace applies the
  * hand-edited output, and persisted panel state resets on a changed draft.
  * @module tests/iteration-panel
  */
@@ -25,6 +26,10 @@ function lastBody(): Record<string, unknown> {
   const call = vi.mocked(globalThis.fetch).mock.calls.at(-1)
   const init = call?.[1] as { body?: Uint8Array } | undefined
   return JSON.parse(new TextDecoder().decode(init?.body ?? new Uint8Array())) as Record<string, unknown>
+}
+
+function basePane(): HTMLTextAreaElement {
+  return screen.getByLabelText(zh['iter.panel.base.label']) as HTMLTextAreaElement
 }
 
 function inputPane(): HTMLTextAreaElement {
@@ -65,34 +70,79 @@ afterEach(() => {
 })
 
 describe('IterationPanel', () => {
-  it('sends base + iterRequirement when a last enhanced result exists', async () => {
-    recordLastEnhanced('s1', 'BASE_TEXT')
+  it('prefills the base pane from the composer draft even when a stale last result exists', async () => {
+    recordLastEnhanced('s1', 'STALE_ECOMMERCE_TEXT')
     const { onClose } = mount({ draft: 'DRAFT', uiKey: 's1' })
+    expect(basePane().value).toBe('DRAFT')
+    expect(screen.getByText(/基准来源：当前输入框内容/)).toBeTruthy()
     fireEvent.change(inputPane(), { target: { value: '把方向改为复验并优化' } })
     fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
     await waitFor(() => { expect(lastBody()).toBeTruthy() })
-    expect(lastBody().text).toBe('BASE_TEXT')
+    expect(lastBody().text).toBe('DRAFT')
     expect(lastBody().iterRequirement).toBe('把方向改为复验并优化')
+    expect(lastBody().useContext).toBe(true)
     await waitFor(() => { expect(outputPane().value).toBe('ITER_OUT') })
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('falls back to the composer draft when no last result exists', async () => {
-    const {} = mount({ draft: 'COMPOSER_DRAFT', uiKey: 's2' })
+  it('falls back to the last enhanced result when the box is empty', async () => {
+    recordLastEnhanced('s6', 'BASE_TEXT')
+    mount({ draft: '', uiKey: 's6' })
+    expect(basePane().value).toBe('BASE_TEXT')
     fireEvent.change(inputPane(), { target: { value: '要求 X' } })
     fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
     await waitFor(() => { expect(lastBody()).toBeTruthy() })
-    expect(lastBody().text).toBe('COMPOSER_DRAFT')
+    expect(lastBody().text).toBe('BASE_TEXT')
     expect(lastBody().iterRequirement).toBe('要求 X')
   })
 
-  it('degrades to a plain enhancement when base and draft are both empty', async () => {
+  it('sends no iterRequirement when the requirement pane is left empty (plain enhancement of the base)', async () => {
+    recordLastEnhanced('s7', 'STALE_TEXT')
+    mount({ draft: 'DRAFT', uiKey: 's7' })
+    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
+    await waitFor(() => { expect(lastBody()).toBeTruthy() })
+    expect(lastBody().text).toBe('DRAFT')
+    expect(lastBody().iterRequirement).toBeUndefined()
+  })
+
+  it('degrades to a plain enhancement of the requirement when base and draft are both empty', async () => {
     mount({ draft: '', uiKey: 's3' })
     fireEvent.change(inputPane(), { target: { value: '全新的草稿内容' } })
     fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
     await waitFor(() => { expect(lastBody()).toBeTruthy() })
     expect(lastBody().text).toBe('全新的草稿内容')
     expect(lastBody().iterRequirement).toBeUndefined()
+  })
+
+  it('refuses to run when base and requirement are both empty', () => {
+    mount({ draft: '', uiKey: 's5' })
+    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe(zh['iter.error.empty'])
+  })
+
+  it('keeps hand-edited panes across reopen while the draft is unchanged', () => {
+    const first = mount({ draft: 'D', uiKey: 's8' })
+    fireEvent.change(basePane(), { target: { value: 'HAND_EDITED_BASE' } })
+    first.onClose()
+    cleanup()
+    mount({ draft: 'D', uiKey: 's8' })
+    expect(basePane().value).toBe('HAND_EDITED_BASE')
+  })
+
+  it('re-inherits the composer draft after it changed', () => {
+    saveIterPanel('s9', { base: 'HAND_EDITED_BASE', input: 'i', output: 'o', draft: 'OLD' })
+    mount({ draft: 'NEW', uiKey: 's9' })
+    expect(basePane().value).toBe('NEW')
+  })
+
+  it('re-inherits the composer draft after clear, close and reopen', () => {
+    mount({ draft: 'D', uiKey: 's10' })
+    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.clear'] }))
+    expect(basePane().value).toBe('')
+    cleanup()
+    mount({ draft: 'D', uiKey: 's10' })
+    expect(basePane().value).toBe('D')
   })
 
   it('replace applies the hand-edited output and closes', async () => {
@@ -106,21 +156,19 @@ describe('IterationPanel', () => {
     expect(setDraft).toHaveBeenCalledWith('ITER_OUT 手工修改')
     expect(onClose).toHaveBeenCalledTimes(1)
   })
-
-  it('refuses to run with an empty input pane', () => {
-    mount({ draft: '', uiKey: 's5' })
-    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
-    expect(globalThis.fetch).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert').textContent).toBe(zh['iter.error.empty'])
-  })
 })
 
 describe('iter-state persistence', () => {
   it('restores panel contents only against an unchanged draft', () => {
-    saveIterPanel('k1', { input: 'i', output: 'o', draft: 'SAME' })
-    expect(loadIterPanel('k1', 'SAME')).toEqual({ input: 'i', output: 'o' })
+    saveIterPanel('k1', { base: 'b', input: 'i', output: 'o', draft: 'SAME' })
+    expect(loadIterPanel('k1', 'SAME')).toEqual({ base: 'b', input: 'i', output: 'o' })
     expect(loadIterPanel('k1', 'CHANGED')).toBeUndefined()
     clearIterPanel('k1')
     expect(loadIterPanel('k1', 'SAME')).toBeUndefined()
+  })
+
+  it('tolerates saves from the previous layout without a base pane', () => {
+    globalThis.sessionStorage?.setItem('dsh-prompt-enhance:iter-panel:v2:k2', JSON.stringify({ input: 'i', output: 'o', draft: 'SAME' }))
+    expect(loadIterPanel('k2', 'SAME')).toEqual({ base: undefined, input: 'i', output: 'o' })
   })
 })

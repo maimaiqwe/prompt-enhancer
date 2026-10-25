@@ -1,10 +1,10 @@
-# dsh-prompt-enhance-cn
+# dsh-prompt-enhance
 
-[![CI](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml/badge.svg)](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml)
-[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
+[![CI](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml/badge.svg)](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance)](https://www.npmjs.com/package/dsh-prompt-enhance)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**Prompt enhancement for the [DeepSeek Harness](https://github.com/deepseek-ai) web GUI** — one click turns a rough composer draft into a well-structured prompt: explicit role and goal, executable steps, output format, acceptance criteria, and edge cases. Your intent is never changed, nothing is fabricated, and the original draft is always preserved.
+**Prompt enhancement for the [DeepSeek Harness](https://github.com/deepseek-ai) web GUI** — one click turns a rough composer draft into a well-structured prompt: explicit role and goal, executable steps, output format, acceptance criteria, and edge cases. The system tier always emits a LangGPT-structured Markdown prompt (`# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization`) — personas come out ready to paste, and task drafts are upgraded into the system prompt of the agent that runs them. Your intent is never changed, nothing is fabricated, and the original draft is always preserved.
 
 English | [简体中文](./README.zh-CN.md)
 
@@ -24,14 +24,14 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚡ **One-click fill** | The base / standard / professional tiers write the rewrite straight into the composer — no dialog. The system tier still previews first, because an eight-section system prompt rewrites a whole persona |
 | 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time. Opens for the system tier, and whenever your draft moved while the request was in flight |
 | ↩️ **Undo / `Ctrl+Z`** | After a fill, a quiet bar above the composer restores the original draft — or just press `Ctrl+Z`. Once you edit the filled text, both stand down and the browser's own character undo takes over |
-| ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in. The Windows hotkey program shipped in the same repository is a separate component with its own default, `Ctrl+Shift+Alt+E` — deliberately different so installing both never fires twice |
+| ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in |
 | 💬 **`/enhance` command** | Rewrite any text from the slash-command plane; the result never enters model history |
 | 🧠 **Model routing** | Settings pair → current session model → harness default model, in that order |
 | 🔑 **Zero credential setup** | Calls ride the harness LLM service; keys come from the harness credential store |
 | ⚙️ **Live settings** | Every knob (model override, temperature, budgets, system prompt, shortcut) hot-applies from Settings → 插件配置 |
 | 🛡️ **Draft safety** | Empty, over-length, images-only, and command-chip inputs are rejected locally; upstream failures are mapped to readable messages; the draft is never mutated on failure |
 
-![The preview panel running in dsh web: original and enhanced prompt side by side with model info, fill-back and copy actions](https://raw.githubusercontent.com/maimaiqwe/prompt-enhancer/main/docs/evidence-prompt-enhance-panel.png)
+![The preview panel running in dsh web: original and enhanced prompt side by side with model info, fill-back and copy actions](https://raw.githubusercontent.com/rongxingda/dsh-prompt-enhance/main/docs/evidence-prompt-enhance-panel.png)
 
 ## How it works
 
@@ -67,40 +67,37 @@ The plugin is one npm package with two halves, following the dsh plugin conventi
 |---|---|
 | dsh | `>= 0.1.1-rc.2 < 0.3.0` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
-| Plugin | `0.3.x` |
+| Plugin | `0.2.x` |
 
 ## Install
 
 From npm (recommended):
 
 ```bash
-dsh plugin --profile web add dsh-prompt-enhance-cn
+dsh plugin --profile web add dsh-prompt-enhance
 # restart dsh web
 ```
 
-From the release tarball (the built `lib/` is inside, so no local build happens):
+From GitHub (the built `lib/` is committed, so no local build happens):
 
 ```bash
-dsh plugin --profile web add https://github.com/maimaiqwe/prompt-enhancer/releases/download/vX.Y.Z/dsh-prompt-enhance-cn-X.Y.Z.tgz
-# restart dsh web
+dsh plugin --profile web add github:rongxingda/dsh-prompt-enhance
 ```
-
-The plugin sits in the `dsh-plugin/` subdirectory of that repository — the repo root is the Windows hotkey program, so `dsh plugin add github:maimaiqwe/prompt-enhancer` will not find it. Use the tarball URL above (or the npm package name).
 
 From a local checkout (for development — changes rebuild + restart take effect):
 
 ```bash
-git clone https://github.com/maimaiqwe/prompt-enhancer.git
-cd prompt-enhancer/dsh-plugin && npm install && npm run build
-dsh plugin --profile web add link:C:\path\to\prompt-enhancer\dsh-plugin
+git clone https://github.com/rongxingda/dsh-prompt-enhance.git
+cd dsh-prompt-enhance && npm install && npm run build
+dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
 ```
 
 Uninstall:
 
 ```bash
-dsh plugin --profile web remove dsh-prompt-enhance-cn
+dsh plugin --profile web remove dsh-prompt-enhance
 # check the profile's package.json `dsh.profile.bundles` array for a leftover
-# "dsh-prompt-enhance-cn" row and remove it if present, then restart dsh web
+# "dsh-prompt-enhance" row and remove it if present, then restart dsh web
 ```
 
 ## Usage
