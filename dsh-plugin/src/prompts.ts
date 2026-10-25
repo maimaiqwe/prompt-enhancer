@@ -64,16 +64,16 @@ export function frameUserPrompt(text: string, context?: string): string {
  * @returns the user message body.
  */
 export function frameIteratePrompt(base: string, requirement: string): string {
-  const safeBase = base.replace(/<\/?(iter_base)>/gi, '<\\/$1>')
-  const safeReq = requirement.replace(/<\/?(iter_requirement)>/gi, '<\\/$1>')
+  const safeBase = base.replace(/<\/?(raw_prompt)>/gi, '<\\/$1>')
+  const safeReq = requirement.replace(/<\/?(iteration_request)>/gi, '<\\/$1>')
   return [
     '请按迭代要求改写以下提示词（只改要求涉及的部分，其余内容原样保留）：',
-    '<iter_base>',
+    '<raw_prompt>',
     safeBase,
-    '</iter_base>',
-    '<iter_requirement>',
+    '</raw_prompt>',
+    '<iteration_request>',
     safeReq,
-    '</iter_requirement>',
+    '</iteration_request>',
   ].join('\n')
 }
 

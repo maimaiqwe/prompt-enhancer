@@ -543,16 +543,16 @@ ${safe}
 </raw_prompt>`;
 }
 function frameIteratePrompt(base, requirement) {
-  const safeBase = base.replace(/<\/?(iter_base)>/gi, "<\\/$1>");
-  const safeReq = requirement.replace(/<\/?(iter_requirement)>/gi, "<\\/$1>");
+  const safeBase = base.replace(/<\/?(raw_prompt)>/gi, "<\\/$1>");
+  const safeReq = requirement.replace(/<\/?(iteration_request)>/gi, "<\\/$1>");
   return [
     "\u8BF7\u6309\u8FED\u4EE3\u8981\u6C42\u6539\u5199\u4EE5\u4E0B\u63D0\u793A\u8BCD\uFF08\u53EA\u6539\u8981\u6C42\u6D89\u53CA\u7684\u90E8\u5206\uFF0C\u5176\u4F59\u5185\u5BB9\u539F\u6837\u4FDD\u7559\uFF09\uFF1A",
-    "<iter_base>",
+    "<raw_prompt>",
     safeBase,
-    "</iter_base>",
-    "<iter_requirement>",
+    "</raw_prompt>",
+    "<iteration_request>",
     safeReq,
-    "</iter_requirement>"
+    "</iteration_request>"
   ].join("\n");
 }
 var CONTEXT_SYSTEM_ADDITION = [
