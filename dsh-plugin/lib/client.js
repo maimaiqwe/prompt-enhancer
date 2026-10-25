@@ -1269,7 +1269,11 @@ function IterationPanel(props) {
       recordLastEnhanced(uiKey, result.text);
     } catch (error2) {
       if (!controller.signal.aborted) {
-        setError(error2 instanceof EnhanceClientError ? localizedErrorMessage(t, error2.detail.code, error2.detail.params) : error2 instanceof Error ? error2.message : String(error2));
+        const detail = error2 instanceof EnhanceClientError ? error2.detail : void 0;
+        const primary = detail !== void 0 ? localizedErrorMessage(t, detail.code, detail.params) : error2 instanceof Error ? error2.message : String(error2);
+        const upstream = detail?.message !== void 0 && detail.message !== "" ? `
+${detail.message}` : "";
+        setError(primary + upstream);
       }
     } finally {
       setBusy(false);

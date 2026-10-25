@@ -959,8 +959,7 @@ async function runEnhance(ctx, config, options) {
       throw new EnhanceFailure({ code: "internal" });
     }
     const context = options.context !== void 0 ? options.context : conversationContextOf(ctx, options.sessionId, window, options.text);
-    const result = await enhanceText(llm, {
-      route,
+    const callOptions = {
       // The tier rules are the base strategy; the context rules ride along ONLY
       // when there is context to reason about, so a context-free call keeps
       // byte-identical instructions. An iteration swaps the strategy for the
@@ -976,7 +975,19 @@ async function runEnhance(ctx, config, options) {
       ...options.onDelta !== void 0 ? { onDelta: options.onDelta } : {},
       ...options.sessionId !== void 0 ? { sessionId: options.sessionId } : {},
       ...options.iterRequirement !== void 0 ? { iterRequirement: options.iterRequirement } : {}
-    });
+    };
+    let result;
+    try {
+      result = await enhanceText(llm, { route, ...callOptions });
+    } catch (error) {
+      const fallback = defaultRouteOf(ctx);
+      const isUpstream = error instanceof EnhanceFailure && error.detail.code === "upstream";
+      if (!isUpstream || fallback === void 0 || fallback.provider === route.provider && fallback.model === route.model) {
+        throw error;
+      }
+      console.info(`[prompt-enhance] ${requestId} session route ${route.provider}/${route.model} failed upstream; retrying with default ${fallback.provider}/${fallback.model}`);
+      result = await enhanceText(llm, { route: fallback, ...callOptions });
+    }
     console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === void 0 ? 0 : 1} ${result.elapsedMs}ms ok`);
     return result;
   } catch (error) {

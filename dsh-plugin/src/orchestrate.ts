@@ -259,8 +259,7 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
     const context = options.context !== undefined
       ? options.context
       : conversationContextOf(ctx, options.sessionId, window, options.text)
-    const result = await enhanceText(llm, {
-      route,
+    const callOptions = {
       // The tier rules are the base strategy; the context rules ride along ONLY
       // when there is context to reason about, so a context-free call keeps
       // byte-identical instructions. An iteration swaps the strategy for the
@@ -278,7 +277,25 @@ export async function runEnhance(ctx: Context, config: Config, options: RunEnhan
       ...(options.onDelta !== undefined ? { onDelta: options.onDelta } : {}),
       ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
       ...(options.iterRequirement !== undefined ? { iterRequirement: options.iterRequirement } : {}),
-    })
+    }
+    let result: EnhanceResult
+    try {
+      result = await enhanceText(llm, { route, ...callOptions })
+    } catch (error) {
+      // The session's model may be one the auxiliary call cannot use (a
+      // reasoning-only route, an expired key, a quota cap). The harness
+      // default is always a working pair, so retry once with it before
+      // surfacing the failure — the user asked for the session model to
+      // be *preferred*, not for the enhance to die with it.
+      const fallback = defaultRouteOf(ctx)
+      const isUpstream = error instanceof EnhanceFailure && error.detail.code === 'upstream'
+      if (!isUpstream || fallback === undefined
+        || (fallback.provider === route.provider && fallback.model === route.model)) {
+        throw error
+      }
+      console.info(`[prompt-enhance] ${requestId} session route ${route.provider}/${route.model} failed upstream; retrying with default ${fallback.provider}/${fallback.model}`)
+      result = await enhanceText(llm, { route: fallback, ...callOptions })
+    }
     console.info(`[prompt-enhance] ${requestId} tier=${tier} in=${countText(options.text)} out=${countText(result.text)} ctx=${context === undefined ? 0 : 1} ${result.elapsedMs}ms ok`)
     return result
   } catch (error) {
