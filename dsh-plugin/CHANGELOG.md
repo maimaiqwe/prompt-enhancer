@@ -6,6 +6,8 @@ All notable changes are documented here. Versions follow [npm](https://www.npmjs
 
 本地分支：把上游的单套内置策略换成**四档位**（基础 / 标准 / 专业 / 系统），并把档位做成输入框里的常驻控件。基于 `rongxingda/dsh-prompt-enhance@0.2.7`（Apache-2.0，保留授权与署名）。
 
+**迭代框架与面板打磨（2026-10-25，0.3.4）。** ① 迭代要求统一走规则真源点名的 `<raw_prompt>`/`<iteration_request>` 标签（原先自造 `<iter_base>`/`<iter_requirement>`，与热键层及规则文本不一致）；② 迭代面板重设计：接入共享 `--pe-*` 令牌（白色为主、深色自动跟随）、右上 ✕ 与 Esc 关闭（忙时不响应）、等高双栏＋流向箭头、唯一实心主键「迭代」（原「直接迭代」）、占位符精简；③ 触发按钮并入 `dsh-pe-btn` 家族；④ 包元数据切换 GitHub 规范名 maimaiqwe。
+
 **迭代面板与字面量保护（2026-10-25）。** ① 输入框 ✨ 旁新增「↻ 迭代」按钮，打开双栏面板：左栏输入迭代要求（没有可迭代内容时左栏就是草稿本体，走正向增强），右栏输出且可直接手改；三动作「直接迭代 / 替换 / 清空」，基准依次取本会话上次增强结果 → 当前输入框内容 → 空；面板内容按会话持久（sessionStorage），输入框草稿一变即重置；档位实时复用胶囊当前档，切档只影响下一次调用。② 请求协议新增可选 `iterRequirement`：携带时 `text` 语义变为迭代基准，system 追加共享 `[ITERATE]` 段（generate-tiers 首次把该段生成进 tier-rules），且不携带会话上下文。③ 字面量剥离保护与热键层对齐：`[$skill](路径)` 构件、URL、本地路径、裸文件名、邮箱送模型前替换为占位符、结果原样还原，模型丢失占位符时追加回结果末尾而非整体失败；正则带中文停字符防止吞并正文，WIN 路径认正斜杠盘符。④ 规则真源 `[COMMON]` 新增并列动词保真条（「复验优化」不得改写成「复验已优化的」）。
 
 **复验收尾（2026-10-24）。** ① `local-rewrite.ts` 连同测试与 `index.ts` 导出整体删除——基础档走模型后它已无引用；② 包身份与发布线对齐：repository/bugs/homepage 统一指向 qwe3120695033/prompt-enhancer 的 `dsh-plugin` 子目录，`enhancer.ts` 消息 source 同步 `-cn`；③ 通用 system prompt 的 `1x–3x` 篇幅硬规则改为「以当前档位长度契约为准」，不再与 `[BASE]` 的 1.3 倍上限对撞；④ `install:profile` / `verify:profile` 加守卫退役：desktop profile 已正式依赖 npm 包（pnpm 按依赖恢复），手工拷贝流不再适用；⑤ README 补近名包警示（上游 `dsh-prompt-enhance`、第三方 `dsh-prompt-enhancer`）。同轮热键层：SKILL.md 补档位词映射表、删除零调用的 `standalone_listener`、修复两条存量测试。

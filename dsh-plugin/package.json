@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-enhance-cn",
-  "description": "Four-tier prompt enhancement for the dsh web GUI: base / standard / professional / system. Rewrites the composer draft through the harness LLM service, previews or fills back in place, and always keeps the original draft recoverable.",
-  "version": "0.3.3",
+  "description": "Four-tier prompt enhancement for the dsh web GUI: base / standard / professional / system, with an iterate panel that rewrites the last result under a new requirement, and literal anchors that keep paths, skills, links and filenames verbatim.",
+  "version": "0.3.4",
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
