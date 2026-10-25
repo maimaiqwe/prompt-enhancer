@@ -1400,7 +1400,7 @@ var import_jsx_runtime4 = require("react/jsx-runtime");
 function IterationPanel(props) {
   const { t, uiKey, wireId, inputActions, draft, onClose } = props;
   const restored = (0, import_react5.useRef)(loadIterPanel(uiKey, draft)).current;
-  const [input, setInput] = (0, import_react5.useState)(restored?.input ?? "");
+  const [input, setInput] = (0, import_react5.useState)(restored?.input ?? draft);
   const [output, setOutput] = (0, import_react5.useState)(restored?.output ?? "");
   const [busy, setBusy] = (0, import_react5.useState)(false);
   const [error, setError] = (0, import_react5.useState)("");
@@ -3080,7 +3080,7 @@ function apply(ctx) {
     return slots.inject("conversation.input.right", () => {
       try {
         return slots.register(
-          { name: "conversation.input.right", id: "prompt-enhance-iterate", order: 55, locale: NS },
+          { name: "conversation.input.right", id: "prompt-enhance-iterate", order: 65, locale: NS },
           IterationButton
         );
       } catch {
