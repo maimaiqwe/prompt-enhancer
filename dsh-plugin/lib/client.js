@@ -1164,6 +1164,52 @@ function serverSessionId(sources) {
   return hostSessionIdOf(sources);
 }
 
+// src/client/iter-state.ts
+var LAST_PREFIX = "dsh-prompt-enhance:iter-last:v1:";
+var PANEL_PREFIX = "dsh-prompt-enhance:iter-panel:v1:";
+function read(key) {
+  try {
+    return globalThis.sessionStorage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+function write(key, value) {
+  try {
+    globalThis.sessionStorage?.setItem(key, value);
+  } catch {
+  }
+}
+function recordLastEnhanced(key, text) {
+  write(LAST_PREFIX + key, text);
+}
+function lastEnhancedOf(key) {
+  const value = read(LAST_PREFIX + key);
+  return value !== null && value !== "" ? value : void 0;
+}
+function saveIterPanel(key, state) {
+  write(PANEL_PREFIX + key, JSON.stringify(state));
+}
+function loadIterPanel(key, currentDraft) {
+  const raw = read(PANEL_PREFIX + key);
+  if (raw === null) return void 0;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object") return void 0;
+    if (parsed.draft !== currentDraft) return void 0;
+    if (typeof parsed.input !== "string" || typeof parsed.output !== "string") return void 0;
+    return { input: parsed.input, output: parsed.output };
+  } catch {
+    return void 0;
+  }
+}
+function clearIterPanel(key) {
+  try {
+    globalThis.sessionStorage?.removeItem(PANEL_PREFIX + key);
+  } catch {
+  }
+}
+
 // src/client/EnhanceButton.tsx
 var import_jsx_runtime3 = require("react/jsx-runtime");
 function countOf(value) {
@@ -1234,6 +1280,7 @@ function EnhanceButton(props) {
     const controller = new AbortController();
     openLoading({ sessionId: uiKey, original: draft, abort: () => controller.abort(), mode });
     const settle = (result) => {
+      recordLastEnhanced(uiKey, result.text);
       if (!direct) {
         settleResult(uiKey, result);
         return;
@@ -1342,13 +1389,186 @@ function EnhanceButton(props) {
   ] });
 }
 
-// src/client/UndoBar.tsx
+// src/client/IterationButton.tsx
+var import_react6 = require("react");
+var import_react_dom3 = require("react-dom");
+
+// src/client/IterationPanel.tsx
 var import_react5 = require("react");
+var import_react_dom2 = require("react-dom");
 var import_jsx_runtime4 = require("react/jsx-runtime");
-function useElapsedSeconds(active) {
-  const startRef = (0, import_react5.useRef)(void 0);
-  const [seconds, setSeconds] = (0, import_react5.useState)(0);
+function IterationPanel(props) {
+  const { t, uiKey, wireId, inputActions, draft, onClose } = props;
+  const restored = (0, import_react5.useRef)(loadIterPanel(uiKey, draft)).current;
+  const [input, setInput] = (0, import_react5.useState)(restored?.input ?? "");
+  const [output, setOutput] = (0, import_react5.useState)(restored?.output ?? "");
+  const [busy, setBusy] = (0, import_react5.useState)(false);
+  const [error, setError] = (0, import_react5.useState)("");
+  const controllerRef = (0, import_react5.useRef)(null);
+  (0, import_react5.useSyncExternalStore)(subscribe, getVersion);
+  const tier = effectiveTier(uiKey);
+  const last = lastEnhancedOf(uiKey);
+  const base = last !== void 0 && last.trim() !== "" ? last : draft;
+  const positive = base.trim() === "";
+  const baseSource = positive ? t("iter.panel.base.none") : last !== void 0 && last.trim() !== "" ? t("iter.panel.base.last") : t("iter.panel.base.draft");
   (0, import_react5.useEffect)(() => {
+    saveIterPanel(uiKey, { input, output, draft });
+  }, [uiKey, input, output, draft]);
+  (0, import_react5.useEffect)(() => () => {
+    controllerRef.current?.abort();
+  }, []);
+  const run = async () => {
+    if (busy) return;
+    if (input.trim() === "") {
+      setError(t("iter.error.empty"));
+      return;
+    }
+    setError("");
+    setBusy(true);
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const body = positive ? { text: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} } : { text: base, iterRequirement: input, tier, ...wireId !== void 0 ? { sessionId: wireId } : {} };
+    try {
+      const result = await requestEnhance(body, controller.signal);
+      setOutput(result.text);
+      recordLastEnhanced(uiKey, result.text);
+    } catch (error2) {
+      if (!controller.signal.aborted) {
+        setError(error2 instanceof EnhanceClientError ? localizedErrorMessage(t, error2.detail.code, error2.detail.params) : error2 instanceof Error ? error2.message : String(error2));
+      }
+    } finally {
+      setBusy(false);
+      controllerRef.current = null;
+    }
+  };
+  const replace = () => {
+    if (output.trim() === "") {
+      setError(t("iter.error.output"));
+      return;
+    }
+    inputActions.setDraft(output);
+    recordLastEnhanced(uiKey, output);
+    onClose();
+  };
+  const clear = () => {
+    setInput("");
+    setOutput("");
+    setError("");
+    clearIterPanel(uiKey);
+  };
+  const overlayStyle = {
+    position: "fixed",
+    inset: 0,
+    zIndex: 60,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(0,0,0,0.35)"
+  };
+  const cardStyle = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    minWidth: 520,
+    maxWidth: "80vw",
+    maxHeight: "80vh",
+    padding: 16,
+    borderRadius: 12,
+    background: "var(--dsh-pe-panel-bg, #fff)",
+    color: "inherit",
+    boxShadow: "0 12px 40px rgba(0,0,0,0.25)"
+  };
+  const paneStyle = {
+    flex: 1,
+    minHeight: 120,
+    resize: "vertical",
+    padding: 8,
+    borderRadius: 8,
+    border: "1px solid rgba(128,128,128,0.4)",
+    fontFamily: "inherit",
+    fontSize: 13,
+    lineHeight: 1.5
+  };
+  return (0, import_react_dom2.createPortal)(
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: overlayStyle, onClick: (event) => {
+      if (event.target === event.currentTarget && !busy) onClose();
+    }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: cardStyle, role: "dialog", "aria-label": t("iter.panel.title"), children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("strong", { children: t("iter.panel.title") }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, opacity: 0.75 }, children: t("iter.panel.base", { source: baseSource }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "stretch" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("label", { style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12 }, children: t("iter.panel.input.label") }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("textarea", { style: paneStyle, value: input, placeholder: t("iter.panel.input.placeholder"), onChange: (event) => setInput(event.target.value) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("label", { style: { display: "flex", flexDirection: "column", gap: 4, flex: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12 }, children: t("iter.panel.output.label") }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("textarea", { style: paneStyle, value: output, onChange: (event) => setOutput(event.target.value) })
+        ] })
+      ] }),
+      error !== "" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, color: "#c0392b" }, role: "alert", children: error }) : null,
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: () => {
+          void run();
+        }, children: busy ? t("iter.panel.loading") : t("iter.panel.run") }),
+        busy ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", onClick: () => controllerRef.current?.abort(), children: t("iter.panel.cancel") }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: replace, children: t("iter.panel.replace") }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: clear, children: t("iter.panel.clear") }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", disabled: busy, onClick: onClose, children: t("panel.close") })
+      ] })
+    ] }) }),
+    document.body
+  );
+}
+
+// src/client/IterationButton.tsx
+var import_jsx_runtime5 = require("react/jsx-runtime");
+function stringOf2(value) {
+  return typeof value === "string" ? value : "";
+}
+function IterationButton(props) {
+  const { t, sessionId, session, useInput, inputActions } = props;
+  const sources = { sessionId, session };
+  const uiKey = useSessionKey(sources, inputActions);
+  const wireId = serverSessionId(sources);
+  const draft = useInput((state) => stringOf2(state.draft));
+  const [open, setOpen] = (0, import_react6.useState)(false);
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      "button",
+      {
+        type: "button",
+        title: t("iter.button.title"),
+        "aria-label": t("iter.button.title"),
+        onClick: () => setOpen(true),
+        style: { border: "none", background: "transparent", cursor: "pointer", fontSize: 15, padding: "0 4px", lineHeight: 1 },
+        children: "\u21BB"
+      }
+    ),
+    open ? (0, import_react_dom3.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        IterationPanel,
+        {
+          t,
+          uiKey,
+          wireId,
+          inputActions: { setDraft: (text) => inputActions.setDraft(text) },
+          draft,
+          onClose: () => setOpen(false)
+        }
+      ),
+      document.body
+    ) : null
+  ] });
+}
+
+// src/client/UndoBar.tsx
+var import_react7 = require("react");
+var import_jsx_runtime6 = require("react/jsx-runtime");
+function useElapsedSeconds(active) {
+  const startRef = (0, import_react7.useRef)(void 0);
+  const [seconds, setSeconds] = (0, import_react7.useState)(0);
+  (0, import_react7.useEffect)(() => {
     if (!active) {
       startRef.current = void 0;
       setSeconds(0);
@@ -1365,11 +1585,11 @@ function useElapsedSeconds(active) {
   return seconds;
 }
 function useComposerAlign(rowRef) {
-  const [align, setAlign] = (0, import_react5.useState)(void 0);
-  const measuredRef = (0, import_react5.useRef)(null);
-  const frameRef = (0, import_react5.useRef)(0);
-  const appliedRef = (0, import_react5.useRef)(0);
-  const measure = (0, import_react5.useCallback)(() => {
+  const [align, setAlign] = (0, import_react7.useState)(void 0);
+  const measuredRef = (0, import_react7.useRef)(null);
+  const frameRef = (0, import_react7.useRef)(0);
+  const appliedRef = (0, import_react7.useRef)(0);
+  const measure = (0, import_react7.useCallback)(() => {
     const row = rowRef.current;
     if (row === null) return;
     measuredRef.current = row;
@@ -1385,18 +1605,18 @@ function useComposerAlign(rowRef) {
     appliedRef.current = delta;
     setAlign((previous) => previous?.key === key ? previous : { key, style: { transform: `translateX(${delta}px)` } });
   }, [rowRef]);
-  const schedule = (0, import_react5.useCallback)(() => {
+  const schedule = (0, import_react7.useCallback)(() => {
     if (frameRef.current !== 0) return;
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = 0;
       measure();
     });
   }, [measure]);
-  (0, import_react5.useLayoutEffect)(() => {
+  (0, import_react7.useLayoutEffect)(() => {
     if (measuredRef.current === rowRef.current && align !== void 0) return;
     measure();
   });
-  (0, import_react5.useEffect)(() => {
+  (0, import_react7.useEffect)(() => {
     const row = rowRef.current;
     if (row === null) return;
     window.addEventListener("resize", schedule);
@@ -1422,23 +1642,23 @@ function UndoBar(props) {
     const value = state.draft;
     return typeof value === "string" ? value : "";
   });
-  (0, import_react5.useSyncExternalStore)(subscribe2, getVersion2);
+  (0, import_react7.useSyncExternalStore)(subscribe2, getVersion2);
   const entry = peekUndo(uiKey);
   const notice2 = getNotice();
   const panel = getPanel();
   const running = panel !== void 0 && panel.sessionId === uiKey && panel.phase === "loading" && panel.mode === "direct";
   const seconds = useElapsedSeconds(running);
-  const rowRef = (0, import_react5.useRef)(null);
+  const rowRef = (0, import_react7.useRef)(null);
   const alignStyle = useComposerAlign(rowRef);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react7.useEffect)(() => {
     if (entry !== void 0 && entry.applied !== draft) popUndo(uiKey);
   }, [draft, entry, uiKey]);
   if (running) {
-    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-working", role: "status", "aria-live": "polite", ref: rowRef, style: alignStyle, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-ring", "aria-hidden": true }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-working-label", children: t("working.label") }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-working-elapsed", children: t("working.elapsed", { seconds }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-pe-working", role: "status", "aria-live": "polite", ref: rowRef, style: alignStyle, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-ring", "aria-hidden": true }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-working-label", children: t("working.label") }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-working-elapsed", children: t("working.elapsed", { seconds }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
         "button",
         {
           type: "button",
@@ -1453,10 +1673,10 @@ function UndoBar(props) {
   }
   if (entry === void 0 || entry.applied !== draft) {
     if (notice2 === void 0 || notice2.sessionId !== uiKey) return null;
-    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-notice", role: "status", ref: rowRef, style: alignStyle, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-notice-icon", "aria-hidden": true, children: "!" }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-notice-text", children: notice2.text }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-pe-notice", role: "status", ref: rowRef, style: alignStyle, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-notice-icon", "aria-hidden": true, children: "!" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-notice-text", children: notice2.text }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
         "button",
         {
           type: "button",
@@ -1475,12 +1695,12 @@ function UndoBar(props) {
   const dismiss = () => {
     popUndo(uiKey);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "dsh-pe-undo", ref: rowRef, style: alignStyle, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-undo-check", "aria-hidden": true, children: "\u2713" }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: t("undo.applied") }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-undo-link", onClick: undo, children: t("undo.undo") }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "dsh-pe-undo-hint", children: t("undo.hint") }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("button", { type: "button", className: "dsh-pe-undo-x", "aria-label": t("undo.dismiss"), onClick: dismiss, children: "\u2715" })
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "dsh-pe-undo", ref: rowRef, style: alignStyle, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-undo-check", "aria-hidden": true, children: "\u2713" }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: t("undo.applied") }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "dsh-pe-undo-link", onClick: undo, children: t("undo.undo") }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "dsh-pe-undo-hint", children: t("undo.hint") }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "dsh-pe-undo-x", "aria-label": t("undo.dismiss"), onClick: dismiss, children: "\u2715" })
   ] });
 }
 
@@ -1559,9 +1779,41 @@ var zh = {
   "tier.professional.hint": "\u8F93\u51FA\u4E94\u6BB5\u7ED3\u6784\u5316\u63D0\u793A\u8BCD\uFF1A\u76EE\u6807\u3001\u80CC\u666F\u3001\u6267\u884C\u8981\u6C42\u3001\u7EA6\u675F\u3001\u4EA4\u4ED8\u3002",
   "tier.system": "\u7CFB\u7EDF",
   "tier.system.hint": "\u8F93\u51FA\u516B\u6BB5\u7CFB\u7EDF\u63D0\u793A\u8BCD\uFF0C\u72EC\u7ACB\u7C7B\u578B\uFF0C\u4E0D\u4E0E\u524D\u4E09\u6863\u53E0\u52A0\u3002",
-  "tier.current": "\u5F53\u524D\u6863\u4F4D\uFF1A{tier}"
+  "tier.current": "\u5F53\u524D\u6863\u4F4D\uFF1A{tier}",
+  "iter.button.title": "\u8FED\u4EE3\u589E\u5F3A\uFF08\u6309\u65B0\u8981\u6C42\u5728\u4E0A\u6B21\u7ED3\u679C\u4E0A\u6539\u5199\uFF09",
+  "iter.panel.title": "\u8FED\u4EE3\u589E\u5F3A",
+  "iter.panel.base": "\u57FA\u51C6\uFF1A{source}",
+  "iter.panel.base.last": "\u4E0A\u6B21\u589E\u5F3A\u7ED3\u679C",
+  "iter.panel.base.draft": "\u5F53\u524D\u8F93\u5165\u6846\u5185\u5BB9",
+  "iter.panel.base.none": "\u65E0\uFF08\u5DE6\u6846\u8F93\u5165\u5373\u4E3A\u8349\u7A3F\uFF09",
+  "iter.panel.input.label": "\u8FED\u4EE3\u8981\u6C42",
+  "iter.panel.input.placeholder": "\u8F93\u5165\u8FD9\u6B21\u8981\u6539\u7684\u65B9\u5411\u6216\u8981\u6C42\u2026\uFF08\u6CA1\u6709\u53EF\u8FED\u4EE3\u5185\u5BB9\u65F6\uFF0C\u8FD9\u91CC\u5C31\u662F\u8981\u589E\u5F3A\u7684\u8349\u7A3F\uFF09",
+  "iter.panel.output.label": "\u8F93\u51FA\uFF08\u53EF\u76F4\u63A5\u4FEE\u6539\uFF09",
+  "iter.panel.run": "\u76F4\u63A5\u8FED\u4EE3",
+  "iter.panel.replace": "\u66FF\u6362",
+  "iter.panel.clear": "\u6E05\u7A7A",
+  "iter.panel.loading": "\u6B63\u5728\u8FED\u4EE3\u2026",
+  "iter.panel.cancel": "\u53D6\u6D88",
+  "iter.error.empty": "\u8BF7\u5148\u5728\u5DE6\u6846\u8F93\u5165\u8FED\u4EE3\u8981\u6C42\u6216\u8349\u7A3F\u5185\u5BB9\u3002",
+  "iter.error.output": "\u8F93\u51FA\u4E3A\u7A7A\uFF0C\u8BF7\u5148\u70B9\u300C\u76F4\u63A5\u8FED\u4EE3\u300D\u751F\u6210\u5185\u5BB9\u3002"
 };
 var en = {
+  "iter.button.title": "Iterate (rewrite the last result under a new requirement)",
+  "iter.panel.title": "Iterate",
+  "iter.panel.base": "Base: {source}",
+  "iter.panel.base.last": "last enhanced result",
+  "iter.panel.base.draft": "current composer draft",
+  "iter.panel.base.none": "none \u2014 the left box is the draft itself",
+  "iter.panel.input.label": "Iteration requirement",
+  "iter.panel.input.placeholder": "Type the direction or requirement for this pass\u2026 (with nothing to iterate on, this box is the draft itself)",
+  "iter.panel.output.label": "Output (editable)",
+  "iter.panel.run": "Iterate now",
+  "iter.panel.replace": "Replace",
+  "iter.panel.clear": "Clear",
+  "iter.panel.loading": "Iterating\u2026",
+  "iter.panel.cancel": "Cancel",
+  "iter.error.empty": "Type a requirement (or the draft itself) in the left box first.",
+  "iter.error.output": "Output is empty \u2014 run an iteration first.",
   "button.title": "Enhance prompt (rewrite into a structured prompt)",
   "button.busy": "Enhancing\u2026",
   "button.otherBusy": "Another session is enhancing right now \u2014 wait for it, or close its result panel first.",
@@ -2621,6 +2873,20 @@ function apply(ctx) {
         return slots.register(
           { name: "conversation.input.right", id: "prompt-enhance", order: 60, locale: NS },
           EnhanceButton
+        );
+      } catch {
+        return () => {
+        };
+      }
+    });
+  });
+  ctx.inject(["slots"], (slotsCtx) => {
+    const slots = slotsCtx.slots;
+    return slots.inject("conversation.input.right", () => {
+      try {
+        return slots.register(
+          { name: "conversation.input.right", id: "prompt-enhance-iterate", order: 55, locale: NS },
+          IterationButton
         );
       } catch {
         return () => {

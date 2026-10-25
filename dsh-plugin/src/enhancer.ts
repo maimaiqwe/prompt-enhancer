@@ -11,7 +11,7 @@ import type { GenerateOptions, FinishReason, StreamChunk } from '@deepseek-ai/ds
 import type { EnhanceError, EnhanceResult } from './shared/protocol'
 import { normalizeOutput } from './shared/normalize'
 import { protectDraft, restoreResult } from './shared/literal-guard'
-import { frameUserPrompt } from './prompts'
+import { frameIteratePrompt, frameUserPrompt } from './prompts'
 /** Structural LLM face so tests stub the stream without a Cordis runtime. */
 export interface LlmStreamFace {
   stream(options: GenerateOptions): AsyncIterable<StreamChunk>
@@ -68,6 +68,12 @@ export interface EnhanceCallOptions {
   /** The framed conversation-context snippet, when the call carries one. */
   context?: string
   /**
+   * Directional iteration requirement. When present, `text` is the BASE to
+   * iterate on (not a fresh draft) and the user message is framed as base +
+   * requirement instead of a single raw_prompt block.
+   */
+  iterRequirement?: string
+  /**
    * Receives each text delta as the model produces it (display only). May be
    * async — the streaming route's sink awaits socket backpressure. A throw, or
    * a rejected promise, is swallowed: a broken display path must never fail
@@ -109,10 +115,16 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
   }
   try {
     signal.throwIfAborted()
-    const { guarded, guard } = protectDraft(options.text)
+    const baseGuard = protectDraft(options.text)
+    const requirementGuard = options.iterRequirement !== undefined ? protectDraft(options.iterRequirement) : undefined
     const messages = [
       createUserMessage({
-        content: [{ type: 'text', text: frameUserPrompt(guarded, options.context) }],
+        content: [{
+          type: 'text',
+          text: requirementGuard !== undefined
+            ? frameIteratePrompt(baseGuard.guarded, requirementGuard.guarded)
+            : frameUserPrompt(baseGuard.guarded, options.context),
+        }],
         source: { kind: 'plugin', plugin: 'dsh-prompt-enhance-cn' },
       }),
     ]
@@ -185,7 +197,9 @@ export async function enhanceText(llm: LlmStreamFace, options: EnhanceCallOption
     if (normalized === '') {
       fail({ code: 'upstream', params: { reason: 'empty' } })
     }
-    const text = restoreResult(normalized, guard)
+    const text = requirementGuard !== undefined
+      ? restoreResult(restoreResult(normalized, requirementGuard.guard), baseGuard.guard)
+      : restoreResult(normalized, baseGuard.guard)
     return { text, provider: options.route.provider, model: options.route.model, elapsedMs: Date.now() - started }
   } catch (error) {
     if (error instanceof EnhanceFailure) throw error

@@ -21,7 +21,7 @@ const sourcePath = join(root, '..', 'core', 'rules.md')
 const targetPath = join(root, 'src', 'generated', 'tier-rules.ts')
 
 /** Sections composed into per-tier system prompts, in rules-file order. */
-const SECTIONS = ['COMMON', 'BASE', 'STANDARD', 'PROFESSIONAL', 'SYSTEM']
+const SECTIONS = ['COMMON', 'BASE', 'STANDARD', 'PROFESSIONAL', 'SYSTEM', 'ITERATE']
 
 /**
  * Split the rules file into its `## [NAME]` sections.

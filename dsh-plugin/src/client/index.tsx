@@ -14,6 +14,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { EnhanceButton } from './EnhanceButton'
+import { IterationButton } from './IterationButton'
 import { UndoBar } from './UndoBar'
 import * as ui from './ui-state'
 import { dictionaries, NS } from './locales'
@@ -85,6 +86,20 @@ export function apply(ctx: ClientContext): void {
         return slots.register(
           { name: 'conversation.input.right', id: 'prompt-enhance', order: 60, locale: NS },
           EnhanceButton,
+        )
+      } catch {
+        return () => {}
+      }
+    })
+  })
+
+  ctx.inject(['slots'], (slotsCtx: ClientContext) => {
+    const slots = slotsCtx.slots
+    return slots.inject('conversation.input.right', () => {
+      try {
+        return slots.register(
+          { name: 'conversation.input.right', id: 'prompt-enhance-iterate', order: 55, locale: NS },
+          IterationButton,
         )
       } catch {
         return () => {}

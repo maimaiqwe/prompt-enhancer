@@ -33,6 +33,7 @@ import * as ui from './ui-state'
 import { getClientSettings, subscribeClientSettings } from './settings'
 import { effectiveTier, effectiveUseContext, getVersion, subscribe as subscribeTier } from './tier-store'
 import { useSessionKey, serverSessionId } from './session-key'
+import { recordLastEnhanced } from './iter-state'
 
 /** Props of the input.right entry: the InputZone owner share + session kit + locale seat. */
 export type EnhanceButtonProps = PropsRuntime<'conversation.input.right'> & PropsLocale<'prompt-enhance'>
@@ -167,6 +168,7 @@ export function EnhanceButton(props: EnhanceButtonProps): ReactNode {
     // row (elapsed seconds + cancel) already proves the call is alive, so the
     // wait needs no typing effect to be legible.
     const settle = (result: Parameters<typeof ui.settleResult>[1]): void => {
+      recordLastEnhanced(uiKey, result.text)
       if (!direct) {
         ui.settleResult(uiKey, result)
         return

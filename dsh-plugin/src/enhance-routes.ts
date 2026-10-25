@@ -96,9 +96,9 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
     })
     return
   }
-  const record = body as { sessionId?: unknown; text?: unknown; tier?: unknown; useContext?: unknown } | null
+  const record = body as { sessionId?: unknown; text?: unknown; tier?: unknown; useContext?: unknown; iterRequirement?: unknown } | null
   if (record === null || typeof record !== 'object' || typeof record.text !== 'string') {
-    writeJson(res, 422, { ok: false, error: { code: 'rejected', message: '请求体必须是 { sessionId?, text, tier?, useContext? } JSON。' } })
+    writeJson(res, 422, { ok: false, error: { code: 'rejected', message: '请求体必须是 { sessionId?, text, tier?, useContext?, iterRequirement? } JSON。' } })
     return
   }
   const sessionId = typeof record.sessionId === 'string' && record.sessionId !== '' ? record.sessionId : undefined
@@ -108,6 +108,7 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
   // rejected for fields that cannot change what the user is allowed to do.
   const tier = typeof record.tier === 'string' ? record.tier.trim().toLowerCase() : undefined
   const useContext = typeof record.useContext === 'boolean' ? record.useContext : undefined
+  const iterRequirement = typeof record.iterRequirement === 'string' && record.iterRequirement.trim() !== '' ? record.iterRequirement.trim() : undefined
   // Every tier, 基础 included, now reaches the model, so every call is subject
   // to the admission gate below — there is no longer a free local-only pass to
   // exempt.
@@ -184,6 +185,7 @@ async function serveEnhance(ctx: Context, readConfig: () => Config, gate: Admiss
       ...sessionId !== undefined ? { sessionId } : {},
       ...tier !== undefined ? { tier } : {},
       ...useContext !== undefined ? { useContext } : {},
+      ...iterRequirement !== undefined ? { iterRequirement } : {},
     }
     if (stream) {
       // The stream already opens before the model call, so the client sees
