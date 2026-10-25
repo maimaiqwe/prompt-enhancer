@@ -136,6 +136,15 @@ describe('IterationPanel', () => {
     expect(basePane().value).toBe('NEW')
   })
 
+  it('re-inherits the composer draft after clear, close and reopen', () => {
+    mount({ draft: 'D', uiKey: 's10' })
+    fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.clear'] }))
+    expect(basePane().value).toBe('')
+    cleanup()
+    mount({ draft: 'D', uiKey: 's10' })
+    expect(basePane().value).toBe('D')
+  })
+
   it('replace applies the hand-edited output and closes', async () => {
     recordLastEnhanced('s4', 'BASE')
     const { setDraft, onClose } = mount({ draft: 'D', uiKey: 's4' })

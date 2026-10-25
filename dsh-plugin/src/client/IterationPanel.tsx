@@ -65,6 +65,10 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
     : t('iter.panel.base.custom')
 
   useEffect(() => {
+    // An all-empty panel is "nothing to preserve" (the 清空 state): skipping
+    // the save lets reopening re-inherit the composer draft instead of
+    // restoring the cleared panes forever.
+    if (base.trim() === '' && input.trim() === '' && output.trim() === '') return
     saveIterPanel(uiKey, { base, input, output, draft })
   }, [uiKey, base, input, output, draft])
 

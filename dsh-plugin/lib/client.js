@@ -1237,6 +1237,7 @@ function IterationPanel(props) {
   const positive = base.trim() === "";
   const baseSource = positive ? t("iter.panel.base.none") : base === draft ? t("iter.panel.base.draft") : last !== void 0 && base === last ? t("iter.panel.base.last") : t("iter.panel.base.custom");
   (0, import_react4.useEffect)(() => {
+    if (base.trim() === "" && input.trim() === "" && output.trim() === "") return;
     saveIterPanel(uiKey, { base, input, output, draft });
   }, [uiKey, base, input, output, draft]);
   (0, import_react4.useEffect)(() => () => {
