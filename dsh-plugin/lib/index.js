@@ -431,6 +431,53 @@ function normalizeOutput(raw) {
   return text.trim();
 }
 
+// src/shared/literal-guard.ts
+var URL_RE = /https?:\/\/[^\s<>'"`]+/g;
+var EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+var WIN_PATH_RE = /[A-Za-z]:[\\/](?:[^\s<>'"`]+[\\/])*[^\s<>'"`]+/g;
+var UNIX_PATH_RE = /(?<![\w/])\/(?:[^\s<>'"`/]+\/)*[^\s<>'"`/]+/g;
+var FILENAME_RE = /(?<![\w./\\-])[A-Za-z0-9][A-Za-z0-9._-]*\.(?:md|markdown|py|ts|tsx|js|mjs|cjs|json|yml|yaml|toml|ini|cfg|conf|txt|log|ps1|cmd|bat|sh|exe|dll|cs|java|xml|csv|sql|html|htm|css|scss|png|jpe?g|gif|svg|ico|zip|tar|gz|tgz|7z|pdf|docx?|xlsx?|pptx?)\b/gi;
+var SKILL_LINK_RE = /\[\$[A-Za-z][A-Za-z0-9_-]*\]\([^()\s]{1,400}\)/g;
+var SKILL_TOKEN_RE = /(?<![\w$])\$[A-Za-z][A-Za-z0-9_-]*/g;
+var SKILL_ANCHOR_RE = /__PO_SKILL_(\d{4})_[A-Za-z0-9_]+__/g;
+var LIT_ANCHOR_RE = /__PO_LIT_(\d{4})__/g;
+var pad4 = (n) => String(n).padStart(4, "0");
+var skillAnchor = (index, token) => `__PO_SKILL_${pad4(index + 1)}_${token.slice(1).replace(/[^A-Za-z0-9]/g, "_")}__`;
+function protectDraft(text) {
+  const guard = { litItems: [], skillTokens: [] };
+  const keepLit = (match) => {
+    guard.litItems.push(match);
+    return `__PO_LIT_${pad4(guard.litItems.length)}__`;
+  };
+  let guarded = text.replace(SKILL_LINK_RE, keepLit);
+  guarded = guarded.replace(URL_RE, keepLit);
+  guarded = guarded.replace(EMAIL_RE, keepLit);
+  guarded = guarded.replace(WIN_PATH_RE, keepLit);
+  guarded = guarded.replace(UNIX_PATH_RE, keepLit);
+  guarded = guarded.replace(FILENAME_RE, keepLit);
+  guarded = guarded.replace(SKILL_TOKEN_RE, (match) => {
+    guard.skillTokens.push(match);
+    return skillAnchor(guard.skillTokens.length - 1, match);
+  });
+  return { guarded, guard };
+}
+function restoreResult(text, guard) {
+  const missing = [];
+  guard.skillTokens.forEach((token, i) => {
+    const anchor = skillAnchor(i, token);
+    if (!text.includes(anchor)) missing.push(anchor);
+  });
+  guard.litItems.forEach((item, i) => {
+    const anchor = `__PO_LIT_${pad4(i + 1)}__`;
+    if (!text.includes(anchor)) missing.push(anchor);
+  });
+  let out = missing.length > 0 ? `${text.replace(/\s+$/, "")}
+${missing.join("\n")}` : text;
+  out = out.replace(SKILL_ANCHOR_RE, (anchor) => guard.skillTokens[Number(anchor.slice(11, 15)) - 1] ?? "");
+  out = out.replace(LIT_ANCHOR_RE, (anchor) => guard.litItems[Number(anchor.slice(9, 13)) - 1] ?? "");
+  return out.replace(/\s+$/, "");
+}
+
 // src/prompts.ts
 var DEFAULT_SYSTEM_PROMPT = [
   "You are an expert prompt engineer. The user gives you a raw, often vague prompt intended for an AI assistant. Rewrite it into a well-structured, immediately usable prompt.",
@@ -522,9 +569,10 @@ async function enhanceText(llm, options) {
   };
   try {
     signal.throwIfAborted();
+    const { guarded, guard } = protectDraft(options.text);
     const messages = [
       createUserMessage({
-        content: [{ type: "text", text: frameUserPrompt(options.text, options.context) }],
+        content: [{ type: "text", text: frameUserPrompt(guarded, options.context) }],
         source: { kind: "plugin", plugin: "dsh-prompt-enhance-cn" }
       })
     ];
@@ -583,10 +631,11 @@ async function enhanceText(llm, options) {
       fail({ code: "upstream", params: { reason: "tool-call" } });
     }
     const joined = blocks.filter((block) => block.type === "text").map((block) => block.text).join("\n");
-    const text = normalizeOutput(joined);
-    if (text === "") {
+    const normalized = normalizeOutput(joined);
+    if (normalized === "") {
       fail({ code: "upstream", params: { reason: "empty" } });
     }
+    const text = restoreResult(normalized, guard);
     return { text, provider: options.route.provider, model: options.route.model, elapsedMs: Date.now() - started };
   } catch (error) {
     if (error instanceof EnhanceFailure) throw error;
