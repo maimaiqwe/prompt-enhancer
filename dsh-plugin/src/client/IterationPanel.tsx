@@ -64,6 +64,21 @@ export function IterationPanel(props: IterationPanelProps): ReactNode {
     controllerRef.current?.abort()
   }, [])
 
+  // Esc closes the workbench — but never while a run is in flight, so an
+  // accidental press cannot masquerade as a cancel of a request the user
+  // still wants. The capture phase keeps the host's own key handling out of
+  // the way only for this one key.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.isComposing) return
+      if (event.key !== 'Escape' || busy) return
+      event.stopPropagation()
+      onClose()
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [busy, onClose])
+
   const run = async (): Promise<void> => {
     if (busy) return
     if (input.trim() === '') {
