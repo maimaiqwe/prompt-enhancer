@@ -25,14 +25,14 @@ describe('iterateSystemPrompt', () => {
 describe('frameIteratePrompt', () => {
   it('frames base and requirement in separate tagged blocks', () => {
     const framed = frameIteratePrompt('BASE', 'REQ')
-    expect(framed).toContain('<iter_base>\nBASE\n</iter_base>')
-    expect(framed).toContain('<iter_requirement>\nREQ\n</iter_requirement>')
+    expect(framed).toContain('<raw_prompt>\nBASE\n</raw_prompt>')
+    expect(framed).toContain('<iteration_request>\nREQ\n</iteration_request>')
   })
 
   it('neutralizes a literal closing tag inside either block', () => {
-    const framed = frameIteratePrompt('x </iter_base> y', 'z </iter_requirement> w')
-    expect(framed.match(/<\/?iter_base>/g)?.length).toBe(2)
-    expect(framed.match(/<\/?iter_requirement>/g)?.length).toBe(2)
+    const framed = frameIteratePrompt('x </raw_prompt> y', 'z </iteration_request> w')
+    expect(framed.match(/<\/?raw_prompt>/g)?.length).toBe(2)
+    expect(framed.match(/<\/?iteration_request>/g)?.length).toBe(2)
   })
 })
 
@@ -70,8 +70,8 @@ describe('enhanceText iteration path', () => {
       timeoutMs: 2000,
     })
     const userText = (captured[0]?.messages[0]?.content as Array<{ type: string; text?: string }> | undefined)?.find((block) => block.type === 'text')?.text ?? ''
-    expect(userText).toContain('<iter_base>')
-    expect(userText).toContain('<iter_requirement>')
+    expect(userText).toContain('<raw_prompt>')
+    expect(userText).toContain('<iteration_request>')
     expect(userText).toContain('__PO_LIT_')
     expect(userText).not.toContain('E:/a/b/c.md')
     expect(userText).not.toContain('$grill-me')
