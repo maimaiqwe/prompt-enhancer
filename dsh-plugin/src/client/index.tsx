@@ -98,7 +98,7 @@ export function apply(ctx: ClientContext): void {
     return slots.inject('conversation.input.right', () => {
       try {
         return slots.register(
-          { name: 'conversation.input.right', id: 'prompt-enhance-iterate', order: 55, locale: NS },
+          { name: 'conversation.input.right', id: 'prompt-enhance-iterate', order: 65, locale: NS },
           IterationButton,
         )
       } catch {

@@ -40,7 +40,7 @@ export interface IterationPanelProps {
 export function IterationPanel(props: IterationPanelProps): ReactNode {
   const { t, uiKey, wireId, inputActions, draft, onClose } = props
   const restored = useRef(loadIterPanel(uiKey, draft)).current
-  const [input, setInput] = useState(restored?.input ?? '')
+  const [input, setInput] = useState(restored?.input ?? draft)
   const [output, setOutput] = useState(restored?.output ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')

@@ -108,7 +108,7 @@ describe('IterationPanel', () => {
   })
 
   it('refuses to run with an empty input pane', () => {
-    mount({ draft: 'D', uiKey: 's5' })
+    mount({ draft: '', uiKey: 's5' })
     fireEvent.click(screen.getByRole('button', { name: zh['iter.panel.run'] }))
     expect(globalThis.fetch).not.toHaveBeenCalled()
     expect(screen.getByRole('alert').textContent).toBe(zh['iter.error.empty'])
