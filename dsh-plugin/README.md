@@ -23,7 +23,7 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | 🧷 **Context toggle** | The dropdown has its own row for "use conversation context"; switching tiers seeds that tier's preset, which you can then override |
 | ⚡ **One-click fill** | The base / standard / professional tiers write the rewrite straight into the composer — no dialog. The system tier still previews first, because an eight-section system prompt rewrites a whole persona |
 | 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time. Opens for the system tier, and whenever your draft moved while the request was in flight |
-| ↻ **Iterate workbench** | The ↻ next to ✨ opens a two-column panel: the left column holds the **base** (pre-filled from the composer, editable), with an optional **requirement** underneath — leave it empty and the base just gets an ordinary enhancement. The right column returns a rewrite you can edit before replacing the draft. The base persists with the composer draft, and a cleared composer inherits it on reopen |
+| ↻ **Iterate workbench (advanced)** | Everyday use needs no panel — one click on ✨ rewrites the draft. To keep polishing, the ↻ next to ✨ opens a two-column panel: the left column holds the **base** (pre-filled from the composer, editable), with an optional **requirement** underneath — leave it empty and the base just gets an ordinary enhancement. The right column returns a rewrite you can edit before replacing the draft. The base persists with the composer draft, and a cleared composer inherits it on reopen |
 | ↩️ **Undo / `Ctrl+Z`** | After a fill, a quiet bar above the composer restores the original draft — or just press `Ctrl+Z`. Once you edit the filled text, both stand down and the browser's own character undo takes over |
 | ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in |
 | 💬 **`/enhance` command** | Rewrite any text from the slash-command plane; the result never enters model history |
@@ -32,19 +32,23 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚙️ **Live settings** | Every knob (model override, temperature, budgets, system prompt, shortcut) hot-applies from Settings → 插件配置 |
 | 🛡️ **Draft safety** | Empty, over-length, images-only, and command-chip inputs are rejected locally; upstream failures are mapped to readable messages; the draft is never mutated on failure |
 
-![The iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with clear / replace / iterate](docs/evidence-prompt-enhance-iterate.png)
+Every screenshot below is the **dsh plugin** in a live session; the Windows hotkey program and the Skill are not pictured here.
 
-The tier menu inside the composer: base / standard / professional / system, the active tier marked, with the "use conversation context" row below:
-
-![The tier menu in the dsh composer: the four tiers, the standard tier active, and the context toggle beneath](docs/evidence-tier-menu.png)
-
-Press the button and a timer capsule appears above the composer while the draft sits untouched:
+Everyday use is one click: a timer capsule appears above the composer while the draft sits untouched.
 
 ![A "正在增强" timer capsule above the composer while the draft stays unchanged](docs/evidence-prompt-enhance-run.png)
 
-A moment later the rewrite replaces the draft, with an undo bar and `Ctrl+Z` to roll back:
+A moment later the rewrite replaces the draft, with an undo bar and `Ctrl+Z` to roll back.
 
 ![The rewrite has replaced the draft, with an undo bar and Ctrl+Z shown above it](docs/evidence-prompt-enhance-filled.png)
+
+The tier decides how far a rewrite goes: base / standard / professional / system in the composer dropdown, the active tier marked, with the "use conversation context" row below.
+
+![The tier menu in the dsh composer: the four tiers, the standard tier active, and the context toggle beneath](docs/evidence-tier-menu.png)
+
+For a second pass, the advanced path is the iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with clear / replace / iterate.
+
+![The iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with clear / replace / iterate](docs/evidence-prompt-enhance-iterate.png)
 
 ## How it works
 
