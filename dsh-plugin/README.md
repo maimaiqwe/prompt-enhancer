@@ -33,6 +33,10 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 
 ![The iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with fill-back and undo](docs/evidence-prompt-enhance-iterate.png)
 
+The same tier menu in the composer, base / standard / professional / system, the active tier marked, with the "use conversation context" row below:
+
+![The tier menu open in the dsh composer: the four tiers, the standard tier active, and the context toggle beneath](docs/evidence-tier-menu.png)
+
 ## How it works
 
 ```mermaid

@@ -12,6 +12,12 @@
 | **DSH 插件** | DeepSeek Harness Web GUI | 输入框旁的 ✨ 按钮、档位胶囊、全局快捷键 |
 | **热键程序 + Skill** | Codex、ChatGPT、Claude Code 等桌面 agent | 全局热键一键替换草稿；`$p` / `$prompt-enhancer` 在对话里直接调用 |
 
+![迭代工作台:左栏是可编辑的迭代基准,下方填可选的要求,右栏是增强结果,底部可回填与撤销](docs/evidence-prompt-enhance-iterate.png)
+
+同一套档位菜单在输入框里的样子,基础 / 标准 / 专业 / 系统四档,当前档位有勾选与圆点,下方是「结合上下文」开关:
+
+![dsh 输入框里展开的档位菜单:四档并列,当前停在标准档,下方是「结合上下文」开关](docs/evidence-tier-menu.png)
+
 两部分共用同一份 `core/rules.md`，四档（基础 / 标准 / 专业 / 系统）的措辞不会分叉。
 
 ## DSH 插件
