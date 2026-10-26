@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**DeepSeek Harness Web GUI 的「提示词增强」插件** —— 一键把输入框里的草稿改写为结构化提示词:明确的角色与目标、可执行步骤、输出格式、验收标准、边界条件;系统档则无条件输出 `# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization` 的 LangGPT 结构化系统提示词,人设直接成稿,任务型草稿升格为对应智能体。不改变原意、不凭空编造需求,原文始终保留。
+**DeepSeek Harness Web GUI 的「提示词增强」插件** —— 一键把输入框里的草稿改写为结构化提示词:明确的角色与目标、可执行步骤、输出格式、验收标准、边界条件。四档决定改多深:基础档只理顺语序,标准档输出一段连续提示词,专业档输出五段结构化任务书,系统档则无条件输出 `# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization` 的 LangGPT 结构化系统提示词,人设直接成稿,任务型草稿升格为对应智能体。一轮改不满意,还有**迭代工作台**:把结果当可编辑的基准,补一句要求接着迭代。不改变原意、不凭空编造需求,原文始终保留。
 
 [English](./README.md) | 简体中文
 
@@ -84,17 +84,11 @@ flowchart LR
 
 ## 安装
 
-从 npm(推荐):
-
-```bash
-dsh plugin --profile web add dsh-prompt-enhance
-# 重启 dsh web
-```
-
-从 GitHub(构建产物 `lib/` 已随仓库提交,安装无需本地构建):
+从 npm 安装(推荐)——发布名是 **`dsh-prompt-enhance-cn`**;npm 上的 `dsh-prompt-enhance` 与 `dsh-prompt-enhancer` 属于别的项目,不是本插件:
 
 ```bash
 dsh plugin --profile web add dsh-prompt-enhance-cn
+# 重启 dsh web
 ```
 
 从本地检出(开发用,改代码重建 + 重启即生效):
@@ -102,15 +96,15 @@ dsh plugin --profile web add dsh-prompt-enhance-cn
 ```bash
 git clone https://github.com/maimaiqwe/prompt-enhancer.git
 cd prompt-enhancer/dsh-plugin && npm install && npm run build
-dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
+dsh plugin --profile web add link:C:/path/to/prompt-enhancer/dsh-plugin
 ```
 
 卸载:
 
 ```bash
-dsh plugin --profile web remove dsh-prompt-enhance
+dsh plugin --profile web remove dsh-prompt-enhance-cn
 # 检查 profile 的 package.json 中 `dsh.profile.bundles` 数组是否残留
-# "dsh-prompt-enhance" 行,有则手动删除,然后重启 dsh web
+# "dsh-prompt-enhance-cn" 行,有则手动删除,然后重启 dsh web
 ```
 
 ## 使用方法

@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-**Prompt enhancement for the [DeepSeek Harness](https://github.com/deepseek-ai) web GUI** — one click turns a rough composer draft into a well-structured prompt: explicit role and goal, executable steps, output format, acceptance criteria, and edge cases. The system tier always emits a LangGPT-structured Markdown prompt (`# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization`) — personas come out ready to paste, and task drafts are upgraded into the system prompt of the agent that runs them. Your intent is never changed, nothing is fabricated, and the original draft is always preserved.
+**Prompt enhancement for the [DeepSeek Harness](https://github.com/deepseek-ai) web GUI** — one click turns a rough composer draft into a well-structured prompt: explicit role and goal, executable steps, output format, acceptance criteria, and edge cases. Four tiers set how far a rewrite goes: base tidies up, standard emits one paragraph, professional emits a five-section brief, and the system tier always emits a LangGPT-structured Markdown prompt (`# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization`) — personas come out ready to paste, and task drafts are upgraded into the system prompt of the agent that runs them. When one pass is not enough, the **iterate workbench** keeps a rewrite as an editable base and iterates on it under a requirement you state. Your intent is never changed, nothing is fabricated, and the original draft is always preserved.
 
 English | [简体中文](./README.zh-CN.md)
 
@@ -23,6 +23,7 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | 🧷 **Context toggle** | The dropdown has its own row for "use conversation context"; switching tiers seeds that tier's preset, which you can then override |
 | ⚡ **One-click fill** | The base / standard / professional tiers write the rewrite straight into the composer — no dialog. The system tier still previews first, because an eight-section system prompt rewrites a whole persona |
 | 🔀 **Preview panel** | Original vs. enhanced side by side, with model name and elapsed time. Opens for the system tier, and whenever your draft moved while the request was in flight |
+| ↻ **Iterate workbench** | The ↻ next to ✨ opens a two-column panel: the left column holds the **base** (pre-filled from the composer, editable), with an optional **requirement** underneath — leave it empty and the base just gets an ordinary enhancement. The right column returns a rewrite you can edit before replacing the draft. The base persists with the composer draft, and a cleared composer inherits it on reopen |
 | ↩️ **Undo / `Ctrl+Z`** | After a fill, a quiet bar above the composer restores the original draft — or just press `Ctrl+Z`. Once you edit the filled text, both stand down and the browser's own character undo takes over |
 | ⌨️ **Shortcut** | Default `Ctrl+Shift+Alt+A`, fully configurable, acts on the composer you are working in |
 | 💬 **`/enhance` command** | Rewrite any text from the slash-command plane; the result never enters model history |
@@ -83,17 +84,11 @@ The plugin is one npm package with two halves, following the dsh plugin conventi
 
 ## Install
 
-From npm (recommended):
-
-```bash
-dsh plugin --profile web add dsh-prompt-enhance
-# restart dsh web
-```
-
-From GitHub (the built `lib/` is committed, so no local build happens):
+From npm (recommended) — the published package is **`dsh-prompt-enhance-cn`**; `dsh-prompt-enhance` and `dsh-prompt-enhancer` on npm belong to other projects and are not this plugin:
 
 ```bash
 dsh plugin --profile web add dsh-prompt-enhance-cn
+# restart dsh web
 ```
 
 From a local checkout (for development — changes rebuild + restart take effect):
@@ -101,15 +96,15 @@ From a local checkout (for development — changes rebuild + restart take effect
 ```bash
 git clone https://github.com/maimaiqwe/prompt-enhancer.git
 cd prompt-enhancer/dsh-plugin && npm install && npm run build
-dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
+dsh plugin --profile web add link:C:/path/to/prompt-enhancer/dsh-plugin
 ```
 
 Uninstall:
 
 ```bash
-dsh plugin --profile web remove dsh-prompt-enhance
+dsh plugin --profile web remove dsh-prompt-enhance-cn
 # check the profile's package.json `dsh.profile.bundles` array for a leftover
-# "dsh-prompt-enhance" row and remove it if present, then restart dsh web
+# "dsh-prompt-enhance-cn" row and remove it if present, then restart dsh web
 ```
 
 ## Usage

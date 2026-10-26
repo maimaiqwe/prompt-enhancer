@@ -5,12 +5,16 @@
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4.svg)](#热键程序与-skill)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#热键程序与-skill)
 
-一个提示词增强器：把随手写的草稿改写成结构清楚、约束完整、可以直接发给模型的提示词——不改原意、不编造需求。同一份规则真源驱动四档（基础 / 标准 / 专业 / 系统），它分成两个独立的部分，按需安装，也可以都装：
+把随手写的草稿，改写成结构清楚、约束完整、可以直接发给模型的提示词——不改原意、不编造需求。改多深由档位决定：**基础**只理顺语序，**标准**出一段连续提示词，**专业**出五段结构化任务书，**系统**出八段式系统提示词。一轮不满意还能接着迭代。四档的措辞来自同一份规则文件，插件与桌面热键共用，不会分叉。
+
+它分成两个独立部分，按需安装，也可以都装：
 
 | 部分 | 用在哪 | 怎么用 |
 | --- | --- | --- |
 | **DSH 插件** | DeepSeek Harness Web GUI | 输入框旁的 ✨ 按钮、档位胶囊、全局快捷键 |
 | **热键程序 + Skill** | Codex、ChatGPT、Claude Code 等桌面 agent | 全局热键一键替换草稿；`$p` / `$prompt-enhancer` 在对话里直接调用 |
+
+四张图按用起来的过程排：先看面板，再看档位，然后按下按钮、拿到结果。
 
 ![迭代工作台:左栏是可编辑的迭代基准,下方填可选的要求,右栏是增强结果,底部可清空 / 替换 / 迭代](docs/evidence-prompt-enhance-iterate.png)
 
@@ -26,11 +30,9 @@
 
 ![增强结果已替换原提示词,提示条给出撤销与 Ctrl+Z,替换后的提示词完整可见](docs/evidence-prompt-enhance-filled.png)
 
-两部分共用同一份 `core/rules.md`，四档（基础 / 标准 / 专业 / 系统）的措辞不会分叉。
-
 ## DSH 插件
 
-插件在 `dsh-plugin/` 子目录，npm 包名是 **`dsh-prompt-enhance-cn`**（npm 上 `dsh-prompt-enhance` 已被上游占用，两者不是同一个包；另有第三方 `dsh-prompt-enhancer`，也不是本包——安装时认准全名）。
+插件在 `dsh-plugin/` 子目录，npm 包名是 **`dsh-prompt-enhance-cn`**——npm 上的 `dsh-prompt-enhance` 与 `dsh-prompt-enhancer` 都是别人的包，安装时认准这个全名。
 
 ### 用 npm 安装
 
@@ -50,7 +52,7 @@ dsh plugin --profile web add https://github.com/maimaiqwe/prompt-enhancer/releas
 
 ### 装完是什么样
 
-输入框左侧出现档位胶囊（基/标/专/系），点 ✨ 直接把草稿替换成增强版；系统档会先开预览面板。行尾的圆点用来设默认档，下拉可以选「结合上下文」。✨ 旁的 ↻ 打开迭代面板：左栏写迭代要求（没有可迭代内容时就是草稿本体），右栏出结果且可直接修改，「直接迭代 / 替换 / 清空」三键操作。
+输入框左侧出现档位胶囊（基/标/专/系），点 ✨ 直接把草稿替换成增强版；系统档会先开预览面板。行尾的圆点用来设默认档，下拉可以选「结合上下文」。✨ 旁的 ↻ 打开迭代工作台：左栏是可直接编辑的迭代基准（预填输入框内容），下方填一句迭代要求、留空就做普通增强，右栏的结果也能手改，满意了按「替换」写回输入框。
 
 两个组件的默认键是故意错开的：**插件 `Ctrl+Shift+Alt+A`，热键程序 `Ctrl+Shift+Alt+E`**。热键程序的 `allowed_processes` 里有 `DeepSeek Harness`，两边同键的话在 DSH 里按一次会同时触发插件和外部程序，所以插件这份始终留在 A。
 
