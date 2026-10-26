@@ -31,11 +31,7 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚙️ **Live settings** | Every knob (model override, temperature, budgets, system prompt, shortcut) hot-applies from Settings → 插件配置 |
 | 🛡️ **Draft safety** | Empty, over-length, images-only, and command-chip inputs are rejected locally; upstream failures are mapped to readable messages; the draft is never mutated on failure |
 
-![The tier menu open in the dsh composer: base / standard / professional / system, the active tier marked, and the "use conversation context" row below](docs/evidence-tier-menu.png)
-
-The same menu in the dark theme, picked from a live session:
-
-![The tier menu in the dark theme: the same four tiers with the standard tier active](docs/evidence-tier-menu-dark.png)
+![The iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with fill-back and undo](docs/evidence-prompt-enhance-iterate.png)
 
 ## How it works
 
