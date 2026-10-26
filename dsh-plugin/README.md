@@ -31,11 +31,19 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚙️ **Live settings** | Every knob (model override, temperature, budgets, system prompt, shortcut) hot-applies from Settings → 插件配置 |
 | 🛡️ **Draft safety** | Empty, over-length, images-only, and command-chip inputs are rejected locally; upstream failures are mapped to readable messages; the draft is never mutated on failure |
 
-![The iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with fill-back and undo](docs/evidence-prompt-enhance-iterate.png)
+![The iterate workbench: an editable base on the left, an optional requirement under it, and the result on the right with clear / replace / iterate](docs/evidence-prompt-enhance-iterate.png)
 
-The same tier menu in the composer, base / standard / professional / system, the active tier marked, with the "use conversation context" row below:
+The tier menu inside the composer: base / standard / professional / system, the active tier marked, with the "use conversation context" row below:
 
-![The tier menu open in the dsh composer: the four tiers, the standard tier active, and the context toggle beneath](docs/evidence-tier-menu.png)
+![The tier menu in the dsh composer: the four tiers, the standard tier active, and the context toggle beneath](docs/evidence-tier-menu.png)
+
+Press the button and a timer capsule appears above the composer while the draft sits untouched:
+
+![A "正在增强" timer capsule above the composer while the draft stays unchanged](docs/evidence-prompt-enhance-run.png)
+
+A moment later the rewrite replaces the draft, with an undo bar and `Ctrl+Z` to roll back:
+
+![The rewrite has replaced the draft, with an undo bar and Ctrl+Z shown above it](docs/evidence-prompt-enhance-filled.png)
 
 ## How it works
 
