@@ -5,8 +5,8 @@ Thanks for helping improve dsh-prompt-enhance! This is a [DeepSeek Harness](http
 ## Setup
 
 ```bash
-git clone https://github.com/rongxingda/dsh-prompt-enhance.git
-cd dsh-prompt-enhance
+git clone https://github.com/maimaiqwe/prompt-enhancer.git
+cd prompt-enhancer/dsh-plugin
 npm install
 npm test          # unit + real-http + component suites
 npm run typecheck

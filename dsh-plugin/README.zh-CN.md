@@ -1,7 +1,7 @@
 # dsh-prompt-enhance
 
-[![CI](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml/badge.svg)](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance)](https://www.npmjs.com/package/dsh-prompt-enhance)
+[![CI](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml)
+[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 **DeepSeek Harness Web GUI 的「提示词增强」插件** —— 一键把输入框里的草稿改写为结构化提示词:明确的角色与目标、可执行步骤、输出格式、验收标准、边界条件;系统档则无条件输出 `# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization` 的 LangGPT 结构化系统提示词,人设直接成稿,任务型草稿升格为对应智能体。不改变原意、不凭空编造需求,原文始终保留。
@@ -32,7 +32,11 @@
 | ⚙️ **配置热生效** | 模型覆盖、温度、预算、系统提示词、快捷键,全部在 设置 → 插件配置 即改即用 |
 | 🛡️ **草稿安全** | 空输入、超长、仅图片、含命令块在本地拦截;上游失败映射为可读提示;失败绝不改动草稿 |
 
-![dsh web 中实机运行的预览面板:原文与增强结果并排,含模型信息与回填/复制操作](https://raw.githubusercontent.com/rongxingda/dsh-prompt-enhance/main/docs/evidence-prompt-enhance-panel.png)
+![dsh 输入框里展开的档位菜单:基础 / 标准 / 专业 / 系统四档,当前档位有勾选与圆点,下方是「结合上下文」开关](docs/evidence-tier-menu.png)
+
+同一套菜单在深色主题下的样子,取自实际会话:
+
+![深色主题下的档位菜单:同样是四档,当前停在标准档](docs/evidence-tier-menu-dark.png)
 
 ## 工作原理
 
@@ -82,14 +86,14 @@ dsh plugin --profile web add dsh-prompt-enhance
 从 GitHub(构建产物 `lib/` 已随仓库提交,安装无需本地构建):
 
 ```bash
-dsh plugin --profile web add github:rongxingda/dsh-prompt-enhance
+dsh plugin --profile web add dsh-prompt-enhance-cn
 ```
 
 从本地检出(开发用,改代码重建 + 重启即生效):
 
 ```bash
-git clone https://github.com/rongxingda/dsh-prompt-enhance.git
-cd dsh-prompt-enhance && npm install && npm run build
+git clone https://github.com/maimaiqwe/prompt-enhancer.git
+cd prompt-enhancer/dsh-plugin && npm install && npm run build
 dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
 ```
 

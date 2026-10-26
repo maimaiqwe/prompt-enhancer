@@ -1,7 +1,7 @@
 # dsh-prompt-enhance
 
-[![CI](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml/badge.svg)](https://github.com/rongxingda/dsh-prompt-enhance/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance)](https://www.npmjs.com/package/dsh-prompt-enhance)
+[![CI](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/maimaiqwe/prompt-enhancer/actions/workflows/tests.yml)
+[![npm](https://img.shields.io/npm/v/dsh-prompt-enhance-cn)](https://www.npmjs.com/package/dsh-prompt-enhance-cn)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 **Prompt enhancement for the [DeepSeek Harness](https://github.com/deepseek-ai) web GUI** — one click turns a rough composer draft into a well-structured prompt: explicit role and goal, executable steps, output format, acceptance criteria, and edge cases. The system tier always emits a LangGPT-structured Markdown prompt (`# Role` / `## Profile` / `## Skills` / `## Rules` / `## Workflows` / `## Initialization`) — personas come out ready to paste, and task drafts are upgraded into the system prompt of the agent that runs them. Your intent is never changed, nothing is fabricated, and the original draft is always preserved.
@@ -31,7 +31,11 @@ Good agent prompts state *who the model should be*, *what to deliver*, *in what 
 | ⚙️ **Live settings** | Every knob (model override, temperature, budgets, system prompt, shortcut) hot-applies from Settings → 插件配置 |
 | 🛡️ **Draft safety** | Empty, over-length, images-only, and command-chip inputs are rejected locally; upstream failures are mapped to readable messages; the draft is never mutated on failure |
 
-![The preview panel running in dsh web: original and enhanced prompt side by side with model info, fill-back and copy actions](https://raw.githubusercontent.com/rongxingda/dsh-prompt-enhance/main/docs/evidence-prompt-enhance-panel.png)
+![The tier menu open in the dsh composer: base / standard / professional / system, the active tier marked, and the "use conversation context" row below](docs/evidence-tier-menu.png)
+
+The same menu in the dark theme, picked from a live session:
+
+![The tier menu in the dark theme: the same four tiers with the standard tier active](docs/evidence-tier-menu-dark.png)
 
 ## How it works
 
@@ -81,14 +85,14 @@ dsh plugin --profile web add dsh-prompt-enhance
 From GitHub (the built `lib/` is committed, so no local build happens):
 
 ```bash
-dsh plugin --profile web add github:rongxingda/dsh-prompt-enhance
+dsh plugin --profile web add dsh-prompt-enhance-cn
 ```
 
 From a local checkout (for development — changes rebuild + restart take effect):
 
 ```bash
-git clone https://github.com/rongxingda/dsh-prompt-enhance.git
-cd dsh-prompt-enhance && npm install && npm run build
+git clone https://github.com/maimaiqwe/prompt-enhancer.git
+cd prompt-enhancer/dsh-plugin && npm install && npm run build
 dsh plugin --profile web add link:C:\path\to\dsh-prompt-enhance
 ```
 
